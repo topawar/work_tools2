@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - Work Tools{% endblock %}
+
+{% block main_content %}
+<div class="container-fluid p-0">
+    <h4 class="mb-4">欢迎使用 Work Tools</h4>
+    
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">快速开始</h5>
+                    <p class="card-text text-muted">这是一个基于 Django + Bootstrap 的管理工具模板。</p>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>侧边栏导航</li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>模糊搜索</li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>页面高亮</li>
+                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>响应式布局</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">功能特性</h5>
+                    <p class="card-text text-muted">侧边栏支持拼音搜索，方便快速定位页面。</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="badge bg-primary">Django 6.0</span>
+                        <span class="badge bg-info">Bootstrap 5</span>
+                        <span class="badge bg-success">Python 3</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

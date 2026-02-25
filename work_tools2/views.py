@@ -3,12 +3,20 @@ from django.shortcuts import render
 
 
 def hello(request):
-    return HttpResponse("Hello world ! ")
-
-
+    """Home page."""
+    return render(request, "home.html", {"active_page": "home"})
 
 
 def runoob(request):
-    context = {}
-    context['hello'] = 'Hello World!'
-    return render(request, 'runoob.html', context)
+    """Runoob tutorial page."""
+    return render(request, "runoob.html", {"active_page": "runoob"})
+
+
+def dashboard(request):
+    """Dashboard page with sidebar layout."""
+
+
+
+def orders(request):
+    """Orders list page."""
+    return render(request, "orders.html", {"active_page": "orders_list"})
