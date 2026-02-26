@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Work Tools{% endblock %}</title>
     <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/bootstrap-icons-1.13.1/bootstrap-icons.css"></link>
     <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="/static/bootstrap-icons-1.13.1/bootstrap-icons.css">
     <style>
         /* 侧边栏样式 */
         .sidebar {
@@ -192,32 +192,16 @@
                     <!-- 主导航 -->
                     <ul class="nav flex-column" id="mainNav">
                         <li class="menu-group-title">主菜单</li>
+                           <!-- 二级菜单示例：订单管理 -->
                         <li class="nav-item">
-                            <a class="nav-link {% if active_page == 'home' %}active{% endif %}" 
-                               href="/">
-                                <i class="bi bi-house"></i>
-                                首页
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if active_page == 'runoob' %}active{% endif %}" 
-                               href="/runoob/">
-                                <i class="bi bi-book"></i>
-                                菜鸟教程
-                            </a>
-                        </li>
-                        
-                        <!-- 二级菜单示例：订单管理 -->
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" data-bs-toggle="collapse" 
+                            <a class="nav-link" href="#" data-bs-toggle="collapse"
                                data-bs-target="#ordersSubmenu" aria-expanded="false">
-                                <i class="bi bi-cart"></i>
                                 订单管理
                                 <i class="bi bi-chevron-right arrow"></i>
                             </a>
                             <ul class="submenu collapse" id="ordersSubmenu">
                                 <li>
-                                    <a class="nav-link {% if active_page == 'orders_list' %}active{% endif %}" 
+                                    <a class="nav-link {% if active_page == 'orders_list' %}active{% endif %}"
                                        href="/orders/">
                                         订单列表
                                     </a>
@@ -225,12 +209,20 @@
                             </ul>
                         </li>
 
+                        <li class="nav-item">
+                            <a class="nav-link {% if active_page == 'runoob' %}active{% endif %}" 
+                               href="/form_merge/">
+                                表单合并生成
+                            </a>
+                        </li>
+                        
+
                         <li class="menu-group-title">系统设置</li>
                         <li class="nav-item">
                             <a class="nav-link {% if active_page == 'settings' %}active{% endif %}" 
                                href="/settings/">
                                 <i class="bi bi-gear"></i>
-                                系统设置
+                                文件路径存储
                             </a>
                         </li>
 
@@ -250,13 +242,13 @@
     <script>
         // 页面菜单数据 - 包含拼音和二级菜单
         const menuItems = [
-            { name: '首页', pinyin: 'shouye sy', url: '/', icon: 'bi-house' },
-            { name: '菜鸟教程', pinyin: 'cainiaojiaocheng cnjc', url: '/runoob/', icon: 'bi-book' },
+            { name: '首页', pinyin: 'shouye sy', url: '/' },
+            { name: '菜鸟教程', pinyin: 'cainiaojiaocheng cnjc', url: '/runoob/' },
             // 订单管理子菜单
             { name: '订单列表', pinyin: 'dingdanliebiao ddglb', url: '/orders/', parent: '订单管理' },
             // 一级菜单
-            { name: '系统设置', pinyin: 'xitongshezhi xtsz', url: '/settings/', icon: 'bi-gear' },
-            { name: '个人中心', pinyin: 'gerenzhongxin grzx', url: '/profile/', icon: 'bi-person' }
+            { name: '系统设置', pinyin: 'xitongshezhi xtsz', url: '/settings/'},
+            { name: '个人中心', pinyin: 'gerenzhongxin grzx', url: '/profile/'}
         ];
         
         const searchInput = document.getElementById('sidebarSearch');
@@ -292,10 +284,8 @@
             
             const html = results.map(item => {
                 const parentText = item.parent ? `<small class="text-muted ms-2">${item.parent}</small>` : '';
-                const icon = item.icon || 'bi bi-circle';
                 return `
                     <a class="nav-link" href="${item.url}">
-                        <i class="${icon}"></i>
                         ${item.name}
                         ${parentText}
                     </a>

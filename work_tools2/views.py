@@ -7,9 +7,9 @@ def hello(request):
     return render(request, "home.html", {"active_page": "home"})
 
 
-def runoob(request):
+def form_merge(request):
     """Runoob tutorial page."""
-    return render(request, "runoob.html", {"active_page": "runoob"})
+    return render(request, "form_merge.html", {"active_page": "form_merge"})
 
 
 def dashboard(request):

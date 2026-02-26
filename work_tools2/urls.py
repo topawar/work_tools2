@@ -24,7 +24,7 @@ from . import views
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", views.hello, name="home"),
-    path("runoob/", views.runoob, name="runoob"),
+    path("form_merge/", views.form_merge, name="form_merge"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("orders/", views.orders, name="orders"),
 ]
