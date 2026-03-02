@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Work Tools{% endblock %}</title>
     <link rel="stylesheet" href="/static/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/bootstrap-icons-1.13.1/bootstrap-icons.css"></link>
     <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
         /* 侧边栏样式 */
         .sidebar {
@@ -189,43 +189,43 @@
                         <div class="search-results" id="searchResults"></div>
                     </div>
                     
-                    <!-- 主导航 -->
+                    <!-- 动态菜单 -->
                     <ul class="nav flex-column" id="mainNav">
-                        <li class="menu-group-title">主菜单</li>
-                           <!-- 二级菜单示例：订单管理 -->
-                        <li class="nav-item">
-                            <a class="nav-link" href="#" data-bs-toggle="collapse"
-                               data-bs-target="#ordersSubmenu" aria-expanded="false">
-                                订单管理
-                                <i class="bi bi-chevron-right arrow"></i>
-                            </a>
-                            <ul class="submenu collapse" id="ordersSubmenu">
-                                <li>
-                                    <a class="nav-link {% if active_page == 'orders_list' %}active{% endif %}"
-                                       href="/orders/">
-                                        订单列表
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-
-                        <li class="nav-item">
-                            <a class="nav-link {% if active_page == 'runoob' %}active{% endif %}" 
-                               href="/form_merge/">
-                                表单合并生成
-                            </a>
-                        </li>
-                        
-
-                        <li class="menu-group-title">系统设置</li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if active_page == 'settings' %}active{% endif %}" 
-                               href="/settings/">
-                                <i class="bi bi-gear"></i>
-                                文件路径存储
-                            </a>
-                        </li>
-
+                        {% for group, menu_list in menus.items %}
+                            <li class="menu-group-title">{{ group }}</li>
+                            {% for menu in menu_list %}
+                                {% if menu.has_children %}
+                                    <!-- 有子菜单的一级菜单 -->
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if menu.is_expanded %}expanded{% endif %}" href="#" data-bs-toggle="collapse" 
+                                           data-bs-target="#menu{{ menu.id }}" aria-expanded="{% if menu.is_expanded %}true{% else %}false{% endif %}">
+                                            <i class="{{ menu.icon }}"></i>
+                                            {{ menu.name }}
+                                            <i class="bi bi-chevron-right arrow"></i>
+                                        </a>
+                                        <ul class="submenu collapse {% if menu.is_expanded %}show{% endif %}" id="menu{{ menu.id }}">
+                                            {% for child in menu.children %}
+                                                <li>
+                                                    <a class="nav-link {% if request.path == child.url or request.path|add:'/' == child.url %}active{% endif %}" 
+                                                       href="{{ child.url }}">
+                                                        {{ child.name }}
+                                                    </a>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </li>
+                                {% else %}
+                                    <!-- 无子菜单的一级菜单 -->
+                                    <li class="nav-item">
+                                        <a class="nav-link {% if request.path == menu.url or request.path|add:'/' == menu.url %}active{% endif %}" 
+                                           href="{{ menu.url }}">
+                                            <i class="{{ menu.icon }}"></i>
+                                            {{ menu.name }}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
                     </ul>
                 </div>
             </nav>
@@ -240,15 +240,26 @@
     
     <script src="/static/js/bootstrap.bundle.min.js"></script>
     <script>
-        // 页面菜单数据 - 包含拼音和二级菜单
+        // 从数据库加载的菜单数据
         const menuItems = [
-            { name: '首页', pinyin: 'shouye sy', url: '/' },
-            { name: '菜鸟教程', pinyin: 'cainiaojiaocheng cnjc', url: '/runoob/' },
-            // 订单管理子菜单
-            { name: '订单列表', pinyin: 'dingdanliebiao ddglb', url: '/orders/', parent: '订单管理' },
-            // 一级菜单
-            { name: '系统设置', pinyin: 'xitongshezhi xtsz', url: '/settings/'},
-            { name: '个人中心', pinyin: 'gerenzhongxin grzx', url: '/profile/'}
+            {% for group, menu_list in menus.items %}
+                {% for menu in menu_list %}
+                    {
+                        name: '{{ menu.name }}',
+                        pinyin: '{{ menu.pinyin }}',
+                        url: '{{ menu.url }}',
+                        icon: '{{ menu.icon }}',
+                        {% if menu.has_children %}
+                        hasChildren: true,
+                        children: [
+                            {% for child in menu.children %}
+                            { name: '{{ child.name }}', pinyin: '{{ child.pinyin }}', url: '{{ child.url }}' },
+                            {% endfor %}
+                        ]
+                        {% endif %}
+                    },
+                {% endfor %}
+            {% endfor %}
         ];
         
         const searchInput = document.getElementById('sidebarSearch');
@@ -261,7 +272,7 @@
             query = query.toLowerCase().trim();
             
             return menuItems.filter(item => {
-                const searchText = (item.name + ' ' + (item.pinyin || '') + (item.parent ? ' ' + item.parent : '')).toLowerCase();
+                const searchText = (item.name + ' ' + (item.pinyin || '')).toLowerCase();
                 
                 // 精确匹配（开头）
                 if (item.name.toLowerCase().startsWith(query) || 
@@ -282,15 +293,12 @@
                 return;
             }
             
-            const html = results.map(item => {
-                const parentText = item.parent ? `<small class="text-muted ms-2">${item.parent}</small>` : '';
-                return `
-                    <a class="nav-link" href="${item.url}">
-                        ${item.name}
-                        ${parentText}
-                    </a>
-                `;
-            }).join('');
+            const html = results.map(item => `
+                <a class="nav-link" href="${item.url}">
+                    <i class="${item.icon}"></i>
+                    ${item.name}
+                </a>
+            `).join('');
             
             searchResults.innerHTML = html;
             searchResults.classList.add('show');
