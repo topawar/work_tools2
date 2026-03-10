@@ -18,9 +18,9 @@ def dashboard(request):
     return render(request, "dashboard.html", {"active_page": "dashboard"})
 
 
-def orders(request):
+def dynamic(request, form_id: str):
     """Orders list page."""
-    return render(request, "orders.html", {"active_page": "orders_list"})
+    return render(request, "dynamic.html", {"active_page": "dynamic"})
 
 
 def get_menus():

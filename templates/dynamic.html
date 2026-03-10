@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}合同明细单价修改{% endblock %}
+
+{% block main_content %}
+    <div class="container-fluid p-0">
+        <h4 class="mb-4">合同明细单价修改</h4>
+
+        <!-- 订单表格 -->
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3 align-items-center">
+                    <div class="input-group mb-3" style="width: 500px">
+                        <span class="input-group-text" id="filePrefix">文件名</span>
+                        <input type="text" class="form-control" placeholder="filePrefix" aria-label="filePrefix"
+                               aria-describedby="filePrefix">
+                    </div>
+                </div>
+                <div class="row g-3 align-items-center">
+                    <div class="input-group mb-3" style="width: 1200px">
+                        <span class="input-group-text" id="onesLink">onesLink</span>
+                        <input type="text" class="form-control" placeholder="onesLink" aria-label="onesLink"
+                               aria-describedby="onesLink">
+                    </div>
+                </div>
+                <div class="row g-3 align-items-center">
+                    <div class="input-group mb-3">
+                        <span class="input-group-text" id="qty">数量</span>
+                        <input type="number" class="form-control" aria-label="qty"
+                               aria-describedby="qty">
+                        <div style="width: 15px"></div>
+                        <span class="input-group-text" id="price">单价</span>
+                        <input type="number" class="form-control" aria-label="price"
+                               aria-describedby="price">
+                        <div style="width: 15px"></div>
+                        <span class="input-group-text" id="taxRate">税率</span>
+                        <input type="number" class="form-control" aria-label="taxRate"
+                               aria-describedby="taxRate">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
