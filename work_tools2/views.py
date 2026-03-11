@@ -17,6 +17,9 @@ def dashboard(request):
     """Dashboard page with sidebar layout."""
     return render(request, "dashboard.html", {"active_page": "dashboard"})
 
+def test(request):
+    """Test page."""
+    return HttpResponse("123")
 
 def dynamic(request, form_id: str):
     """Orders list page."""

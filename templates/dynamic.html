@@ -12,33 +12,50 @@
                 <div class="row g-3 align-items-center">
                     <div class="input-group mb-3" style="width: 500px">
                         <span class="input-group-text" id="filePrefix">文件名</span>
-                        <input type="text" class="form-control" placeholder="filePrefix" aria-label="filePrefix"
-                               aria-describedby="filePrefix">
+                        <input type="text" class="form-control" placeholder="filePrefix">
                     </div>
                 </div>
                 <div class="row g-3 align-items-center">
                     <div class="input-group mb-3" style="width: 1200px">
                         <span class="input-group-text" id="onesLink">onesLink</span>
-                        <input type="text" class="form-control" placeholder="onesLink" aria-label="onesLink"
-                               aria-describedby="onesLink">
+                        <input type="text" class="form-control" placeholder="onesLink">
+                    </div>
+                </div>
+                <div class="row g-3 align-items-center">
+                    <div class="input-group mb-3" style="width: 500px">
+                        <span class="input-group-text" id="bpoLineId">合同行号</span>
+                        <input type="text" class="form-control">
                     </div>
                 </div>
                 <div class="row g-3 align-items-center">
                     <div class="input-group mb-3">
-                        <span class="input-group-text" id="qty">数量</span>
-                        <input type="number" class="form-control" aria-label="qty"
-                               aria-describedby="qty">
+                        <span class="input-group-text" id="newQTY">新数量</span>
+                        <input type="number" class="form-control">
                         <div style="width: 15px"></div>
-                        <span class="input-group-text" id="price">单价</span>
-                        <input type="number" class="form-control" aria-label="price"
-                               aria-describedby="price">
+                        <span class="input-group-text" id="newPrice">新单价</span>
+                        <input type="number" class="form-control">
                         <div style="width: 15px"></div>
-                        <span class="input-group-text" id="taxRate">税率</span>
-                        <input type="number" class="form-control" aria-label="taxRate"
-                               aria-describedby="taxRate">
+                        <span class="input-group-text" id="newTaxRate">新税率</span>
+                        <input type="number" class="form-control">
+                    </div>
+                </div>
+                <div class="row g-3 align-items-center">
+                    <div class="input-group mb-3">
+                        <span class="input-group-text" id="originQty">原数量</span>
+                        <input type="number" class="form-control">
+                        <div style="width: 15px"></div>
+                        <span class="input-group-text" id="originPrice">原单价</span>
+                        <input type="number" class="form-control">
+                        <div style="width: 15px"></div>
+                        <span class="input-group-text" id="originTaxRate">原税率</span>
+                        <input type="number" class="form-control">
                     </div>
                 </div>
             </div>
         </div>
     </div>
+    <script src="/static/js/axios.min.js"></script>
+    <script>
+
+    </script>
 {% endblock %}

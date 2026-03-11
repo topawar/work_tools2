@@ -27,4 +27,5 @@ urlpatterns = [
     path("form_merge/", views.form_merge, name="form_merge"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("dynamic/<str:form_id>", views.dynamic, name="dynamic"),
+    path("test/", views.test),
 ]
