@@ -52,6 +52,12 @@
                 <div id="dateInputContainer">
                     <!-- 所有日期类型的新值在一行，所有原值在一行 -->
                 </div>
+
+                <!-- 动态生成的补充框容器 -->
+                <div id="supplementContainer">
+                    <!-- 每个补充框单独一行，包含主输入框和子输入框 -->
+                </div>
+
                 <button onclick="logAllFormValues()" class="layui-btn">获取所有值</button>
 
             </div>
@@ -65,7 +71,7 @@
     <script src="/static/js/axios.min.js"></script>
     <script src="/static/layui/layui.js"></script>
 
-       <script>
+    <script>
         // 存储所有 Layui 日期选择器实例
         const laydateInstances = [];
         // 存储所有 Layui dropdown 实例
@@ -77,22 +83,27 @@
         let gNumberInputItems = [];
         let gTextInputItems = [];
         let gDateInputItems = [];
+        let gSupplementItems = [];
 
-               /**
+        /**
          * 获取所有输入框的值（全局方法）
          */
-        window.getAllFormValues = function() {
+        window.getAllFormValues = function () {
             var result = {};
             var $ = layui.$;
 
-            // 1. 获取下拉框的值
-            gSelectItems.forEach(function(item) {
+                      // 1. 获取下拉框的值
+            gSelectItems.forEach(function (item) {
                 const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                 const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
 
-                // 从 data-selected-value 属性或显示文本获取值
-                const newVal = $('#' + newId).attr('data-selected-value') || '';
-                const originVal = $('#' + originId).attr('data-selected-value') || '';
+                // 使用 jQuery 直接获取 select 的选中值
+                const newVal = $('#' + newId).val() || '';
+                const originVal = $('#' + originId).val() || '';
+
+                console.log("newId", newId);
+                console.log("newVal", newVal);
+                console.log("originVal", originVal);
 
                 result[item.bindingKey] = {
                     newValue: newVal,
@@ -101,8 +112,9 @@
                 };
             });
 
+
             // 2. 获取单选框的值
-            gRadioItems.forEach(function(item) {
+            gRadioItems.forEach(function (item) {
                 const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                 const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
 
@@ -119,7 +131,7 @@
             });
 
             // 3. 获取普通输入框的值（包括数值、文本、日期）
-            gNumberInputItems.concat(gTextInputItems).concat(gDateInputItems).forEach(function(item) {
+            gNumberInputItems.concat(gTextInputItems).concat(gDateInputItems).forEach(function (item) {
                 const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                 const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
 
@@ -134,13 +146,47 @@
                 };
             });
 
+            // 4. 获取补充框的值
+            gSupplementItems.forEach(function (item) {
+                const mainNewId = `newMain${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
+                const mainOriginId = `originMain${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
+
+                const mainNewVal = $('#' + mainNewId).val() || '';
+                const mainOriginVal = $('#' + mainOriginId).val() || '';
+
+                // 存储主输入框的值
+                result[item.bindingKey] = {
+                    newValue: mainNewVal,
+                    originValue: mainOriginVal,
+                    inputType: 'supplement',
+                    fieldType: 'supplement'
+                };
+
+                // 存储每个子输入框的值（使用独立的 bindingKey）
+                item.subFields.forEach((subField, index) => {
+                    const subNewId = `newSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
+                    const subOriginId = `originSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
+
+                    const subNewVal = $('#' + subNewId).val() || '';
+                    const subOriginVal = $('#' + subOriginId).val() || '';
+
+                    result[subField.bindingKey] = {
+                        newValue: subNewVal,
+                        originValue: subOriginVal,
+                        inputType: 'supplement-sub',
+                        fieldType: 'supplement-sub',
+                        parentKey: item.bindingKey
+                    };
+                });
+            });
+
             return result;
         };
 
         /**
          * 打印所有表单值到控制台（全局方法）
          */
-        window.logAllFormValues = function() {
+        window.logAllFormValues = function () {
             if (!layui.$) {
                 console.error('Layui 尚未完全加载，请稍后再试');
                 return null;
@@ -195,7 +241,7 @@
                     label: "状态",
                     type: "string",
                     originDefaultValue: "active",
-                    newDefaultValue: "",
+                    newDefaultValue: "active",
                     bindingKey: "status",
                     newValueValidType: "",
                     originValueValidType: "",
@@ -243,6 +289,36 @@
                     originValueValidType: "",
                     sortOrder: 5,
                     inputType: 'input'
+                },
+                {
+                    label: "地址信息",
+                    type: "supplement",
+                    originDefaultValue: "北京市朝阳区",
+                    newDefaultValue: "",
+                    bindingKey: "address",
+                    newValueValidType: "",
+                    originValueValidType: "",
+                    sortOrder: 6,
+                    inputType: 'supplement',
+                    subFields: [
+                        {label: "区", defaultValue: "朝阳区", width: 100, bindingKey: "address_district"},
+                        {label: "街道", defaultValue: "建国路", width: 150, bindingKey: "address_street"}
+                    ]
+                },
+                {
+                    label: "联系方式",
+                    type: "supplement",
+                    originDefaultValue: "13800138000",
+                    newDefaultValue: "",
+                    bindingKey: "contact",
+                    newValueValidType: "",
+                    originValueValidType: "",
+                    sortOrder: 7,
+                    inputType: 'supplement',
+                    subFields: [
+                        {label: "区号", defaultValue: "010", width: 80, bindingKey: "contact_area_code"},
+                        {label: "分机", defaultValue: "1234", width: 100, bindingKey: "contact_extension"}
+                    ]
                 }
             ];
 
@@ -254,40 +330,52 @@
             }
 
             /**
-             * 生成下拉框 HTML（使用 Layui dropdown）
+             * 生成下拉框 HTML（使用 Layui select）
              */
             function generateSelectHtml(item) {
                 const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                 const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
 
+                // 生成 option 选项
+                const newOptionsHtml = item.options.map(opt => {
+                    const selected = opt.value === item.newDefaultValue ? 'selected' : '';
+                    return `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
+                }).join('');
+
+                const originOptionsHtml = item.options.map(opt => {
+                    const selected = opt.value === item.originDefaultValue ? 'selected' : '';
+                    return `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
+                }).join('');
+
                 return `
                     <div class="row g-3 align-items-center mb-3">
                         <div class="input-group">
                             <span class="input-group-text" style="min-width: 80px;">新${item.label}</span>
-                            <div class="layui-input-inline" style="margin: 0;">
-                                <input type="text"
-                                       id="${newId}"
-                                       data-binding-key="${item.bindingKey}"
-                                       autocomplete="off"
-                                       class="layui-input"
-                                       placeholder="请选择或输入..."
-                                       style="min-width: 200px;">
+                            <div class="layui-input-inline layui-form layui-row" style="margin: 0;">
+                                <select id="${newId}"
+                                        data-binding-key="${item.bindingKey}"
+                                        lay-search=""
+                                        style="min-width: 200px;">
+                                    <option value="">请选择或输入...</option>
+                                    ${newOptionsHtml}
+                                </select>
                             </div>
                             <div style="width: 30px"></div>
                             <span class="input-group-text" style="min-width: 80px;">原${item.label}</span>
-                            <div class="layui-input-inline" style="margin: 0;">
-                                <input type="text"
-                                       id="${originId}"
-                                       data-binding-key="${item.bindingKey}"
-                                       autocomplete="off"
-                                       class="layui-input"
-                                       placeholder="请选择或输入..."
-                                       style="min-width: 200px;">
+                            <div class="layui-input-inline layui-form layui-row" style="margin: 0;">
+                                <select id="${originId}"
+                                        data-binding-key="${item.bindingKey}"
+                                        lay-search
+                                        style="min-width: 200px;">
+                                    <option value="">请选择或输入...</option>
+                                    ${originOptionsHtml}
+                                </select>
                             </div>
                         </div>
                     </div>
                 `;
             }
+
 
             /**
              * 生成单选框 HTML（只显示一个，另一个取反）
@@ -323,8 +411,6 @@
                             <span class="input-group-text">新${item.label}</span>
                             ${newOptionsHtml}
                             <div style="width: 30px"></div>
-                            <span class="input-group-text">原${item.label}</span>
-                            <span class="form-control-plaintext ms-2">${originLabel}</span>
                             <input type="hidden" id="${originId}" value="${originValue}" data-binding-key="${item.bindingKey}">
                         </div>
                     </div>
@@ -378,11 +464,93 @@
                 return newHtml + originHtml;
             }
 
+            /**
+             * 生成补充框 HTML（主输入框 + 子输入框为一组）
+             */
+            function generateSupplementHtml(item) {
+                const mainNewId = `newMain${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
+                const mainOriginId = `originMain${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
+
+                // 生成新值行的主输入框和子输入框
+                let newHtml = '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
+
+                // 主输入框（新值）
+                newHtml += `
+                    <span class="input-group-text" style=" background: coral">新${item.label}</span>
+                    <input type="text"
+                           id="${mainNewId}"
+                           class="form-control"
+                           value="${item.newDefaultValue}"
+                           data-binding-key="${item.bindingKey}"
+                           data-field-type="supplement-main"
+                           placeholder="请输入${item.label}"
+                           style="max-width: 200px;border-color: red;">
+                `;
+
+                // 子输入框（新值）
+                item.subFields.forEach((subField, index) => {
+                    const subNewId = `newSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
+                    newHtml += `
+                        <div style="width: 15px"></div>
+                        <span class="input-group-text" style="max-width: ${subField.width || 80}px;">新${subField.label}</span>
+                        <input type="text"
+                               id="${subNewId}"
+                               class="form-control"
+                               value="${subField.defaultValue || ''}"
+                               data-binding-key="${subField.bindingKey}"
+                               data-sub-index="${index}"
+                               data-field-type="supplement-sub"
+                               placeholder="请输入${subField.label}"
+                               style="min-width: ${subField.width || 120};">
+                    `;
+                });
+
+                newHtml += '</div></div>';
+
+                // 生成原值行的主输入框和子输入框
+                let originHtml = '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
+
+                // 主输入框（原值）
+                originHtml += `
+                    <span class="input-group-text" style="background: coral;">原${item.label}</span>
+                    <input type="text"
+                           id="${mainOriginId}"
+                           class="form-control"
+                           value="${item.originDefaultValue}"
+                           data-binding-key="${item.bindingKey}"
+                           data-field-type="supplement-main"
+                           placeholder="原${item.label}"
+                           style="max-width: 200px;border-color: red;">
+                `;
+
+                // 子输入框（原值）
+                item.subFields.forEach((subField, index) => {
+                    const subOriginId = `originSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
+                    originHtml += `
+                        <div style="width: 15px"></div>
+                        <span class="input-group-text" style="max-width: ${subField.width || 80}px;">原${subField.label}</span>
+                        <input type="text"
+                               id="${subOriginId}"
+                               class="form-control"
+                               value="${subField.defaultValue || ''}"
+                               data-binding-key="${subField.bindingKey}"
+                               data-sub-index="${index}"
+                               data-field-type="supplement-sub"
+                               placeholder="原${subField.label}"
+                               style="min-width: ${subField.width || 120};">
+                    `;
+                });
+
+                originHtml += '</div></div>';
+
+                return newHtml + originHtml;
+            }
+
             // 分离不同类型的配置项并赋值给全局变量
             gSelectItems = sortInputItems(inputItems.filter(item => item.inputType === 'select'));
             gRadioItems = sortInputItems(inputItems.filter(item => item.inputType === 'radio'));
 
-            // 将 input类型按 type 进一步细分为 number、text、date
+            // 将 input 类型按 type 进一步细分为 number、text、date
             gNumberInputItems = sortInputItems(inputItems.filter(item =>
                 item.inputType === 'input' && item.type === 'number'
             ));
@@ -391,6 +559,9 @@
             ));
             gDateInputItems = sortInputItems(inputItems.filter(item =>
                 item.inputType === 'input' && item.type === 'date'
+            ));
+            gSupplementItems = sortInputItems(inputItems.filter(item =>
+                item.inputType === 'supplement'
             ));
 
             // 生成下拉框（每种一行）
@@ -423,104 +594,36 @@
                 dateInputContainer.innerHTML = generateInputHtml(gDateInputItems);
             }
 
+            // 生成补充框（每个补充框独立一行）
+            const supplementContainer = document.getElementById('supplementContainer');
+            if (gSupplementItems.length > 0) {
+                supplementContainer.innerHTML = gSupplementItems.map(item => generateSupplementHtml(item)).join('');
+            }
+
             /**
              * 初始化 Layui 组件（在 HTML 生成完成后执行）
              */
-            layui.use(['dropdown', 'laydate'], function () {
-                var dropdown = layui.dropdown;
+            layui.use(['form', 'laydate'], function () {
+                var form = layui.form;
                 var laydate = layui.laydate;
                 var $ = layui.$;
 
-                // 初始化所有下拉框（dropdown）
+                // 重新渲染所有 select 组件（Layui 会自动识别带有 lay-search 的 select）
+                form.render('select');
+
+                // 为所有 select 添加 change 事件监听
                 gSelectItems.forEach(function (item) {
                     const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                     const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
 
-                    // 转换数据格式为 dropdown 需要的格式
-                    const dropdownData = item.options.map(opt => ({
-                        id: opt.value,
-                        title: opt.label
-                    }));
-
-                    // 初始化新值下拉框
-                    const newInst = dropdown.render({
-                        elem: '#' + newId,
-                        data: dropdownData,
-                        style: 'min-width: 190px; box-shadow: 1px 1px 11px rgb(0 0 0 / 11%);',
-                        click: function (data) {
-                            $(this.elem).val(data.title);
-                            $(this.elem).attr('data-selected-value', data.id);
-                        }
-                    });
-                    dropdownInstances.push(newInst);
-
-                    // 初始化原值下拉框
-                    const originInst = dropdown.render({
-                        elem: '#' + originId,
-                        data: dropdownData,
-                        style: 'min-width: 190px; box-shadow: 1px 1px 11px rgb(0 0 0 / 11%);',
-                        click: function (data) {
-                            $(this.elem).val(data.title);
-                            $(this.elem).attr('data-selected-value', data.id);
-                        }
-                    });
-                    dropdownInstances.push(originInst);
-
-                    // 为新值输入框添加模糊搜索
-                    $('#' + newId).on('input propertychange', function () {
-                        var elem = $(this);
-                        var value = elem.val().trim();
-
-                        if (!value) {
-                            dropdown.reloadData(newInst.config.id, {
-                                data: dropdownData
-                            });
-                            return;
-                        }
-
-                        // 匹配到对应内容时，重载数据
-                        var dataNew = dropdownData.filter(function (filterItem) {
-                            var exp = new RegExp(value.split('').join('|'), 'i');
-                            return exp.test(filterItem.title);
-                        });
-
-                        dropdown.reloadData(newInst.config.id, {
-                            data: dataNew,
-                            templet: function (d) {
-                                var exp = new RegExp(value.split('').join('|'), 'gi');
-                                return d.title.replace(exp, function (str) {
-                                    return '<span style="color: red;">' + str + '</span>'
-                                });
-                            }
-                        });
+                    // 监听新值选择
+                    form.on('select(' + newId + ')', function (data) {
+                        $(this.elem).attr('data-selected-value', data.value);
                     });
 
-                    // 为原值输入框添加模糊搜索
-                    $('#' + originId).on('input propertychange', function () {
-                        var elem = $(this);
-                        var value = elem.val().trim();
-
-                        if (!value) {
-                            dropdown.reloadData(originInst.config.id, {
-                                data: dropdownData
-                            });
-                            return;
-                        }
-
-                        var dataNew = dropdownData.filter(function (filterItem) {
-                            var exp = new RegExp(value.split('').join('|'), 'i');
-                            return exp.test(filterItem.title);
-                        });
-
-                        dropdown.reloadData(originInst.config.id, {
-                            data: dataNew,
-                            templet: function (d) {
-                                var exp = new RegExp(value.split('').join('|'), 'gi');
-                                return d.title.replace(exp, function (str) {
-                                    return '<span style="color: red;">' + str + '</span>'
-                                });
-                            }
-                        });
+                    // 监听原值选择
+                    form.on('select(' + originId + ')', function (data) {
+                        $(this.elem).attr('data-selected-value', data.value);
                     });
                 });
 
@@ -551,12 +654,7 @@
                 });
             });
 
-            console.log('页面加载完成，配置项:', inputItems);
-            console.log('下拉框:', gSelectItems);
-            console.log('单选框:', gRadioItems);
-            console.log('数值输入框:', gNumberInputItems);
-            console.log('文本输入框:', gTextInputItems);
-            console.log('日期输入框:', gDateInputItems);
+
         };
     </script>
 
