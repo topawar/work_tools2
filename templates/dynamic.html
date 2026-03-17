@@ -4,7 +4,7 @@
 
 {% block main_content %}
     <div class="container-fluid p-0">
-        <h4 class="mb-4">合同明细单价修改</h4>
+        <h4 class="mb-4" id="formName"></h4>
 
         <!-- 订单表格 -->
         <div class="card">
@@ -92,7 +92,7 @@
             var result = {};
             var $ = layui.$;
 
-                      // 1. 获取下拉框的值
+            // 1. 获取下拉框的值
             gSelectItems.forEach(function (item) {
                 const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                 const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
@@ -116,12 +116,11 @@
             // 2. 获取单选框的值
             gRadioItems.forEach(function (item) {
                 const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
-                const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
 
                 // 获取选中的单选框值
                 const checkedRadio = $('input[name="' + newId + '"]:checked');
                 const newVal = checkedRadio.length > 0 ? checkedRadio.val() : '';
-                const originVal = $('#' + originId).val();
+                const originVal = !newVal;
 
                 result[item.bindingKey] = {
                     newValue: newVal,
@@ -145,6 +144,7 @@
                     fieldType: item.inputType
                 };
             });
+
 
             // 4. 获取补充框的值
             gSupplementItems.forEach(function (item) {
@@ -183,6 +183,23 @@
             return result;
         };
 
+           /**
+             * 处理补充框值变化的全局函数
+             * @param {string} bindingKey - 绑定键
+             * @param {string} type - 类型 (main/sub-0/sub-1 等)
+             * @param {HTMLElement} element - 触发事件的元素
+             */
+            window.supplementContainerChange = function(bindingKey, type, element) {
+               window.alert("1334")
+
+                // TODO: 在这里添加你的业务逻辑
+                // 例如：
+                // - 调用后端 API 保存数据
+                // - 验证输入的有效性
+                // - 联动更新其他字段
+            };
+
+
         /**
          * 打印所有表单值到控制台（全局方法）
          */
@@ -203,124 +220,138 @@
 
         window.onload = function () {
             // 临时的配置项数组（后续可以从后端接口获取）
-            const inputItems = [
-                {
-                    label: "数量",
-                    type: "number",
-                    originDefaultValue: "100",
-                    newDefaultValue: "",
-                    bindingKey: "qty",
-                    newValueValidType: "",
-                    originValueValidType: "",
-                    sortOrder: 1,
-                    inputType: 'input'
-                },
-                {
-                    label: "单价",
-                    type: "number",
-                    originDefaultValue: "50.00",
-                    newDefaultValue: "",
-                    bindingKey: "price",
-                    newValueValidType: "",
-                    originValueValidType: "",
-                    sortOrder: 2,
-                    inputType: 'input'
-                },
-                {
-                    label: "税率",
-                    type: "number",
-                    originDefaultValue: "0.13",
-                    newDefaultValue: "",
-                    bindingKey: "taxRate",
-                    newValueValidType: "",
-                    originValueValidType: "",
-                    sortOrder: 3,
-                    inputType: 'input'
-                },
-                {
-                    label: "状态",
-                    type: "string",
-                    originDefaultValue: "active",
-                    newDefaultValue: "active",
-                    bindingKey: "status",
-                    newValueValidType: "",
-                    originValueValidType: "",
-                    sortOrder: 1,
-                    inputType: 'select',
-                    options: [
-                        {value: "active", label: "启用"},
-                        {value: "inactive", label: "禁用"},
-                        {value: "pending", label: "待审核"}
-                    ]
-                },
-                {
-                    label: "类型",
-                    type: "boolean",
-                    originDefaultValue: "true",
-                    newDefaultValue: "",
-                    bindingKey: "type",
-                    newValueValidType: "",
-                    originValueValidType: "",
-                    sortOrder: 1,
-                    inputType: 'radio',
-                    options: [
-                        {value: "true", label: "是"},
-                        {value: "false", label: "否"}
-                    ]
-                },
-                {
-                    label: "姓名",
-                    type: "text",
-                    originDefaultValue: "张三",
-                    newDefaultValue: "",
-                    bindingKey: "name",
-                    newValueValidType: "",
-                    originValueValidType: "",
-                    sortOrder: 4,
-                    inputType: 'input'
-                },
-                {
-                    label: "日期",
-                    type: "date",
-                    originDefaultValue: "20240101",
-                    newDefaultValue: "",
-                    bindingKey: "date",
-                    newValueValidType: "",
-                    originValueValidType: "",
-                    sortOrder: 5,
-                    inputType: 'input'
-                },
-                {
-                    label: "地址信息",
-                    type: "supplement",
-                    originDefaultValue: "北京市朝阳区",
-                    newDefaultValue: "",
-                    bindingKey: "address",
-                    newValueValidType: "",
-                    originValueValidType: "",
-                    sortOrder: 6,
-                    inputType: 'supplement',
-                    subFields: [
-                        {label: "区", defaultValue: "朝阳区", width: 100, bindingKey: "address_district"},
-                        {label: "街道", defaultValue: "建国路", width: 150, bindingKey: "address_street"}
-                    ]
-                },
-                {
-                    label: "联系方式",
-                    type: "supplement",
-                    originDefaultValue: "13800138000",
-                    newDefaultValue: "",
-                    bindingKey: "contact",
-                    newValueValidType: "",
-                    originValueValidType: "",
-                    sortOrder: 7,
-                    inputType: 'supplement',
-                    subFields: [
-                        {label: "区号", defaultValue: "010", width: 80, bindingKey: "contact_area_code"},
-                        {label: "分机", defaultValue: "1234", width: 100, bindingKey: "contact_extension"}
-                    ]
-                }
-            ];
+            const dynamicTableConfig = {
+                formName: "合同明细单价修改",
+                tableNameList: ["t1", "t2", "t3"],
+                inputItems: [
+                    {
+                        label: "数量",
+                        type: "number",
+                        originDefaultValue: "100",
+                        newDefaultValue: "",
+                        bindingKey: "qty",
+                        newValueValidType: "",
+                        originValueValidType: "",
+                        sortOrder: 1,
+                        inputType: 'input',
+                        connectedTable: ["t1", "t2", "t3"],
+                    },
+                    {
+                        label: "单价",
+                        type: "number",
+                        originDefaultValue: "50.00",
+                        newDefaultValue: "",
+                        bindingKey: "price",
+                        newValueValidType: "",
+                        originValueValidType: "",
+                        sortOrder: 2,
+                        inputType: 'input',
+                        connectedTable: ["t1", "t2", "t3"],
+                    },
+                    {
+                        label: "税率",
+                        type: "number",
+                        originDefaultValue: "0.13",
+                        newDefaultValue: "",
+                        bindingKey: "taxRate",
+                        newValueValidType: "",
+                        originValueValidType: "",
+                        sortOrder: 3,
+                        inputType: 'input',
+                        connectedTable: ["t1", "t2", "t3"],
+                    },
+                    {
+                        label: "状态",
+                        type: "string",
+                        originDefaultValue: "active",
+                        newDefaultValue: "active",
+                        bindingKey: "status",
+                        newValueValidType: "",
+                        originValueValidType: "",
+                        sortOrder: 1,
+                        inputType: 'select',
+                        connectedTable: ["t1", "t2"],
+                        options: [
+                            {value: "active", label: "启用"},
+                            {value: "inactive", label: "禁用"},
+                            {value: "pending", label: "待审核"}
+                        ]
+                    },
+                    {
+                        label: "类型",
+                        type: "boolean",
+                        originDefaultValue: "true",
+                        newDefaultValue: "",
+                        bindingKey: "type",
+                        newValueValidType: "",
+                        originValueValidType: "",
+                        sortOrder: 1,
+                        inputType: 'radio',
+                        connectedTable: ["t1"],
+                        options: [
+                            {value: "true", label: "是"},
+                            {value: "false", label: "否"}
+                        ]
+                    },
+                    {
+                        label: "姓名",
+                        type: "text",
+                        originDefaultValue: "张三",
+                        newDefaultValue: "",
+                        bindingKey: "name",
+                        newValueValidType: "",
+                        originValueValidType: "",
+                        sortOrder: 4,
+                        inputType: 'input',
+                        connectedTable: ["t1", "t2", "t3"],
+                    },
+                    {
+                        label: "日期",
+                        type: "date",
+                        originDefaultValue: "20240101",
+                        newDefaultValue: "",
+                        bindingKey: "date",
+                        newValueValidType: "",
+                        originValueValidType: "",
+                        sortOrder: 5,
+                        inputType: 'input',
+                        connectedTable: ["t1", "t2", "t3"],
+                    },
+                    {
+                        label: "地址信息",
+                        type: "supplement",
+                        originDefaultValue: "北京市朝阳区",
+                        newDefaultValue: "",
+                        bindingKey: "address",
+                        newValueValidType: "",
+                        originValueValidType: "",
+                        sortOrder: 6,
+                        inputType: 'supplement',
+                        connectedTable: ["t1", "t2", "t3"],
+                        subFields: [
+                            {label: "区", defaultValue: "朝阳区", width: 100, bindingKey: "address_district"},
+                            {label: "街道", defaultValue: "建国路", width: 150, bindingKey: "address_street"}
+                        ]
+                    },
+                    {
+                        label: "联系方式",
+                        type: "supplement",
+                        originDefaultValue: "13800138000",
+                        newDefaultValue: "",
+                        bindingKey: "contact",
+                        newValueValidType: "",
+                        originValueValidType: "",
+                        sortOrder: 7,
+                        inputType: 'supplement',
+                        connectedTable: ["t1", "t2", "t3"],
+                        subFields: [
+                            {label: "区号", defaultValue: "010", width: 80, bindingKey: "contact_area_code"},
+                            {label: "分机", defaultValue: "1234", width: 100, bindingKey: "contact_extension"}
+                        ]
+                    }
+                ]
+            };
+            window.document.getElementById('formName').textContent = dynamicTableConfig.formName;
 
             /**
              * 对配置项进行排序
@@ -401,9 +432,6 @@
                     `;
                 }).join('');
 
-                // 原值直接计算得出（取反）
-                const originValue = item.originDefaultValue === 'true' ? 'true' : 'false';
-                const originLabel = item.originDefaultValue === 'true' ? '是' : '否';
 
                 return `
                     <div class="row g-3 align-items-center mb-3">
@@ -411,7 +439,6 @@
                             <span class="input-group-text">新${item.label}</span>
                             ${newOptionsHtml}
                             <div style="width: 30px"></div>
-                            <input type="hidden" id="${originId}" value="${originValue}" data-binding-key="${item.bindingKey}">
                         </div>
                     </div>
                 `;
@@ -484,6 +511,7 @@
                            data-binding-key="${item.bindingKey}"
                            data-field-type="supplement-main"
                            placeholder="请输入${item.label}"
+                           onchange="supplementContainerChange()"
                            style="max-width: 200px;border-color: red;">
                 `;
 
@@ -547,20 +575,20 @@
             }
 
             // 分离不同类型的配置项并赋值给全局变量
-            gSelectItems = sortInputItems(inputItems.filter(item => item.inputType === 'select'));
-            gRadioItems = sortInputItems(inputItems.filter(item => item.inputType === 'radio'));
+            gSelectItems = sortInputItems(dynamicTableConfig.inputItems.filter(item => item.inputType === 'select'));
+            gRadioItems = sortInputItems(dynamicTableConfig.inputItems.filter(item => item.inputType === 'radio'));
 
             // 将 input 类型按 type 进一步细分为 number、text、date
-            gNumberInputItems = sortInputItems(inputItems.filter(item =>
+            gNumberInputItems = sortInputItems(dynamicTableConfig.inputItems.filter(item =>
                 item.inputType === 'input' && item.type === 'number'
             ));
-            gTextInputItems = sortInputItems(inputItems.filter(item =>
+            gTextInputItems = sortInputItems(dynamicTableConfig.inputItems.filter(item =>
                 item.inputType === 'input' && item.type === 'text'
             ));
-            gDateInputItems = sortInputItems(inputItems.filter(item =>
+            gDateInputItems = sortInputItems(dynamicTableConfig.inputItems.filter(item =>
                 item.inputType === 'input' && item.type === 'date'
             ));
-            gSupplementItems = sortInputItems(inputItems.filter(item =>
+            gSupplementItems = sortInputItems(dynamicTableConfig.inputItems.filter(item =>
                 item.inputType === 'supplement'
             ));
 
@@ -599,6 +627,7 @@
             if (gSupplementItems.length > 0) {
                 supplementContainer.innerHTML = gSupplementItems.map(item => generateSupplementHtml(item)).join('');
             }
+
 
             /**
              * 初始化 Layui 组件（在 HTML 生成完成后执行）
