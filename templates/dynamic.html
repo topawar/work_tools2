@@ -6,7 +6,6 @@
     <div class="container-fluid p-0">
         <h4 class="mb-4" id="formName"></h4>
 
-        <!-- 订单表格 -->
         <div class="card">
             <div class="card-body">
                 <div class="row g-3 align-items-center">
@@ -28,6 +27,16 @@
                     </div>
                 </div>
 
+                <h4>查询字段</h4>
+                <hr class="layui-border-blue">
+                <!-- 动态生成的文本类型输入框容器 -->
+                <div id="queryContainer">
+                    <!-- 所有文本类型的新值在一行，所有原值在一行 -->
+                </div>
+
+
+                <h4>修改字段</h4>
+                <hr class="layui-border-blue">
                 <!-- 动态生成的下拉框容器 -->
                 <div id="selectContainer">
                     <!-- 每种下拉框单独一行 -->
@@ -58,7 +67,9 @@
                     <!-- 每个补充框单独一行，包含主输入框和子输入框 -->
                 </div>
 
+
                 <button onclick="logAllFormValues()" class="layui-btn">获取所有值</button>
+
 
             </div>
         </div>
@@ -85,14 +96,58 @@
         let gDateInputItems = [];
         let gSupplementItems = [];
 
-        /**
+
+        // 存储当前激活的输入框信息
+        let currentActiveInput = null;
+
+        // 存储 Layui 表格弹出层实例
+        let tableLayerIndex = null;
+
+          /**
          * 获取所有输入框的值（全局方法）
          */
         window.getAllFormValues = function () {
             var result = {};
             var $ = layui.$;
 
-            // 1. 获取下拉框的值
+            // 1. 获取查询字段的值（动态生成的）
+            gQueryItems.forEach(function (item) {
+                const queryId = `query${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
+                const queryVal = $('#' + queryId).val() || '';
+
+                result[item.bindingKey] = {
+                    value: queryVal,
+                    inputType: 'query',
+                    fieldType: item.type
+                };
+            });
+
+            // 2. 获取公用字段的值（硬编码的三个输入框）
+            // 文件名
+            const filePrefixVal = $('#filePrefix').val() || '';
+            result['filePrefix'] = {
+                value: filePrefixVal,
+                inputType: 'common',
+                fieldType: 'text'
+            };
+
+            // OnesLink
+            const onesLinkVal = $('#onesLink').val() || '';
+            result['onesLink'] = {
+                value: onesLinkVal,
+                inputType: 'common',
+                fieldType: 'text'
+            };
+
+            // 合同行号
+            const bpoLineIdVal = $('#bpoLineId').val() || '';
+            result['bpoLineId'] = {
+                value: bpoLineIdVal,
+                inputType: 'common',
+                fieldType: 'text'
+            };
+
+            // 3. 获取下拉框的值
             gSelectItems.forEach(function (item) {
                 const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                 const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
@@ -113,7 +168,7 @@
             });
 
 
-            // 2. 获取单选框的值
+            // 4. 获取单选框的值
             gRadioItems.forEach(function (item) {
                 const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
 
@@ -129,7 +184,7 @@
                 };
             });
 
-            // 3. 获取普通输入框的值（包括数值、文本、日期）
+            // 5. 获取普通输入框的值（包括数值、文本、日期）
             gNumberInputItems.concat(gTextInputItems).concat(gDateInputItems).forEach(function (item) {
                 const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                 const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
@@ -146,7 +201,7 @@
             });
 
 
-            // 4. 获取补充框的值
+            // 6. 获取补充框的值
             gSupplementItems.forEach(function (item) {
                 const mainNewId = `newMain${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                 const mainOriginId = `originMain${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
@@ -183,24 +238,361 @@
             return result;
         };
 
-           /**
-             * 处理补充框值变化的全局函数
-             * @param {string} bindingKey - 绑定键
-             * @param {string} type - 类型 (main/sub-0/sub-1 等)
-             * @param {HTMLElement} element - 触发事件的元素
-             */
-            window.supplementContainerChange = function(bindingKey, type, element) {
-               window.alert("1334")
+        /**
+         * 获取查询字段的值（单独的方法）
+         */
+        window.getQueryFieldValues = function () {
+            var result = {};
+            var $ = layui.$;
 
-                // TODO: 在这里添加你的业务逻辑
-                // 例如：
-                // - 调用后端 API 保存数据
-                // - 验证输入的有效性
-                // - 联动更新其他字段
-            };
+            // 获取动态生成的查询字段
+            gQueryItems.forEach(function (item) {
+                const queryId = `query${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
+                result[item.bindingKey] = $('#' + queryId).val() || '';
+            });
+
+            // 获取硬编码的公用字段
+            result['filePrefix'] = $('#filePrefix').val() || '';
+            result['onesLink'] = $('#onesLink').val() || '';
+            result['bpoLineId'] = $('#bpoLineId').val() || '';
+
+            console.log('查询字段值:', result);
+            return result;
+        };
 
 
         /**
+         * 处理补充框值变化的全局函数
+         * @param {string} bindingKey - 绑定键
+         * @param {HTMLElement} element - 触发事件的元素
+         */
+        window.supplementContainerChange = function (bindingKey, element) {
+            const value = element.value;
+            const fieldType = element.getAttribute('data-field-type');
+
+            console.log('=== 补充框值变化 ===');
+            console.log('bindingKey:', bindingKey);
+            console.log('value:', value);
+            console.log('fieldType:', fieldType);
+
+            // 记录当前激活的输入框
+            currentActiveInput = {
+                bindingKey: bindingKey,
+                element: element,
+                fieldType: fieldType
+            };
+
+            // 显示表格弹出层
+            showTablePicker(bindingKey, value, fieldType);
+        };
+
+        /**
+         * 显示表格选择器（类似日期选择器的效果）
+         * @param {string} bindingKey - 当前编辑的字段绑定键
+         * @param {string} currentValue - 当前值
+         * @param {string} fieldType - 字段类型
+         */
+        window.showTablePicker = function (bindingKey, currentValue, fieldType) {
+            console.log('=== showTablePicker 被调用 ===');
+            console.log('bindingKey:', bindingKey);
+            console.log('currentActiveInput:', currentActiveInput);
+
+            // 确保 Layui 已加载
+            if (typeof layui === 'undefined') {
+                console.error('Layui 未加载!');
+                return;
+            }
+
+            var $ = layui.$;
+            var table = layui.table;
+            var layer = layui.layer;
+
+            console.log('layui 组件状态:', {
+                $: !!$,
+                table: !!table,
+                layer: !!layer
+            });
+
+            if (!table) {
+                console.error('Layui table 模块未加载！请使用 layui.use(["table", "layer"], ...) 加载');
+                alert('表格模块未加载，请检查控制台错误');
+                return;
+            }
+
+            if (!layer) {
+                console.error('Layui layer 模块未加载！');
+                alert('弹出层模块未加载');
+                return;
+            }
+
+            // 关闭之前的弹出层（如果有）
+            if (tableLayerIndex !== null) {
+                layer.close(tableLayerIndex);
+            }
+
+            // 根据当前编辑的字段动态生成表头
+            var currentSupplementItem = gSupplementItems.find(item => item.bindingKey === bindingKey);
+
+            console.log('currentSupplementItem:', currentSupplementItem);
+
+            if (!currentSupplementItem) {
+                console.error('未找到对应的补充框配置:', bindingKey);
+                return;
+            }
+
+            // 构建表头：主输入框 + 子输入框的 label
+            var colsConfig = [
+                {type: 'radio', width: 50, title: '选择', fixed: true}
+            ];
+
+            // 添加主输入框列
+            colsConfig.push({
+                field: 'main_value',
+                title: currentSupplementItem.label,
+                minWidth: 150,
+                sort: true
+            });
+
+            // 添加子输入框列
+            currentSupplementItem.subFields.forEach(subField => {
+                colsConfig.push({
+                    field: subField.bindingKey,
+                    title: subField.label,
+                    minWidth: subField.width || 120,
+                    sort: true
+                });
+            });
+
+            console.log('colsConfig:', colsConfig);
+
+            // 准备示例数据（实际使用时可以从后端获取）
+            var mockData = [
+                {
+                    id: '1',
+                    main_value: '北京市朝阳区',
+                    address_district: '朝阳区',
+                    address_street: '建国路',
+                    contact_area_code: '010',
+                    contact_extension: '1234'
+                },
+                {
+                    id: '2',
+                    main_value: '上海市浦东新区',
+                    address_district: '浦东新区',
+                    address_street: '世纪大道',
+                    contact_area_code: '021',
+                    contact_extension: '5678'
+                },
+                {
+                    id: '3',
+                    main_value: '广州市天河区',
+                    address_district: '天河区',
+                    address_street: '天河路',
+                    contact_area_code: '020',
+                    contact_extension: '9012'
+                },
+                {
+                    id: '4',
+                    main_value: '深圳市南山区',
+                    address_district: '南山区',
+                    address_street: '深南大道',
+                    contact_area_code: '0755',
+                    contact_extension: '3456'
+                },
+                {
+                    id: '5',
+                    main_value: '杭州市西湖区',
+                    address_district: '西湖区',
+                    address_street: '文三路',
+                    contact_area_code: '0571',
+                    contact_extension: '7890'
+                }
+            ];
+
+            // 使用全局变量 currentActiveInput 中的 element
+            var element = currentActiveInput.element;
+
+            if (!element) {
+                console.error('element 为空!');
+                return;
+            }
+
+            // 获取输入框的位置
+            var inputOffset = $(element).offset();
+            var inputHeight = $(element).outerHeight();
+            var inputWidth = $(element).outerWidth();
+
+            console.log('输入框位置:', {
+                offset: inputOffset,
+                height: inputHeight,
+                width: inputWidth
+            });
+
+            // 估算表格高度（每行约 38px，最多显示 5 行）
+            var estimatedTableHeight = 5 * 38 + 40; // 5 行数据 + 表头
+            var popupHeight = estimatedTableHeight + 20; // 加上 padding
+
+            // 计算下方可用空间
+            var windowHeight = $(window).height();
+            var scrollTop = $(window).scrollTop();
+            var inputBottom = inputOffset.top + inputHeight;
+            var spaceBelow = windowHeight + scrollTop - inputBottom - 10; // 留 10px 边距
+
+            // 计算上方可用空间
+            var spaceAbove = inputOffset.top - scrollTop - 10;
+
+            console.log('空间计算:', {
+                windowHeight: windowHeight,
+                scrollTop: scrollTop,
+                inputBottom: inputBottom,
+                spaceBelow: spaceBelow,
+                spaceAbove: spaceAbove,
+                popupHeight: popupHeight
+            });
+
+            // 决定弹出方向
+            var popupDirection = 'bottom';
+            var top = inputOffset.top + inputHeight + 5;
+
+            if (spaceBelow < popupHeight && spaceAbove >= popupHeight) {
+                // 下方空间不足，上方空间足够，向上弹出
+                popupDirection = 'top';
+                top = inputOffset.top - popupHeight - 5;
+                console.log('向下空间不足，改为向上弹出');
+            } else if (spaceBelow < popupHeight && spaceAbove < popupHeight) {
+                // 上下空间都不足，优先向下，让表格可滚动
+                console.log('上下空间都不足，保持向下弹出（表格将显示滚动条）');
+            } else {
+                console.log('向下弹出');
+            }
+
+            var left = inputOffset.left;
+
+            console.log('弹出层位置:', {top: top, left: left, direction: popupDirection});
+
+            // 创建临时容器
+            var tempId = 'tablePicker_' + new Date().getTime();
+            var containerHtml = '<div id="' + tempId + '" style="padding: 5px;background: white;border: 1px solid #ddd;"></div>' +
+                '<table class="layui-hide" id="ID-table-picker-' + bindingKey + '" lay-filter="tablePickerFilter"></table>';
+
+            console.log('containerHtml:', containerHtml);
+
+            // 使用 layer.open 创建弹出层
+            tableLayerIndex = layer.open({
+                type: 1,
+                content: containerHtml,
+                area: ['auto', 'auto'],
+                offset: [top + 'px', left + 'px'],
+                skin: 'layui-layer-content', // 修改为普通样式
+                shade: false, // 不显示遮罩
+                closeBtn: 0, // 不显示关闭按钮
+                move: false, // 禁止拖动
+                resize: false, // 禁止调整大小
+                zIndex: 999999, // 确保在最上层
+                scrollbar: false, // 禁止滚动条
+                background: '#FFFFFF', // 设置背景色
+                success: function (layero, index) {
+                    console.log('弹出层打开成功，layero:', layero);
+
+                    // 存储弹出层索引到全局变量，方便在事件处理中访问
+                    window.currentTableLayerIndex = index;
+
+                    // 设置样式确保可见
+                    $(layero).css({
+                        'background': '#FFFFFF',
+                        'border': '1px solid #ddd',
+                        'box-shadow': '0 2px 8px rgba(0,0,0,0.15)',
+                        'z-index': '999999'
+                    });
+
+                    // 渲染表格
+                    table.render({
+                        elem: '#ID-table-picker-' + bindingKey,
+                        cols: [colsConfig],
+                        data: mockData,
+                        page: false,
+                        autoSort: true,
+                        skin: 'line',
+                        even: true,
+                        size: 'sm',
+                        limits: [5, 10, 15],
+                        limit: 5,
+                        done: function (res, curr, count) {
+                            // 表格渲染完成后的回调
+                            console.log('表格渲染完成', res, curr, count);
+
+                            // 再次确保弹出层在最上层
+                            setTimeout(function () {
+                                $(layero).css('z-index', '999999');
+                            }, 100);
+                        }
+                    });
+
+                    // 监听表格单选框选择
+                    table.on('radio(tablePickerFilter)', function (obj) {
+                        var data = obj.data;
+
+                        console.log('选中的行数据:', data);
+
+                        // 先填充到输入框
+                        fillInputWithData(data, currentSupplementItem);
+
+                        // 立即关闭弹出层（不延迟）
+                        console.log('准备关闭弹出层，索引:', window.currentTableLayerIndex);
+                        layer.close(window.currentTableLayerIndex);
+                        tableLayerIndex = null;
+                        window.currentTableLayerIndex = null;
+                        console.log('弹出层已关闭');
+                    });
+
+                },
+                end: function () {
+                    console.log('弹出层关闭');
+                    tableLayerIndex = null;
+                    window.currentTableLayerIndex = null;
+                }
+            });
+            console.log('弹出层索引:', tableLayerIndex);
+            console.log('提示：请点击表格中的单选框选择数据，或按 ESC 键关闭');
+        };
+
+        /**
+         * 将表格数据填充到输入框
+         * @param {Object} data - 表格行数据
+         * @param {Object} supplementItem - 补充框配置项
+         */
+        function fillInputWithData(data, supplementItem) {
+            console.log('=== 开始填充数据 ===');
+            console.log('data:', data);
+            console.log('supplementItem:', supplementItem);
+
+            var $ = layui.$;
+
+            // 获取当前编辑的主输入框和子输入框的 ID
+            const mainNewId = `newMain${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}`;
+
+            console.log('主输入框 ID:', mainNewId);
+
+            // 填充主输入框
+            $('#' + mainNewId).val(data.main_value || '');
+            console.log('主输入框新值:', $('#' + mainNewId).val());
+
+            // 填充子输入框
+            supplementItem.subFields.forEach((subField, index) => {
+                const subNewId = `newSub${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}_${index}`;
+                $('#' + subNewId).val(data[subField.bindingKey] || '');
+                console.log(`子输入框 ${subField.label} 新值:`, $('#' + subNewId).val());
+            });
+
+            // 重新渲染 Layui form（如果需要）
+            layui.form && layui.form.render();
+
+            console.log('数据填充完成');
+            console.log('已填充数据:', data);
+        };
+
+
+               /**
          * 打印所有表单值到控制台（全局方法）
          */
         window.logAllFormValues = function () {
@@ -209,6 +601,12 @@
                 return null;
             }
 
+            // 先获取查询字段值
+            const queryValues = window.getQueryFieldValues();
+            console.log('=== 查询字段值 ===');
+            console.log(queryValues);
+
+            // 获取所有表单值
             const allValues = window.getAllFormValues();
             console.log('=== 所有输入框的值 ===');
             console.log(allValues);
@@ -223,6 +621,29 @@
             const dynamicTableConfig = {
                 formName: "合同明细单价修改",
                 tableNameList: ["t1", "t2", "t3"],
+                queryItems: [
+                    {
+                        label: "文件名2",
+                        type: "text",
+                        defaultValue: "",
+                        bindingKey: "filePrefix2",
+                        sortOrder: 1
+                    },
+                    {
+                        label: "OnesLink2",
+                        type: "text",
+                        defaultValue: "",
+                        bindingKey: "onesLink2",
+                        sortOrder: 2
+                    },
+                    {
+                        label: "合同行号",
+                        type: "text",
+                        defaultValue: "",
+                        bindingKey: "bpoLineId",
+                        sortOrder: 3
+                    }
+                ],
                 inputItems: [
                     {
                         label: "数量",
@@ -358,6 +779,33 @@
              */
             function sortInputItems(items) {
                 return items.sort((a, b) => a.sortOrder - b.sortOrder);
+            }
+
+             /**
+             * 生成查询字段 HTML（每个查询字段只有一个输入框）
+             */
+            function generateQueryHtml(items) {
+                if (items.length === 0) return '';
+
+                let queryHtml = '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
+                items.forEach((item, index) => {
+                    const queryId = `query${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
+                    queryHtml += `                        <span class="input-group-text">${item.label}</span>
+                        <input type="${item.type}"
+                               id="${queryId}"
+                               class="form-control"
+                               value="${item.defaultValue || ''}"
+                               data-binding-key="${item.bindingKey}"
+                               data-field-type="query"
+                               placeholder="请输入${item.label}">
+                    `;
+                    if (index < items.length - 1) {
+                        queryHtml += '<div style="width: 15px"></div>';
+                    }
+                });
+                queryHtml += '</div></div>';
+
+                return queryHtml;
             }
 
             /**
@@ -511,7 +959,7 @@
                            data-binding-key="${item.bindingKey}"
                            data-field-type="supplement-main"
                            placeholder="请输入${item.label}"
-                           onchange="supplementContainerChange()"
+                            onchange="supplementContainerChange('${item.bindingKey}', this)"
                            style="max-width: 200px;border-color: red;">
                 `;
 
@@ -548,6 +996,7 @@
                            data-binding-key="${item.bindingKey}"
                            data-field-type="supplement-main"
                            placeholder="原${item.label}"
+                           onchange="supplementContainerChange('${item.bindingKey}', this)"
                            style="max-width: 200px;border-color: red;">
                 `;
 
@@ -592,6 +1041,9 @@
                 item.inputType === 'supplement'
             ));
 
+           // 查询字段
+            gQueryItems = sortInputItems(dynamicTableConfig.queryItems || []);
+
             // 生成下拉框（每种一行）
             const selectContainer = document.getElementById('selectContainer');
             if (gSelectItems.length > 0) {
@@ -628,19 +1080,27 @@
                 supplementContainer.innerHTML = gSupplementItems.map(item => generateSupplementHtml(item)).join('');
             }
 
+            // 生成查询字段（所有查询条件在一行）
+            const queryContainer = document.getElementById('queryContainer');
+            if (gQueryItems.length > 0) {
+                queryContainer.innerHTML = generateQueryHtml(gQueryItems);
+            }
+
 
             /**
              * 初始化 Layui 组件（在 HTML 生成完成后执行）
              */
-            layui.use(['form', 'laydate'], function () {
+            layui.use(['form', 'laydate', 'table', 'layer'], function () {
                 var form = layui.form;
                 var laydate = layui.laydate;
+                var table = layui.table;
+                var layer = layui.layer;
                 var $ = layui.$;
 
                 // 重新渲染所有 select 组件（Layui 会自动识别带有 lay-search 的 select）
                 form.render('select');
 
-                // 为所有 select 添加 change 事件监听
+                // 为所有 select 添加 change事件监听
                 gSelectItems.forEach(function (item) {
                     const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                     const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
@@ -681,6 +1141,9 @@
                         value: item.originDefaultValue || null
                     });
                 });
+
+                // 将 layer 保存到全局变量以便后续使用
+                window.layuiLayer = layer;
             });
 
 
@@ -689,3 +1152,9 @@
 
 
 {% endblock %}
+
+
+
+};
+</script>
+
