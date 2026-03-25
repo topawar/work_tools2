@@ -16,13 +16,13 @@
                 </div>
                 <div class="row g-3 align-items-center">
                     <div class="input-group mb-3" style="width: 1200px">
-                        <span class="input-group-text" id="onesLink">onesLink</span>
+                        <span class="input-group-text" id="onesLink" required>onesLink</span>
                         <input type="text" class="form-control" placeholder="onesLink">
                     </div>
                 </div>
                 <div class="row g-3 align-items-center">
                     <div class="input-group mb-3" style="width: 500px">
-                        <span class="input-group-text" id="bpoLineId">合同行号</span>
+                        <span class="input-group-text" id="dynamicNo">编号</span>
                         <input type="text" class="form-control">
                     </div>
                 </div>
@@ -68,7 +68,7 @@
                 </div>
 
 
-                <button onclick="logAllFormValues()" class="layui-btn">获取所有值</button>
+                <button onclick="submit()" class="layui-btn">获取所有值</button>
 
 
             </div>
@@ -116,9 +116,12 @@
                 const queryVal = $('#' + queryId).val() || '';
 
                 result[item.bindingKey] = {
+                    label: item.label,
                     value: queryVal,
                     inputType: 'query',
-                    fieldType: item.type
+                    fieldType: item.type,
+                    newValidRule: item.newValidRule,
+                    originValidRule: item.originValidRule
                 };
             });
 
@@ -139,10 +142,10 @@
                 fieldType: 'text'
             };
 
-            // 合同行号
-            const bpoLineIdVal = $('#bpoLineId').val() || '';
-            result['bpoLineId'] = {
-                value: bpoLineIdVal,
+            // 动态编号
+            const dynamicNoVal = $('#dynamicNo').val() || '';
+            result['dynamicNo'] = {
+                value: dynamicNoVal,
                 inputType: 'common',
                 fieldType: 'text'
             };
@@ -156,14 +159,17 @@
                 const newVal = $('#' + newId).val() || '';
                 const originVal = $('#' + originId).val() || '';
 
-                console.log("newId", newId);
-                console.log("newVal", newVal);
-                console.log("originVal", originVal);
+                {#console.log("newId", newId);#}
+                {#console.log("newVal", newVal);#}
+                {#console.log("originVal", originVal);#}
 
                 result[item.bindingKey] = {
+                    label: item.label,
                     newValue: newVal,
                     originValue: originVal,
-                    inputType: 'select'
+                    inputType: 'select',
+                    newValidRule: item.newValidRule,
+                    originValidRule: item.originValidRule
                 };
             });
 
@@ -178,9 +184,12 @@
                 const originVal = !newVal;
 
                 result[item.bindingKey] = {
+                    label: item.label,
                     newValue: newVal,
                     originValue: originVal,
-                    inputType: 'radio'
+                    inputType: 'radio',
+                    newValidRule: item.newValidRule,
+                    originValidRule: item.originValidRule
                 };
             });
 
@@ -193,10 +202,13 @@
                 const originVal = $('#' + originId).val() || '';
 
                 result[item.bindingKey] = {
+                    label: item.label,
                     newValue: newVal,
                     originValue: originVal,
                     inputType: item.type,
-                    fieldType: item.inputType
+                    fieldType: item.inputType,
+                    newValidRule: item.newValidRule,
+                    originValidRule: item.originValidRule
                 };
             });
 
@@ -592,28 +604,184 @@
         };
 
 
-        /**
-         * 打印所有表单值到控制台（全局方法）
-         */
-        window.logAllFormValues = function () {
+        window.submit = function () {
             if (!layui.$) {
                 console.error('Layui 尚未完全加载，请稍后再试');
                 return null;
             }
 
+            var hasError = false;
+
             // 先获取查询字段值
-            const queryValues = window.getQueryFieldValues();
-            console.log('=== 查询字段值 ===');
-            console.log(queryValues);
+            {#const queryValues = window.getQueryFieldValues();#}
+            {#console.log('=== 查询字段值 ===');#}
+            {#console.log(queryValues);#}
 
             // 获取所有表单值
             const allValues = window.getAllFormValues();
-            console.log('=== 所有输入框的值 ===');
-            console.log(allValues);
-            console.log('JSON 格式:');
-            console.log(JSON.stringify(allValues, null, 2));
+            {#console.log('=== 所有输入框的值 ===');#}
+            {#console.log(allValues);#}
+            {#console.log('JSON 格式:');#}
+            {#console.log(JSON.stringify(allValues, null, 2));#}
+
+            // 遍历所有值进行校验
+            for (const [key, item] of Object.entries(allValues)) {
+                let element = null;
+                let errorId = null;
+                let errorLabel = null;
+
+                // 文本、数值、日期、下拉框 做校验
+                if (item.inputType === 'text' || item.inputType === 'number' || item.inputType === 'date' || item.inputType === 'select') {
+                    // 新值校验
+                    if ((item.newValue === '' || item.newValue === null || item.newValue === undefined) && item.newValidRule === 'required') {
+                        const newId = `new${key.charAt(0).toUpperCase() + key.slice(1)}`;
+                        element = document.getElementById(newId);
+                        errorId = `error_${newId}`;
+                        errorLabel = `新${item.label}不能为空`;
+
+                        if (element) {
+                            // 设置边框样式
+                            element.style.borderColor = '#ff4d4f';
+                            element.style.boxShadow = '0 0 0 2px rgba(255, 77, 79, 0.2)';
+                            element.style.backgroundColor = '#fff1f0';
+
+                            // 添加或更新错误描述
+                            addOrUpdateError(element, errorId, errorLabel);
+
+                            console.error(errorLabel);
+                            hasError = true;
+                        }
+                    }
+
+                    // 原值校验
+                    if ((item.originValue === '' || item.originValue === null || item.originValue === undefined) && item.originValidRule === 'required') {
+                        const originId = `origin${key.charAt(0).toUpperCase() + key.slice(1)}`;
+                        element = document.getElementById(originId);
+                        errorId = `error_${originId}`;
+                        errorLabel = `原${item.label} 不能为空`;
+
+                        if (element) {
+                            // 设置边框样式
+                            element.style.borderColor = '#ff4d4f';
+                            element.style.boxShadow = '0 0 0 2px rgba(255, 77, 79, 0.2)';
+                            element.style.backgroundColor = '#fff1f0';
+
+                            // 添加或更新错误描述
+                            addOrUpdateError(element, errorId, errorLabel);
+
+                            console.error(errorLabel);
+                            hasError = true;
+                        }
+                    }
+                }
+
+                // 补充框主输入框校验
+                if (item.inputType === 'supplement' || item.inputType === 'supplement-main') {
+                    if ((item.newValue === '' || item.newValue === null || item.newValue === undefined) && item.newValueValidType === 'required') {
+                        const mainNewId = `newMain${key.charAt(0).toUpperCase() + key.slice(1)}`;
+                        element = document.getElementById(mainNewId);
+                        errorId = `error_${mainNewId}`;
+                        errorLabel = `新${key} 不能为空`;
+
+                        if (element) {
+                            // 设置边框样式
+                            element.style.borderColor = '#ff4d4f';
+                            element.style.boxShadow = '0 0 0 2px rgba(255, 77, 79, 0.2)';
+                            element.style.backgroundColor = '#fff1f0';
+
+                            // 添加或更新错误描述
+                            addOrUpdateError(element, errorId, errorLabel);
+
+                            console.error(errorLabel);
+                            hasError = true;
+                        }
+                    }
+                }
+
+                // 补充框子输入框校验
+                if (item.inputType === 'supplement-sub') {
+                    if ((item.newValue === '' || item.newValue === null || item.newValue === undefined) && item.newValueValidType === 'required') {
+                        const subNewId = `newSub${item.parentKey.charAt(0).toUpperCase() + item.parentKey.slice(1)}_${key.split('_').pop()}`;
+                        element = document.getElementById(subNewId);
+                        errorId = `error_${subNewId}`;
+                        errorLabel = `新${key} 不能为空`;
+
+                        if (element) {
+                            // 设置边框样式
+                            element.style.borderColor = '#ff4d4f';
+                            element.style.boxShadow = '0 0 0 2px rgba(255, 77, 79, 0.2)';
+                            element.style.backgroundColor = '#fff1f0';
+
+                            // 添加或更新错误描述
+                            addOrUpdateError(element, errorId, errorLabel);
+
+                            console.error(errorLabel);
+                            hasError = true;
+                        }
+                    }
+                }
+            }
+
+            if (hasError) {
+                console.error('表单校验失败，请检查标红字段');
+                return null;
+            }
+
             return allValues;
         };
+
+        /**
+         * 在输入框下方添加或更新错误描述
+         * @param {HTMLElement} inputElement - 输入框元素
+         * @param {string} errorId - 错误元素 ID
+         * @param {string} errorMessage - 错误信息
+         */
+        function addOrUpdateError(inputElement, errorId, errorMessage) {
+            // 检查是否已存在错误提示
+            let errorElement = document.getElementById(errorId);
+
+            if (!errorElement) {
+                // 创建错误提示元素
+                errorElement = document.createElement('div');
+                errorElement.id = errorId;
+                errorElement.className = 'form-control-feedback';
+
+                // 设置样式：红色文字、小字号、顶部间距
+                errorElement.style.cssText = `
+                  display:flex;
+                  align-items:center;
+                  padding:.375rem .75rem;
+                  font-size:1rem;
+                  font-weight:400;
+                  line-height:1.5;
+                  color:red;
+                `;
+
+                // 查找输入框的父容器
+                const parentGroup = inputElement.closest('.input-group') || inputElement.parentElement;
+
+                if (parentGroup) {
+                    // 在输入框之后插入错误提示
+                    if (inputElement.nextSibling) {
+                        parentGroup.insertBefore(errorElement, inputElement.nextSibling);
+                    } else {
+                        parentGroup.appendChild(errorElement);
+                    }
+                } else {
+                    // 如果没有找到父容器，直接在输入框后插入
+                    if (inputElement.parentNode) {
+                        if (inputElement.nextSibling) {
+                            inputElement.parentNode.insertBefore(errorElement, inputElement.nextSibling);
+                        } else {
+                            inputElement.parentNode.appendChild(errorElement);
+                        }
+                    }
+                }
+            }
+
+            // 更新错误信息
+            errorElement.textContent = errorMessage;
+        }
 
 
         window.onload = function () {
@@ -623,22 +791,13 @@
                 tableNameList: ["t1", "t2", "t3"],
                 queryItems: [
                     {
-                        label: "文件名2",
+                        label: "订单号",
                         type: "text",
                         defaultValue: "",
-                        bindingKey: "filePrefix2",
+                        bindingKey: "itemId",
                         sortOrder: 1,
                         tableNameList: ["t1", "t2", "t3"],
-                        newValidRule: "requiredReverse"
-                    },
-                    {
-                        label: "OnesLink2",
-                        type: "text",
-                        defaultValue: "",
-                        bindingKey: "onesLink2",
-                        sortOrder: 2,
-                        tableNameList: ["t1", "t2", "t3"],
-                        newValidRule: "requiredReverse"
+                        ValidRule: "requiredReverse",
                     },
                     {
                         label: "合同行号",
@@ -647,7 +806,7 @@
                         bindingKey: "bpoLineId",
                         sortOrder: 3,
                         tableNameList: ["t1", "t2", "t3"],
-                        newValidRule: "required"
+                        ValidRule: "required"
                     }
                 ],
                 updateItems: [
@@ -660,7 +819,8 @@
                         sortOrder: 1,
                         inputType: 'input',
                         connectedTable: ["t1", "t2", "t3"],
-                        newValidRule: "defaultField"
+                        newValidRule: "defaultField",
+                        originValidRule: "defaultField",
                     },
                     {
                         label: "单价",
@@ -671,7 +831,8 @@
                         sortOrder: 2,
                         inputType: 'input',
                         connectedTable: ["t1", "t2", "t3"],
-                        newValidRule: "defaultField"
+                        newValidRule: "defaultField",
+                        originValidRule: "defaultField",
                     },
                     {
                         label: "税率",
@@ -682,7 +843,8 @@
                         sortOrder: 3,
                         inputType: 'input',
                         connectedTable: ["t1", "t2", "t3"],
-                        newValidRule: "defaultField"
+                        newValidRule: "defaultField",
+                        originValidRule: "defaultField",
                     },
                     {
                         label: "状态",
@@ -690,7 +852,8 @@
                         originDefaultValue: "active",
                         newDefaultValue: "active",
                         bindingKey: "status",
-                        newValidRule: "defaultField",
+                        newValidRule: "requiredReverse",
+                        originValidRule: "requiredReverse",
                         sortOrder: 1,
                         inputType: 'select',
                         connectedTable: ["t1", "t2"],
@@ -746,8 +909,6 @@
                         originDefaultValue: "北京市朝阳区",
                         newDefaultValue: "",
                         bindingKey: "address",
-                        newValueValidType: "",
-                        originValueValidType: "",
                         sortOrder: 6,
                         inputType: 'supplement',
                         connectedTable: ["t1", "t2", "t3"],
@@ -762,8 +923,6 @@
                         originDefaultValue: "13800138000",
                         newDefaultValue: "",
                         bindingKey: "contact",
-                        newValueValidType: "",
-                        originValueValidType: "",
                         sortOrder: 7,
                         inputType: 'supplement',
                         connectedTable: ["t1", "t2", "t3"],
