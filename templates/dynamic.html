@@ -103,7 +103,7 @@
         // 存储 Layui 表格弹出层实例
         let tableLayerIndex = null;
 
-          /**
+        /**
          * 获取所有输入框的值（全局方法）
          */
         window.getAllFormValues = function () {
@@ -592,7 +592,7 @@
         };
 
 
-               /**
+        /**
          * 打印所有表单值到控制台（全局方法）
          */
         window.logAllFormValues = function () {
@@ -627,35 +627,40 @@
                         type: "text",
                         defaultValue: "",
                         bindingKey: "filePrefix2",
-                        sortOrder: 1
+                        sortOrder: 1,
+                        tableNameList: ["t1", "t2", "t3"],
+                        newValidRule: "requiredReverse"
                     },
                     {
                         label: "OnesLink2",
                         type: "text",
                         defaultValue: "",
                         bindingKey: "onesLink2",
-                        sortOrder: 2
+                        sortOrder: 2,
+                        tableNameList: ["t1", "t2", "t3"],
+                        newValidRule: "requiredReverse"
                     },
                     {
                         label: "合同行号",
                         type: "text",
                         defaultValue: "",
                         bindingKey: "bpoLineId",
-                        sortOrder: 3
+                        sortOrder: 3,
+                        tableNameList: ["t1", "t2", "t3"],
+                        newValidRule: "required"
                     }
                 ],
-                inputItems: [
+                updateItems: [
                     {
                         label: "数量",
                         type: "number",
                         originDefaultValue: "100",
                         newDefaultValue: "",
                         bindingKey: "qty",
-                        newValueValidType: "",
-                        originValueValidType: "",
                         sortOrder: 1,
                         inputType: 'input',
                         connectedTable: ["t1", "t2", "t3"],
+                        newValidRule: "defaultField"
                     },
                     {
                         label: "单价",
@@ -663,11 +668,10 @@
                         originDefaultValue: "50.00",
                         newDefaultValue: "",
                         bindingKey: "price",
-                        newValueValidType: "",
-                        originValueValidType: "",
                         sortOrder: 2,
                         inputType: 'input',
                         connectedTable: ["t1", "t2", "t3"],
+                        newValidRule: "defaultField"
                     },
                     {
                         label: "税率",
@@ -675,11 +679,10 @@
                         originDefaultValue: "0.13",
                         newDefaultValue: "",
                         bindingKey: "taxRate",
-                        newValueValidType: "",
-                        originValueValidType: "",
                         sortOrder: 3,
                         inputType: 'input',
                         connectedTable: ["t1", "t2", "t3"],
+                        newValidRule: "defaultField"
                     },
                     {
                         label: "状态",
@@ -687,8 +690,7 @@
                         originDefaultValue: "active",
                         newDefaultValue: "active",
                         bindingKey: "status",
-                        newValueValidType: "",
-                        originValueValidType: "",
+                        newValidRule: "defaultField",
                         sortOrder: 1,
                         inputType: 'select',
                         connectedTable: ["t1", "t2"],
@@ -704,8 +706,8 @@
                         originDefaultValue: "true",
                         newDefaultValue: "",
                         bindingKey: "type",
-                        newValueValidType: "",
-                        originValueValidType: "",
+                        newValidRule: "required",
+                        originValidRule: "required",
                         sortOrder: 1,
                         inputType: 'radio',
                         connectedTable: ["t1"],
@@ -720,8 +722,8 @@
                         originDefaultValue: "张三",
                         newDefaultValue: "",
                         bindingKey: "name",
-                        newValueValidType: "",
-                        originValueValidType: "",
+                        newValidRule: "required",
+                        originValidRule: "required",
                         sortOrder: 4,
                         inputType: 'input',
                         connectedTable: ["t1", "t2", "t3"],
@@ -732,8 +734,8 @@
                         originDefaultValue: "20240101",
                         newDefaultValue: "",
                         bindingKey: "date",
-                        newValueValidType: "",
-                        originValueValidType: "",
+                        newValidRule: "required",
+                        originValidRule: "required",
                         sortOrder: 5,
                         inputType: 'input',
                         connectedTable: ["t1", "t2", "t3"],
@@ -772,6 +774,8 @@
                     }
                 ]
             };
+
+
             window.document.getElementById('formName').textContent = dynamicTableConfig.formName;
 
             /**
@@ -781,7 +785,7 @@
                 return items.sort((a, b) => a.sortOrder - b.sortOrder);
             }
 
-             /**
+            /**
              * 生成查询字段 HTML（每个查询字段只有一个输入框）
              */
             function generateQueryHtml(items) {
@@ -1024,24 +1028,24 @@
             }
 
             // 分离不同类型的配置项并赋值给全局变量
-            gSelectItems = sortInputItems(dynamicTableConfig.inputItems.filter(item => item.inputType === 'select'));
-            gRadioItems = sortInputItems(dynamicTableConfig.inputItems.filter(item => item.inputType === 'radio'));
+            gSelectItems = sortInputItems(dynamicTableConfig.updateItems.filter(item => item.inputType === 'select'));
+            gRadioItems = sortInputItems(dynamicTableConfig.updateItems.filter(item => item.inputType === 'radio'));
 
             // 将 input 类型按 type 进一步细分为 number、text、date
-            gNumberInputItems = sortInputItems(dynamicTableConfig.inputItems.filter(item =>
+            gNumberInputItems = sortInputItems(dynamicTableConfig.updateItems.filter(item =>
                 item.inputType === 'input' && item.type === 'number'
             ));
-            gTextInputItems = sortInputItems(dynamicTableConfig.inputItems.filter(item =>
+            gTextInputItems = sortInputItems(dynamicTableConfig.updateItems.filter(item =>
                 item.inputType === 'input' && item.type === 'text'
             ));
-            gDateInputItems = sortInputItems(dynamicTableConfig.inputItems.filter(item =>
+            gDateInputItems = sortInputItems(dynamicTableConfig.updateItems.filter(item =>
                 item.inputType === 'input' && item.type === 'date'
             ));
-            gSupplementItems = sortInputItems(dynamicTableConfig.inputItems.filter(item =>
+            gSupplementItems = sortInputItems(dynamicTableConfig.updateItems.filter(item =>
                 item.inputType === 'supplement'
             ));
 
-           // 查询字段
+            // 查询字段
             gQueryItems = sortInputItems(dynamicTableConfig.queryItems || []);
 
             // 生成下拉框（每种一行）
