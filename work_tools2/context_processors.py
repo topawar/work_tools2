@@ -43,7 +43,6 @@ def menus_context(request):
                 "id": menu.id,
                 "name": menu.name,
                 "pinyin": menu.pinyin or "",
-                "icon": menu.icon or "bi-circle",
                 "url": menu.url,
                 "has_children": children.exists(),
                 "is_expanded": menu.id in expanded_menu_ids,

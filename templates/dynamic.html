@@ -10,20 +10,20 @@
             <div class="card-body">
                 <div class="row g-3 align-items-center">
                     <div class="input-group mb-3" style="width: 500px">
-                        <span class="input-group-text" id="filePrefix">文件名</span>
-                        <input type="text" class="form-control" placeholder="filePrefix">
+                        <span class="input-group-text">文件名</span>
+                        <input type="text" id="filePrefix" class="form-control" placeholder="filePrefix">
                     </div>
                 </div>
                 <div class="row g-3 align-items-center">
                     <div class="input-group mb-3" style="width: 1200px">
-                        <span class="input-group-text" id="onesLink" required>onesLink</span>
-                        <input type="text" class="form-control" placeholder="onesLink">
+                        <span class="input-group-text" required>onesLink</span>
+                        <input type="text" id="onesLink" class="form-control" placeholder="onesLink">
                     </div>
                 </div>
                 <div class="row g-3 align-items-center">
                     <div class="input-group mb-3" style="width: 500px">
-                        <span class="input-group-text" id="dynamicNo">编号</span>
-                        <input type="text" class="form-control">
+                        <span class="input-group-text">编号</span>
+                        <input type="text" id="dynamicNo" class="form-control">
                     </div>
                 </div>
 
@@ -68,7 +68,7 @@
                 </div>
 
 
-                <button onclick="submit()" class="layui-btn">获取所有值</button>
+                <button onclick="submit()" class="layui-btn">提交</button>
 
 
             </div>
@@ -112,7 +112,7 @@
 
             // 1. 获取查询字段的值（动态生成的）
             gQueryItems.forEach(function (item) {
-                const queryId = `query${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
+                const queryId = item.bindingKey;
                 const queryVal = $('#' + queryId).val() || '';
 
                 result[item.bindingKey] = {
@@ -120,8 +120,7 @@
                     value: queryVal,
                     inputType: 'query',
                     fieldType: item.type,
-                    newValidRule: item.newValidRule,
-                    originValidRule: item.originValidRule
+                    ValidRule: item.ValidRule,
                 };
             });
 
@@ -188,8 +187,7 @@
                     newValue: newVal,
                     originValue: originVal,
                     inputType: 'radio',
-                    newValidRule: item.newValidRule,
-                    originValidRule: item.originValidRule
+                    ValidRule: item.newValidRule
                 };
             });
 
@@ -223,6 +221,7 @@
 
                 // 存储主输入框的值
                 result[item.bindingKey] = {
+                    label: item.label,
                     newValue: mainNewVal,
                     originValue: mainOriginVal,
                     inputType: 'supplement',
@@ -271,8 +270,6 @@
             console.log('查询字段值:', result);
             return result;
         };
-
-
         /**
          * 处理补充框值变化的全局函数
          * @param {string} bindingKey - 绑定键
@@ -286,6 +283,8 @@
             console.log('bindingKey:', bindingKey);
             console.log('value:', value);
             console.log('fieldType:', fieldType);
+            console.log('element.id:', element.id);
+            console.log('是否为原值输入框:', element.id.startsWith('originMain'));
 
             // 记录当前激活的输入框
             currentActiveInput = {
@@ -294,17 +293,187 @@
                 fieldType: fieldType
             };
 
-            // 显示表格弹出层
-            showTablePicker(bindingKey, value, fieldType);
+            // 如果值为空，不显示弹出框
+            if (!value || value.trim() === '') {
+                console.log('值为空，不显示弹出框');
+                return;
+            }
+
+            // 获取当前补充框的配置项
+            const currentSupplementItem = gSupplementItems.find(item => item.bindingKey === bindingKey);
+
+            if (!currentSupplementItem) {
+                console.error('未找到对应的补充框配置:', bindingKey);
+                return;
+            }
+
+            // 确定主字段名称（支持配置或默认）
+            const mainField = currentSupplementItem.mainField || 'main_value';
+
+            // 收集所有需要搜索的字段
+            const searchFields = [mainField, ...currentSupplementItem.subFields.map(sf => sf.bindingKey)];
+
+            // 模拟搜索数据（实际应该调用后端接口）
+            const mockData = this.getMockDataForSupplement(currentSupplementItem);
+
+            // 通用匹配逻辑：遍历所有搜索字段进行模糊匹配
+            const filteredData = mockData.filter(item => {
+                return searchFields.some(field => {
+                    const fieldValue = item[field];
+                    return fieldValue && String(fieldValue).toLowerCase().includes(value.toLowerCase());
+                });
+            });
+
+            console.log('过滤后的数据:', filteredData);
+
+            // 如果没有匹配的数据
+            if (filteredData.length === 0) {
+                const fieldLabel = currentSupplementItem.label || bindingKey;
+
+                // 只有新值输入框才提示无效
+                if (!element.id.startsWith('originMain')) {
+                    console.error('无效的值，未找到匹配数据');
+                    alert(`新${fieldLabel}："${value}"未找到匹配数据，请重新输入`);
+                    element.value = '';
+                } else {
+                    console.log('原值未找到匹配数据，直接使用输入的值');
+                }
+                return;
+            }
+
+            // 如果只有一个匹配结果，并且是完全匹配，直接填充（仅新值）
+            if (filteredData.length === 1 && !element.id.startsWith('originMain')) {
+                const isExactMatch = String(filteredData[0][mainField]).toLowerCase() === value.toLowerCase();
+
+                if (isExactMatch) {
+                    console.log('完全匹配，直接填充');
+                    fillInputWithData(filteredData[0], currentSupplementItem, element);
+
+                    // 清除可能存在的错误提示
+                    const errorElement = document.getElementById(`error_${element.id}`);
+                    if (errorElement) {
+                        errorElement.remove();
+                    }
+
+                    // 恢复输入框样式
+                    element.style.borderColor = '';
+                    element.style.boxShadow = '';
+                    element.style.backgroundColor = '';
+                    return;
+                }
+            }
+
+            // 多个匹配结果或非完全匹配，显示表格选择框
+            console.log('显示表格选择框');
+            showTablePicker(bindingKey, value, fieldType, filteredData);
         };
+
+
+        /**
+         * 获取 Mock 数据（支持动态配置）
+         * @param {Object} supplementItem - 补充框配置项
+         * @returns {Array} Mock 数据数组
+         */
+        function getMockDataForSupplement(supplementItem) {
+            // 这里返回通用的 Mock 数据，实际应该从后端接口获取
+            // Mock 数据应该包含所有可能的字段，但前端会根据配置只取需要的字段
+
+            // 方式 1：返回包含所有字段的完整数据（当前方案，简单但不推荐）
+            // const allData = [ ... ];
+            // return allData;
+
+            // 方式 2：根据补充框类型返回对应的数据（推荐）
+            const mockDataMap = {
+                // 地址信息的 Mock 数据
+                address: [
+                    {
+                        id: '1',
+                        main_value: '北京市朝阳区',
+                        address_district: '朝阳区',
+                        address_street: '建国路'
+                    },
+                    {
+                        id: '2',
+                        main_value: '上海市浦东新区',
+                        address_district: '浦东新区',
+                        address_street: '世纪大道'
+                    },
+                    {
+                        id: '3',
+                        main_value: '广州市天河区',
+                        address_district: '天河区',
+                        address_street: '天河路'
+                    },
+                    {
+                        id: '4',
+                        main_value: '深圳市南山区',
+                        address_district: '南山区',
+                        address_street: '深南大道'
+                    },
+                    {
+                        id: '5',
+                        main_value: '杭州市西湖区',
+                        address_district: '西湖区',
+                        address_street: '文三路'
+                    }
+                ],
+
+                // 联系方式的 Mock 数据
+                contact: [
+                    {
+                        id: '1',
+                        contact_main_value: '010-1234',
+                        contact_area_code: '010',
+                        contact_extension: '1234'
+                    },
+                    {
+                        id: '2',
+                        contact_main_value: '021-5678',
+                        contact_area_code: '021',
+                        contact_extension: '5678'
+                    },
+                    {
+                        id: '3',
+                        contact_main_value: '020-9012',
+                        contact_area_code: '020',
+                        contact_extension: '9012'
+                    },
+                    {
+                        id: '4',
+                        contact_main_value: '0755-3456',
+                        contact_area_code: '0755',
+                        contact_extension: '3456'
+                    },
+                    {
+                        id: '5',
+                        contact_main_value: '0571-7890',
+                        contact_area_code: '0571',
+                        contact_extension: '7890'
+                    }
+                ]
+            };
+
+            // 根据 bindingKey 返回对应的 Mock 数据
+            const bindingKey = supplementItem.bindingKey;
+            if (mockDataMap[bindingKey]) {
+                console.log(`返回 ${bindingKey} 的 Mock 数据:`, mockDataMap[bindingKey]);
+                return mockDataMap[bindingKey];
+            }
+
+            // 如果没有找到对应的数据，返回空数组
+            console.warn(`未找到 ${bindingKey} 的 Mock 数据，返回空数组`);
+            return [];
+        }
+
 
         /**
          * 显示表格选择器（类似日期选择器的效果）
          * @param {string} bindingKey - 当前编辑的字段绑定键
          * @param {string} currentValue - 当前值
          * @param {string} fieldType - 字段类型
+         * @param {Array} data - 表格数据（可选，默认使用 mockData）
          */
-        window.showTablePicker = function (bindingKey, currentValue, fieldType) {
+        window.showTablePicker = function (bindingKey, currentValue, fieldType, data) {
             console.log('=== showTablePicker 被调用 ===');
             console.log('bindingKey:', bindingKey);
             console.log('currentActiveInput:', currentActiveInput);
@@ -352,20 +521,23 @@
                 return;
             }
 
+            // 确定主字段名称
+            const mainField = currentSupplementItem.mainField || 'main_value';
+
             // 构建表头：主输入框 + 子输入框的 label
             var colsConfig = [
                 {type: 'radio', width: 50, title: '选择', fixed: true}
             ];
 
-            // 添加主输入框列
+            // 添加主输入框列 - 使用配置的主字段
             colsConfig.push({
-                field: 'main_value',
+                field: mainField,
                 title: currentSupplementItem.label,
                 minWidth: 150,
                 sort: true
             });
 
-            // 添加子输入框列
+            // 添加子输入框列 - 动态遍历子字段配置
             currentSupplementItem.subFields.forEach(subField => {
                 colsConfig.push({
                     field: subField.bindingKey,
@@ -378,48 +550,21 @@
             console.log('colsConfig:', colsConfig);
 
             // 准备示例数据（实际使用时可以从后端获取）
-            var mockData = [
-                {
-                    id: '1',
-                    main_value: '北京市朝阳区',
-                    address_district: '朝阳区',
-                    address_street: '建国路',
-                    contact_area_code: '010',
-                    contact_extension: '1234'
-                },
-                {
-                    id: '2',
-                    main_value: '上海市浦东新区',
-                    address_district: '浦东新区',
-                    address_street: '世纪大道',
-                    contact_area_code: '021',
-                    contact_extension: '5678'
-                },
-                {
-                    id: '3',
-                    main_value: '广州市天河区',
-                    address_district: '天河区',
-                    address_street: '天河路',
-                    contact_area_code: '020',
-                    contact_extension: '9012'
-                },
-                {
-                    id: '4',
-                    main_value: '深圳市南山区',
-                    address_district: '南山区',
-                    address_street: '深南大道',
-                    contact_area_code: '0755',
-                    contact_extension: '3456'
-                },
-                {
-                    id: '5',
-                    main_value: '杭州市西湖区',
-                    address_district: '西湖区',
-                    address_street: '文三路',
-                    contact_area_code: '0571',
-                    contact_extension: '7890'
-                }
-            ];
+            var mockData = getMockDataForSupplement(currentSupplementItem);
+
+            // 根据当前输入值过滤数据
+            var filteredData = data || mockData;
+            if (currentValue && !data) {
+                const searchFields = [mainField, ...currentSupplementItem.subFields.map(sf => sf.bindingKey)];
+                filteredData = mockData.filter(item => {
+                    return searchFields.some(field => {
+                        const fieldValue = item[field];
+                        return fieldValue && String(fieldValue).toLowerCase().includes(currentValue.toLowerCase());
+                    });
+                });
+            }
+
+            console.log('表格显示的数据:', filteredData);
 
             // 使用全局变量 currentActiveInput 中的 element
             var element = currentActiveInput.element;
@@ -429,58 +574,71 @@
                 return;
             }
 
-            // 获取输入框的位置
-            var inputOffset = $(element).offset();
-            var inputHeight = $(element).outerHeight();
-            var inputWidth = $(element).outerWidth();
+            // 获取"提交"按钮的位置
+            var submitButton = document.querySelector('button[onclick="submit()"]');
+            var buttonRect = submitButton ? submitButton.getBoundingClientRect() : null;
+
+            // 获取输入框相对于视口的位置
+            var rect = element.getBoundingClientRect();
 
             console.log('输入框位置:', {
-                offset: inputOffset,
-                height: inputHeight,
-                width: inputWidth
+                top: rect.top,
+                left: rect.left,
+                bottom: rect.bottom,
+                right: rect.right,
+                width: rect.width,
+                height: rect.height
             });
 
+            if (buttonRect) {
+                console.log('按钮位置:', {
+                    top: buttonRect.top,
+                    bottom: buttonRect.bottom
+                });
+            }
+
             // 估算表格高度（每行约 38px，最多显示 5 行）
-            var estimatedTableHeight = 5 * 38 + 40; // 5 行数据 + 表头
-            var popupHeight = estimatedTableHeight + 20; // 加上 padding
+            var estimatedTableHeight = 5 * 38 + 40;
+            var popupHeight = estimatedTableHeight + 10;
+            var popupWidth = 600;
 
-            // 计算下方可用空间
-            var windowHeight = $(window).height();
-            var scrollTop = $(window).scrollTop();
-            var inputBottom = inputOffset.top + inputHeight;
-            var spaceBelow = windowHeight + scrollTop - inputBottom - 10; // 留 10px 边距
-
-            // 计算上方可用空间
-            var spaceAbove = inputOffset.top - scrollTop - 10;
+            // 计算下方可用空间（考虑按钮位置）
+            var windowHeight = window.innerHeight;
+            var maxBottom = buttonRect ? buttonRect.top - 10 : windowHeight - 10;
+            var spaceBelow = maxBottom - rect.bottom - 5;
+            var spaceAbove = rect.top - 10;
 
             console.log('空间计算:', {
                 windowHeight: windowHeight,
-                scrollTop: scrollTop,
-                inputBottom: inputBottom,
+                maxBottom: maxBottom,
                 spaceBelow: spaceBelow,
                 spaceAbove: spaceAbove,
                 popupHeight: popupHeight
             });
 
-            // 决定弹出方向
-            var popupDirection = 'bottom';
-            var top = inputOffset.top + inputHeight + 5;
+            // 决定弹出方向：优先向下，空间不足时向上
+            var top = rect.bottom + 5;
+            var left = rect.left;
 
             if (spaceBelow < popupHeight && spaceAbove >= popupHeight) {
-                // 下方空间不足，上方空间足够，向上弹出
-                popupDirection = 'top';
-                top = inputOffset.top - popupHeight - 5;
-                console.log('向下空间不足，改为向上弹出');
+                top = rect.top - popupHeight - 5;
+                console.log('向下空间不足（会遮挡按钮），改为向上弹出');
             } else if (spaceBelow < popupHeight && spaceAbove < popupHeight) {
-                // 上下空间都不足，优先向下，让表格可滚动
                 console.log('上下空间都不足，保持向下弹出（表格将显示滚动条）');
             } else {
                 console.log('向下弹出');
             }
 
-            var left = inputOffset.left;
+            // 检查右侧空间
+            var viewportWidth = window.innerWidth;
+            var spaceRight = viewportWidth - rect.left;
 
-            console.log('弹出层位置:', {top: top, left: left, direction: popupDirection});
+            if (spaceRight < popupWidth) {
+                left = viewportWidth - popupWidth - 10;
+                console.log('向右空间不足，调整为靠左对齐');
+            }
+
+            console.log('弹出层位置:', {top: top, left: left});
 
             // 创建临时容器
             var tempId = 'tablePicker_' + new Date().getTime();
@@ -495,21 +653,20 @@
                 content: containerHtml,
                 area: ['auto', 'auto'],
                 offset: [top + 'px', left + 'px'],
-                skin: 'layui-layer-content', // 修改为普通样式
-                shade: false, // 不显示遮罩
-                closeBtn: 0, // 不显示关闭按钮
-                move: false, // 禁止拖动
-                resize: false, // 禁止调整大小
-                zIndex: 999999, // 确保在最上层
-                scrollbar: false, // 禁止滚动条
-                background: '#FFFFFF', // 设置背景色
+                skin: 'layui-layer-content',
+                shade: false,
+                closeBtn: 0,
+                move: false,
+                resize: false,
+                zIndex: 999999,
+                scrollbar: false,
+                background: '#FFFFFF',
+                fixed: true,
                 success: function (layero, index) {
                     console.log('弹出层打开成功，layero:', layero);
 
-                    // 存储弹出层索引到全局变量，方便在事件处理中访问
                     window.currentTableLayerIndex = index;
 
-                    // 设置样式确保可见
                     $(layero).css({
                         'background': '#FFFFFF',
                         'border': '1px solid #ddd',
@@ -517,39 +674,36 @@
                         'z-index': '999999'
                     });
 
-                    // 渲染表格
                     table.render({
                         elem: '#ID-table-picker-' + bindingKey,
                         cols: [colsConfig],
-                        data: mockData,
-                        page: false,
+                        data: filteredData,
+                        page: true,
+                        limit: 5,
+                        limits: [5, 10, 15],
                         autoSort: true,
                         skin: 'line',
                         even: true,
                         size: 'sm',
-                        limits: [5, 10, 15],
-                        limit: 5,
                         done: function (res, curr, count) {
-                            // 表格渲染完成后的回调
                             console.log('表格渲染完成', res, curr, count);
 
-                            // 再次确保弹出层在最上层
                             setTimeout(function () {
                                 $(layero).css('z-index', '999999');
                             }, 100);
                         }
                     });
 
-                    // 监听表格单选框选择
                     table.on('radio(tablePickerFilter)', function (obj) {
                         var data = obj.data;
 
                         console.log('选中的行数据:', data);
+                        console.log('当前输入框 ID:', element.id);
+                        console.log('是否为原值输入框:', element.id.startsWith('originMain'));
 
-                        // 先填充到输入框
-                        fillInputWithData(data, currentSupplementItem);
+                        // 填充数据
+                        fillInputWithData(data, currentSupplementItem, element);
 
-                        // 立即关闭弹出层（不延迟）
                         console.log('准备关闭弹出层，索引:', window.currentTableLayerIndex);
                         layer.close(window.currentTableLayerIndex);
                         tableLayerIndex = null;
@@ -568,32 +722,91 @@
             console.log('提示：请点击表格中的单选框选择数据，或按 ESC 键关闭');
         };
 
+
         /**
          * 将表格数据填充到输入框
          * @param {Object} data - 表格行数据
          * @param {Object} supplementItem - 补充框配置项
+         * @param {HTMLElement} activeElement - 当前激活的输入框元素（可选）
          */
-        function fillInputWithData(data, supplementItem) {
+        function fillInputWithData(data, supplementItem, activeElement) {
             console.log('=== 开始填充数据 ===');
             console.log('data:', data);
             console.log('supplementItem:', supplementItem);
+            console.log('activeElement:', activeElement);
+            console.log('activeElement.id:', activeElement?.id);
 
             var $ = layui.$;
 
+            // 确定主字段名称（支持配置或默认）
+            const mainField = supplementItem.mainField || 'main_value';
+
             // 获取当前编辑的主输入框和子输入框的 ID
             const mainNewId = `newMain${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}`;
+            const mainOriginId = `originMain${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}`;
 
-            console.log('主输入框 ID:', mainNewId);
+            console.log('主输入框 ID:', {
+                newId: mainNewId,
+                originId: mainOriginId
+            });
+            console.log('使用的主字段:', mainField);
 
-            // 填充主输入框
-            $('#' + mainNewId).val(data.main_value || '');
-            console.log('主输入框新值:', $('#' + mainNewId).val());
+            // 判断当前编辑的是新值还是原值输入框
+            var targetMainId;
+            if (activeElement && activeElement.id.startsWith('originMain')) {
+                // 当前编辑的是原值输入框
+                targetMainId = mainOriginId;
+                console.log('填充原值输入框:', targetMainId);
+            } else {
+                // 当前编辑的是新值输入框
+                targetMainId = mainNewId;
+                console.log('填充新值输入框:', targetMainId);
+            }
 
-            // 填充子输入框
+            // 填充主输入框 - 使用配置的主字段名
+            $('#' + targetMainId).val(data[mainField] || '');
+            console.log(`主输入框 (${targetMainId}) 新值:`, $('#' + targetMainId).val());
+
+            // 清除主输入框的错误提示和样式
+            const mainErrorElement = document.getElementById(`error_${targetMainId}`);
+            if (mainErrorElement) {
+                mainErrorElement.remove();
+            }
+            const mainInputElement = document.getElementById(targetMainId);
+            if (mainInputElement) {
+                mainInputElement.style.borderColor = '';
+                mainInputElement.style.boxShadow = '';
+                mainInputElement.style.backgroundColor = '';
+            }
+
+            // 填充子输入框（根据是新值还是原值来决定填充哪一行的子输入框）
             supplementItem.subFields.forEach((subField, index) => {
-                const subNewId = `newSub${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}_${index}`;
-                $('#' + subNewId).val(data[subField.bindingKey] || '');
-                console.log(`子输入框 ${subField.label} 新值:`, $('#' + subNewId).val());
+                var subTargetId;
+                if (activeElement && activeElement.id.startsWith('originMain')) {
+                    // 原值的子输入框
+                    subTargetId = `originSub${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}_${index}`;
+                    console.log('填充原值子输入框:', subTargetId);
+                } else {
+                    // 新值的子输入框
+                    subTargetId = `newSub${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}_${index}`;
+                    console.log('填充新值子输入框:', subTargetId);
+                }
+
+                // 填充子输入框 - 使用子字段的 bindingKey
+                $('#' + subTargetId).val(data[subField.bindingKey] || '');
+                console.log(`子输入框 ${subField.label} (${subTargetId}) 新值:`, $('#' + subTargetId).val());
+
+                // 清除子输入框的错误提示和样式
+                const subErrorElement = document.getElementById(`error_${subTargetId}`);
+                if (subErrorElement) {
+                    subErrorElement.remove();
+                }
+                const subInputElement = document.getElementById(subTargetId);
+                if (subInputElement) {
+                    subInputElement.style.borderColor = '';
+                    subInputElement.style.boxShadow = '';
+                    subInputElement.style.backgroundColor = '';
+                }
             });
 
             // 重新渲染 Layui form（如果需要）
@@ -612,17 +825,10 @@
 
             var hasError = false;
 
-            // 先获取查询字段值
-            {#const queryValues = window.getQueryFieldValues();#}
-            {#console.log('=== 查询字段值 ===');#}
-            {#console.log(queryValues);#}
-
             // 获取所有表单值
             const allValues = window.getAllFormValues();
-            {#console.log('=== 所有输入框的值 ===');#}
-            {#console.log(allValues);#}
-            {#console.log('JSON 格式:');#}
-            {#console.log(JSON.stringify(allValues, null, 2));#}
+            console.log('=== 所有输入框的值 ===');
+            console.log(allValues);
 
             // 遍历所有值进行校验
             for (const [key, item] of Object.entries(allValues)) {
@@ -640,14 +846,7 @@
                         errorLabel = `新${item.label}不能为空`;
 
                         if (element) {
-                            // 设置边框样式
-                            element.style.borderColor = '#ff4d4f';
-                            element.style.boxShadow = '0 0 0 2px rgba(255, 77, 79, 0.2)';
-                            element.style.backgroundColor = '#fff1f0';
-
-                            // 添加或更新错误描述
-                            addOrUpdateError(element, errorId, errorLabel);
-
+                            markAsError(element, errorId, errorLabel);
                             console.error(errorLabel);
                             hasError = true;
                         }
@@ -661,82 +860,140 @@
                         errorLabel = `原${item.label} 不能为空`;
 
                         if (element) {
-                            // 设置边框样式
-                            element.style.borderColor = '#ff4d4f';
-                            element.style.boxShadow = '0 0 0 2px rgba(255, 77, 79, 0.2)';
-                            element.style.backgroundColor = '#fff1f0';
-
-                            // 添加或更新错误描述
-                            addOrUpdateError(element, errorId, errorLabel);
-
+                            markAsError(element, errorId, errorLabel);
                             console.error(errorLabel);
                             hasError = true;
                         }
                     }
                 }
 
-                // 补充框主输入框校验
+                // 查询字段和单选框做校验
+                if (item.inputType === 'radio' || item.inputType === 'query') {
+                    let newId;
+                    let errorLabel;
+                    let elementValue;
+                    // 兼容 ValidRule 和 newValidRule 两种属性名
+                    let validRule = item.ValidRule || item.newValidRule;
+
+                    if (item.inputType === 'radio') {
+                        // 单选框：ID 为 new 开头的字段，值在 newValue 中
+                        newId = `new${key.charAt(0).toUpperCase() + key.slice(1)}`;
+                        elementValue = item.newValue;
+                        errorLabel = `新${item.label}不能为空`;
+                    } else if (item.inputType === 'query') {
+                        // 查询字段：直接使用字段名作为 ID，值在 value 中
+                        newId = key;
+                        elementValue = item.value;
+                        errorLabel = `${item.label}不能为空`;
+                    }
+
+                    // 新值校验：检查空值和 required 规则
+                    if ((elementValue === '' || elementValue === null || elementValue === undefined) && validRule === 'required') {
+                        // 单选框特殊处理：通过 name 属性查找第一个 radio 元素
+                        if (item.inputType === 'radio') {
+                            element = document.querySelector(`input[name="${newId}"]`);
+                        } else {
+                            element = document.getElementById(newId);
+                        }
+
+                        const errorId = `error_${newId}`;
+
+                        if (element) {
+                            markAsError(element, errorId, errorLabel);
+                            console.error(errorLabel);
+                            hasError = true;
+                        }
+                    }
+                }
+
+                // 公共字段校验（必填项）
+                if (item.inputType === 'common') {
+                    if ((item.value === '' || item.value === null || item.value === undefined)) {
+                        element = document.getElementById(key);
+                        errorId = `error_${key}`;
+                        errorLabel = `${element ? element.previousElementSibling?.textContent || key : key}不能为空`;
+
+                        if (element) {
+                            markAsError(element, errorId, errorLabel);
+                            console.error(errorLabel);
+                            hasError = true;
+                        }
+                    }
+                }
+
+                // 补充框主输入框校验（新值和原值都要校验）
                 if (item.inputType === 'supplement' || item.inputType === 'supplement-main') {
-                    if ((item.newValue === '' || item.newValue === null || item.newValue === undefined) && item.newValueValidType === 'required') {
+                    // 获取补充框配置
+                    const supplementItem = gSupplementItems.find(s => s.bindingKey === key);
+
+                    // 新主输入框校验
+                    if ((item.newValue === '' || item.newValue === null || item.newValue === undefined)) {
                         const mainNewId = `newMain${key.charAt(0).toUpperCase() + key.slice(1)}`;
                         element = document.getElementById(mainNewId);
                         errorId = `error_${mainNewId}`;
-                        errorLabel = `新${key} 不能为空`;
+                        errorLabel = `新${item.label}不能为空`;
 
                         if (element) {
-                            // 设置边框样式
-                            element.style.borderColor = '#ff4d4f';
-                            element.style.boxShadow = '0 0 0 2px rgba(255, 77, 79, 0.2)';
-                            element.style.backgroundColor = '#fff1f0';
-
-                            // 添加或更新错误描述
-                            addOrUpdateError(element, errorId, errorLabel);
-
+                            markAsError(element, errorId, errorLabel);
                             console.error(errorLabel);
                             hasError = true;
                         }
                     }
+
+                    // 新子输入框校验（遍历所有子字段）
+                    if (supplementItem && supplementItem.subFields) {
+                        supplementItem.subFields.forEach((subField, index) => {
+                            const subNewId = `newSub${key.charAt(0).toUpperCase() + key.slice(1)}_${index}`;
+                            const subElement = document.getElementById(subNewId);
+                            const subValue = subElement ? subElement.value : '';
+
+                            if ((subValue === '' || subValue === null || subValue === undefined)) {
+                                const subErrorId = `error_${subNewId}`;
+                                const subErrorLabel = `新${subField.label}不能为空`;
+
+                                if (subElement) {
+                                    markAsError(subElement, subErrorId, subErrorLabel);
+                                    console.error(subErrorLabel);
+                                    hasError = true;
+                                }
+                            }
+                        });
+                    }
                 }
 
-                // 补充框子输入框校验
+                // 补充框子输入框校验（独立的子字段校验）
                 if (item.inputType === 'supplement-sub') {
-                    if ((item.newValue === '' || item.newValue === null || item.newValue === undefined) && item.newValueValidType === 'required') {
+                    if ((item.newValue === '' || item.newValue === null || item.newValue === undefined)) {
                         const subNewId = `newSub${item.parentKey.charAt(0).toUpperCase() + item.parentKey.slice(1)}_${key.split('_').pop()}`;
                         element = document.getElementById(subNewId);
                         errorId = `error_${subNewId}`;
-                        errorLabel = `新${key} 不能为空`;
+                        errorLabel = `新${item.label} 不能为空`;
 
                         if (element) {
-                            // 设置边框样式
-                            element.style.borderColor = '#ff4d4f';
-                            element.style.boxShadow = '0 0 0 2px rgba(255, 77, 79, 0.2)';
-                            element.style.backgroundColor = '#fff1f0';
-
-                            // 添加或更新错误描述
-                            addOrUpdateError(element, errorId, errorLabel);
-
+                            markAsError(element, errorId, errorLabel);
                             console.error(errorLabel);
                             hasError = true;
                         }
                     }
                 }
             }
-
             if (hasError) {
                 console.error('表单校验失败，请检查标红字段');
                 return null;
+            } else {
+                console.log(allValues)
             }
-
-            return allValues;
         };
+
 
         /**
          * 在输入框下方添加或更新错误描述
-         * @param {HTMLElement} inputElement - 输入框元素
+         * @param {HTMLElement} inputElement - 输入框元素（input、select 或 radio）
          * @param {string} errorId - 错误元素 ID
          * @param {string} errorMessage - 错误信息
          */
         function addOrUpdateError(inputElement, errorId, errorMessage) {
+            console.log(errorId)
             // 检查是否已存在错误提示
             let errorElement = document.getElementById(errorId);
 
@@ -757,23 +1014,75 @@
                   color:red;
                 `;
 
-                // 查找输入框的父容器
-                const parentGroup = inputElement.closest('.input-group') || inputElement.parentElement;
+                // 判断是否为下拉框元素
+                const isSelect = inputElement.tagName === 'SELECT';
 
-                if (parentGroup) {
-                    // 在输入框之后插入错误提示
-                    if (inputElement.nextSibling) {
-                        parentGroup.insertBefore(errorElement, inputElement.nextSibling);
+                // 判断是否为单选框元素
+                const isRadio = inputElement.type === 'radio';
+
+                if (isSelect) {
+                    // 下拉框的特殊处理：找到 layui 渲染的容器
+                    const layuiInputInline = inputElement.closest('.layui-input-inline');
+
+                    if (layuiInputInline) {
+                        // 在 layui-input-inline 容器后插入错误提示
+                        if (layuiInputInline.nextSibling) {
+                            layuiInputInline.parentNode.insertBefore(errorElement, layuiInputInline.nextSibling);
+                        } else {
+                            layuiInputInline.parentNode.appendChild(errorElement);
+                        }
                     } else {
-                        parentGroup.appendChild(errorElement);
+                        // 如果没有找到 layui 容器，回退到普通处理
+                        const parentGroup = inputElement.closest('.input-group') || inputElement.parentElement;
+                        if (parentGroup) {
+                            if (inputElement.nextSibling) {
+                                parentGroup.insertBefore(errorElement, inputElement.nextSibling);
+                            } else {
+                                parentGroup.appendChild(errorElement);
+                            }
+                        }
+                    }
+                } else if (isRadio) {
+                    // 单选框的特殊处理：找到最近的 .input-group 容器
+                    const parentGroup = inputElement.closest('.input-group');
+
+                    if (parentGroup) {
+                        // 在 .input-group 之后插入错误提示（而不是在其内部）
+                        if (parentGroup.nextSibling) {
+                            parentGroup.parentNode.insertBefore(errorElement, parentGroup.nextSibling);
+                        } else {
+                            parentGroup.parentNode.appendChild(errorElement);
+                        }
+                    } else {
+                        // 回退到普通处理
+                        const wrapperDiv = inputElement.closest('div[class*="layui-form-radio"]') || inputElement.parentElement;
+                        if (wrapperDiv) {
+                            if (wrapperDiv.nextSibling) {
+                                wrapperDiv.parentNode.insertBefore(errorElement, wrapperDiv.nextSibling);
+                            } else {
+                                wrapperDiv.parentNode.appendChild(errorElement);
+                            }
+                        }
                     }
                 } else {
-                    // 如果没有找到父容器，直接在输入框后插入
-                    if (inputElement.parentNode) {
+                    // 普通输入框的处理逻辑
+                    const parentGroup = inputElement.closest('.input-group') || inputElement.parentElement;
+
+                    if (parentGroup) {
+                        // 在输入框之后插入错误提示
                         if (inputElement.nextSibling) {
-                            inputElement.parentNode.insertBefore(errorElement, inputElement.nextSibling);
+                            parentGroup.insertBefore(errorElement, inputElement.nextSibling);
                         } else {
-                            inputElement.parentNode.appendChild(errorElement);
+                            parentGroup.appendChild(errorElement);
+                        }
+                    } else {
+                        // 如果没有找到父容器，直接在输入框后插入
+                        if (inputElement.parentNode) {
+                            if (inputElement.nextSibling) {
+                                inputElement.parentNode.insertBefore(errorElement, inputElement.nextSibling);
+                            } else {
+                                inputElement.parentNode.appendChild(errorElement);
+                            }
                         }
                     }
                 }
@@ -781,6 +1090,366 @@
 
             // 更新错误信息
             errorElement.textContent = errorMessage;
+        }
+
+        /**
+         * 清除输入框的错误提示和样式
+         * @param {HTMLElement} inputElement - 输入框元素
+         * @param {string} errorId - 错误元素 ID
+         */
+        function clearError(inputElement, errorId) {
+            // 清除错误提示元素
+            const errorElement = document.getElementById(errorId);
+            if (errorElement) {
+                errorElement.remove();
+            }
+
+            // 恢复输入框样式
+            inputElement.style.borderColor = '';
+            inputElement.style.boxShadow = '';
+            inputElement.style.backgroundColor = '';
+        }
+
+        /**
+         * 为输入框添加错误标记并监听输入事件
+         * @param {HTMLElement} element - 输入框元素
+         * @param {string} errorId - 错误元素 ID
+         * @param {string} errorMessage - 错误信息
+         */
+        function markAsError(element, errorId, errorMessage) {
+            // 设置边框样式
+            element.style.borderColor = '#ff4d4f';
+            element.style.boxShadow = '0 0 0 2px rgba(255, 77, 79, 0.2)';
+            element.style.backgroundColor = '#fff1f0';
+
+            // 添加或更新错误描述
+            addOrUpdateError(element, errorId, errorMessage);
+
+            // 监听输入事件，输入时清除错误样式
+            const eventType = element.type === 'radio' || element.type === 'checkbox' ? 'change' : 'input';
+
+            // 移除之前的事件监听器（避免重复绑定）
+            element.removeEventListener(eventType, element.clearErrorHandler);
+
+            // 创建新的事件监听器
+            element.clearErrorHandler = function () {
+                clearError(element, errorId);
+                element.removeEventListener(eventType, element.clearErrorHandler);
+            };
+
+            // 添加事件监听器
+            element.addEventListener(eventType, element.clearErrorHandler);
+        }
+
+        /**
+         * 在输入框下方添加或更新错误描述
+         * @param {HTMLElement} inputElement - 输入框元素（input、select 或 radio）
+         * @param {string} errorId - 错误元素 ID
+         * @param {string} errorMessage - 错误信息
+         */
+        function addOrUpdateError(inputElement, errorId, errorMessage) {
+            console.log(errorId)
+            // 检查是否已存在错误提示
+            let errorElement = document.getElementById(errorId);
+
+            if (!errorElement) {
+                // 创建错误提示元素
+                errorElement = document.createElement('div');
+                errorElement.id = errorId;
+                errorElement.className = 'form-control-feedback';
+
+                // 设置样式：红色文字、小字号、顶部间距
+                errorElement.style.cssText = `
+                  display:flex;
+                  align-items:center;
+                  padding:.375rem .75rem;
+                  font-size:1rem;
+                  font-weight:400;
+                  line-height:1.5;
+                  color:red;
+                `;
+
+                // 判断是否为下拉框元素
+                const isSelect = inputElement.tagName === 'SELECT';
+
+                // 判断是否为单选框元素
+                const isRadio = inputElement.type === 'radio';
+
+                if (isSelect) {
+                    // 下拉框的特殊处理：找到 layui 渲染的容器
+                    const layuiInputInline = inputElement.closest('.layui-input-inline');
+
+                    if (layuiInputInline) {
+                        // 在 layui-input-inline 容器后插入错误提示
+                        if (layuiInputInline.nextSibling) {
+                            layuiInputInline.parentNode.insertBefore(errorElement, layuiInputInline.nextSibling);
+                        } else {
+                            layuiInputInline.parentNode.appendChild(errorElement);
+                        }
+                    } else {
+                        // 如果没有找到 layui 容器，回退到普通处理
+                        const parentGroup = inputElement.closest('.input-group') || inputElement.parentElement;
+                        if (parentGroup) {
+                            if (inputElement.nextSibling) {
+                                parentGroup.insertBefore(errorElement, inputElement.nextSibling);
+                            } else {
+                                parentGroup.appendChild(errorElement);
+                            }
+                        }
+                    }
+                } else if (isRadio) {
+                    // 单选框的特殊处理：找到最近的 .input-group 容器
+                    const parentGroup = inputElement.closest('.input-group');
+
+                    if (parentGroup) {
+                        // 在 .input-group 之后插入错误提示（而不是在其内部）
+                        if (parentGroup.nextSibling) {
+                            parentGroup.parentNode.insertBefore(errorElement, parentGroup.nextSibling);
+                        } else {
+                            parentGroup.parentNode.appendChild(errorElement);
+                        }
+                    } else {
+                        // 回退到普通处理
+                        const wrapperDiv = inputElement.closest('div[class*="layui-form-radio"]') || inputElement.parentElement;
+                        if (wrapperDiv) {
+                            if (wrapperDiv.nextSibling) {
+                                wrapperDiv.parentNode.insertBefore(errorElement, wrapperDiv.nextSibling);
+                            } else {
+                                wrapperDiv.parentNode.appendChild(errorElement);
+                            }
+                        }
+                    }
+                } else {
+                    // 普通输入框的处理逻辑
+                    const parentGroup = inputElement.closest('.input-group') || inputElement.parentElement;
+
+                    if (parentGroup) {
+                        // 在输入框之后插入错误提示
+                        if (inputElement.nextSibling) {
+                            parentGroup.insertBefore(errorElement, inputElement.nextSibling);
+                        } else {
+                            parentGroup.appendChild(errorElement);
+                        }
+                    } else {
+                        // 如果没有找到父容器，直接在输入框后插入
+                        if (inputElement.parentNode) {
+                            if (inputElement.nextSibling) {
+                                inputElement.parentNode.insertBefore(errorElement, inputElement.nextSibling);
+                            } else {
+                                inputElement.parentNode.appendChild(errorElement);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 更新错误信息
+            errorElement.textContent = errorMessage;
+        }
+
+        /**
+         * 清除输入框的错误提示和样式
+         * @param {HTMLElement} inputElement - 输入框元素
+         * @param {string} errorId - 错误元素 ID
+         */
+        function clearError(inputElement, errorId) {
+            // 清除错误提示元素
+            const errorElement = document.getElementById(errorId);
+            if (errorElement) {
+                errorElement.remove();
+            }
+
+            // 恢复输入框样式
+            inputElement.style.borderColor = '';
+            inputElement.style.boxShadow = '';
+            inputElement.style.backgroundColor = '';
+        }
+
+        /**
+         * 为输入框添加错误标记并监听输入事件
+         * @param {HTMLElement} element - 输入框元素
+         * @param {string} errorId - 错误元素 ID
+         * @param {string} errorMessage - 错误信息
+         */
+        function markAsError(element, errorId, errorMessage) {
+            // 设置边框样式
+            element.style.borderColor = '#ff4d4f';
+            element.style.boxShadow = '0 0 0 2px rgba(255, 77, 79, 0.2)';
+            element.style.backgroundColor = '#fff1f0';
+
+            // 添加或更新错误描述
+            addOrUpdateError(element, errorId, errorMessage);
+
+            // 监听输入事件，输入时清除错误样式
+            const eventType = element.type === 'radio' || element.type === 'checkbox' ? 'change' : 'input';
+
+            // 移除之前的事件监听器（避免重复绑定）
+            element.removeEventListener(eventType, element.clearErrorHandler);
+
+            // 创建新的事件监听器
+            element.clearErrorHandler = function () {
+                clearError(element, errorId);
+                element.removeEventListener(eventType, element.clearErrorHandler);
+            };
+
+            // 添加事件监听器
+            element.addEventListener(eventType, element.clearErrorHandler);
+        }
+
+
+        /**
+         * 在输入框下方添加或更新错误描述
+         * @param {HTMLElement} inputElement - 输入框元素（input、select 或 radio）
+         * @param {string} errorId - 错误元素 ID
+         * @param {string} errorMessage - 错误信息
+         */
+        function addOrUpdateError(inputElement, errorId, errorMessage) {
+            console.log(errorId)
+            // 检查是否已存在错误提示
+            let errorElement = document.getElementById(errorId);
+
+            if (!errorElement) {
+                // 创建错误提示元素
+                errorElement = document.createElement('div');
+                errorElement.id = errorId;
+                errorElement.className = 'form-control-feedback';
+
+                // 设置样式：红色文字、小字号、顶部间距
+                errorElement.style.cssText = `
+                  display:flex;
+                  align-items:center;
+                  padding:.375rem .75rem;
+                  font-size:1rem;
+                  font-weight:400;
+                  line-height:1.5;
+                  color:red;
+                `;
+
+                // 判断是否为下拉框元素
+                const isSelect = inputElement.tagName === 'SELECT';
+
+                // 判断是否为单选框元素
+                const isRadio = inputElement.type === 'radio';
+
+                if (isSelect) {
+                    // 下拉框的特殊处理：找到 layui 渲染的容器
+                    const layuiInputInline = inputElement.closest('.layui-input-inline');
+
+                    if (layuiInputInline) {
+                        // 在 layui-input-inline 容器后插入错误提示
+                        if (layuiInputInline.nextSibling) {
+                            layuiInputInline.parentNode.insertBefore(errorElement, layuiInputInline.nextSibling);
+                        } else {
+                            layuiInputInline.parentNode.appendChild(errorElement);
+                        }
+                    } else {
+                        // 如果没有找到 layui 容器，回退到普通处理
+                        const parentGroup = inputElement.closest('.input-group') || inputElement.parentElement;
+                        if (parentGroup) {
+                            if (inputElement.nextSibling) {
+                                parentGroup.insertBefore(errorElement, inputElement.nextSibling);
+                            } else {
+                                parentGroup.appendChild(errorElement);
+                            }
+                        }
+                    }
+                } else if (isRadio) {
+                    // 单选框的特殊处理：找到最近的 .input-group 容器
+                    const parentGroup = inputElement.closest('.input-group');
+
+                    if (parentGroup) {
+                        // 在 .input-group 之后插入错误提示（而不是在其内部）
+                        if (parentGroup.nextSibling) {
+                            parentGroup.parentNode.insertBefore(errorElement, parentGroup.nextSibling);
+                        } else {
+                            parentGroup.parentNode.appendChild(errorElement);
+                        }
+                    } else {
+                        // 回退到普通处理
+                        const wrapperDiv = inputElement.closest('div[class*="layui-form-radio"]') || inputElement.parentElement;
+                        if (wrapperDiv) {
+                            if (wrapperDiv.nextSibling) {
+                                wrapperDiv.parentNode.insertBefore(errorElement, wrapperDiv.nextSibling);
+                            } else {
+                                wrapperDiv.parentNode.appendChild(errorElement);
+                            }
+                        }
+                    }
+                } else {
+                    // 普通输入框的处理逻辑
+                    const parentGroup = inputElement.closest('.input-group') || inputElement.parentElement;
+
+                    if (parentGroup) {
+                        // 在输入框之后插入错误提示
+                        if (inputElement.nextSibling) {
+                            parentGroup.insertBefore(errorElement, inputElement.nextSibling);
+                        } else {
+                            parentGroup.appendChild(errorElement);
+                        }
+                    } else {
+                        // 如果没有找到父容器，直接在输入框后插入
+                        if (inputElement.parentNode) {
+                            if (inputElement.nextSibling) {
+                                inputElement.parentNode.insertBefore(errorElement, inputElement.nextSibling);
+                            } else {
+                                inputElement.parentNode.appendChild(errorElement);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 更新错误信息
+            errorElement.textContent = errorMessage;
+        }
+
+        /**
+         * 清除输入框的错误提示和样式
+         * @param {HTMLElement} inputElement - 输入框元素
+         * @param {string} errorId - 错误元素 ID
+         */
+        function clearError(inputElement, errorId) {
+            // 清除错误提示元素
+            const errorElement = document.getElementById(errorId);
+            if (errorElement) {
+                errorElement.remove();
+            }
+
+            // 恢复输入框样式
+            inputElement.style.borderColor = '';
+            inputElement.style.boxShadow = '';
+            inputElement.style.backgroundColor = '';
+        }
+
+        /**
+         * 为输入框添加错误标记并监听输入事件
+         * @param {HTMLElement} element - 输入框元素
+         * @param {string} errorId - 错误元素 ID
+         * @param {string} errorMessage - 错误信息
+         */
+        function markAsError(element, errorId, errorMessage) {
+            // 设置边框样式
+            element.style.borderColor = '#ff4d4f';
+            element.style.boxShadow = '0 0 0 2px rgba(255, 77, 79, 0.2)';
+            element.style.backgroundColor = '#fff1f0';
+
+            // 添加或更新错误描述
+            addOrUpdateError(element, errorId, errorMessage);
+
+            // 监听输入事件，输入时清除错误样式
+            const eventType = element.type === 'radio' || element.type === 'checkbox' ? 'change' : 'input';
+
+            // 移除之前的事件监听器（避免重复绑定）
+            element.removeEventListener(eventType, element.clearErrorHandler);
+
+            // 创建新的事件监听器
+            element.clearErrorHandler = function () {
+                clearError(element, errorId);
+                element.removeEventListener(eventType, element.clearErrorHandler);
+            };
+
+            // 添加事件监听器
+            element.addEventListener(eventType, element.clearErrorHandler);
         }
 
 
@@ -852,8 +1521,8 @@
                         originDefaultValue: "active",
                         newDefaultValue: "active",
                         bindingKey: "status",
-                        newValidRule: "requiredReverse",
-                        originValidRule: "requiredReverse",
+                        newValidRule: "required",
+                        originValidRule: "required",
                         sortOrder: 1,
                         inputType: 'select',
                         connectedTable: ["t1", "t2"],
@@ -870,7 +1539,6 @@
                         newDefaultValue: "",
                         bindingKey: "type",
                         newValidRule: "required",
-                        originValidRule: "required",
                         sortOrder: 1,
                         inputType: 'radio',
                         connectedTable: ["t1"],
@@ -906,29 +1574,27 @@
                     {
                         label: "地址信息",
                         type: "supplement",
-                        originDefaultValue: "北京市朝阳区",
-                        newDefaultValue: "",
                         bindingKey: "address",
                         sortOrder: 6,
                         inputType: 'supplement',
+                        mainField: "main_value",
                         connectedTable: ["t1", "t2", "t3"],
                         subFields: [
-                            {label: "区", defaultValue: "朝阳区", width: 100, bindingKey: "address_district"},
-                            {label: "街道", defaultValue: "建国路", width: 150, bindingKey: "address_street"}
+                            {label: "区", width: 100, bindingKey: "address_district"},
+                            {label: "街道", width: 150, bindingKey: "address_street"}
                         ]
                     },
                     {
                         label: "联系方式",
                         type: "supplement",
-                        originDefaultValue: "13800138000",
-                        newDefaultValue: "",
                         bindingKey: "contact",
                         sortOrder: 7,
                         inputType: 'supplement',
+                        mainField: "contact_main_value",
                         connectedTable: ["t1", "t2", "t3"],
                         subFields: [
-                            {label: "区号", defaultValue: "010", width: 80, bindingKey: "contact_area_code"},
-                            {label: "分机", defaultValue: "1234", width: 100, bindingKey: "contact_extension"}
+                            {label: "区号", width: 80, bindingKey: "contact_area_code"},
+                            {label: "分机", width: 100, bindingKey: "contact_extension"}
                         ]
                     }
                 ]
@@ -952,7 +1618,7 @@
 
                 let queryHtml = '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
                 items.forEach((item, index) => {
-                    const queryId = `query${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
+                    const queryId = item.bindingKey;
                     queryHtml += `                        <span class="input-group-text">${item.label}</span>
                         <input type="${item.type}"
                                id="${queryId}"
@@ -1112,21 +1778,21 @@
                 // 生成新值行的主输入框和子输入框
                 let newHtml = '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
 
-                // 主输入框（新值）
+                // 主输入框（新值）- 每个补充框有独立的主字段
                 newHtml += `
-                    <span class="input-group-text" style=" background: coral">新${item.label}</span>
+                    <span class="input-group-text" style=" background: greenyellow">新${item.label}</span>
                     <input type="text"
                            id="${mainNewId}"
                            class="form-control"
-                           value="${item.newDefaultValue}"
+                           value=""
                            data-binding-key="${item.bindingKey}"
                            data-field-type="supplement-main"
-                           placeholder="请输入${item.label}"
+                           placeholder="请输入${item.label}主值"
                             onchange="supplementContainerChange('${item.bindingKey}', this)"
-                           style="max-width: 200px;border-color: red;">
+                           style="max-width: 200px;">
                 `;
 
-                // 子输入框（新值）
+                // 子输入框（新值）- 属于当前补充框的子字段
                 item.subFields.forEach((subField, index) => {
                     const subNewId = `newSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
                     newHtml += `
@@ -1135,9 +1801,10 @@
                         <input type="text"
                                id="${subNewId}"
                                class="form-control"
-                               value="${subField.defaultValue || ''}"
+                               value=""
                                data-binding-key="${subField.bindingKey}"
                                data-sub-index="${index}"
+                               data-parent-binding-key="${item.bindingKey}"
                                data-field-type="supplement-sub"
                                placeholder="请输入${subField.label}"
                                style="min-width: ${subField.width || 120};">
@@ -1149,21 +1816,21 @@
                 // 生成原值行的主输入框和子输入框
                 let originHtml = '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
 
-                // 主输入框（原值）
+                // 主输入框（原值）- 每个补充框有独立的主字段
                 originHtml += `
-                    <span class="input-group-text" style="background: coral;">原${item.label}</span>
+                    <span class="input-group-text" style="background: greenyellow;">原${item.label}</span>
                     <input type="text"
                            id="${mainOriginId}"
                            class="form-control"
-                           value="${item.originDefaultValue}"
+                           value=""
                            data-binding-key="${item.bindingKey}"
                            data-field-type="supplement-main"
-                           placeholder="原${item.label}"
+                           placeholder="原${item.label}主值"
                            onchange="supplementContainerChange('${item.bindingKey}', this)"
-                           style="max-width: 200px;border-color: red;">
+                           style="max-width: 200px;">
                 `;
 
-                // 子输入框（原值）
+                // 子输入框（原值）- 属于当前补充框的子字段
                 item.subFields.forEach((subField, index) => {
                     const subOriginId = `originSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
                     originHtml += `
@@ -1172,9 +1839,10 @@
                         <input type="text"
                                id="${subOriginId}"
                                class="form-control"
-                               value="${subField.defaultValue || ''}"
+                               value=""
                                data-binding-key="${subField.bindingKey}"
                                data-sub-index="${index}"
+                               data-parent-binding-key="${item.bindingKey}"
                                data-field-type="supplement-sub"
                                placeholder="原${subField.label}"
                                style="min-width: ${subField.width || 120};">
@@ -1185,6 +1853,7 @@
 
                 return newHtml + originHtml;
             }
+
 
             // 分离不同类型的配置项并赋值给全局变量
             gSelectItems = sortInputItems(dynamicTableConfig.updateItems.filter(item => item.inputType === 'select'));
