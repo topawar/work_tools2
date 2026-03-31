@@ -85,6 +85,9 @@
     <script>
         // 存储所有 Layui 日期选择器实例
         const laydateInstances = [];
+
+        // 全局配置对象
+        let dynamicTableConfig = null;
         // 存储所有 Layui dropdown 实例
         const dropdownInstances = [];
 
@@ -828,7 +831,6 @@
             // 获取所有表单值
             const allValues = window.getAllFormValues();
             console.log('=== 所有输入框的值 ===');
-            console.log(allValues);
 
             // 遍历所有值进行校验
             for (const [key, item] of Object.entries(allValues)) {
@@ -977,12 +979,62 @@
                     }
                 }
             }
+            // 补充一个校验：从 allValues 获取所有查询字段的值，查询字段至少要有一个字段不能为空
+            const queryFields = Object.entries(allValues).filter(([key, item]) => item.inputType === 'query');
+            const hasNonEmptyQueryField = queryFields.some(([key, item]) => item.value !== '' && item.value !== null && item.value !== undefined);
+
+            if (queryFields.length > 0 && !hasNonEmptyQueryField) {
+                layui.layer.msg('查询字段至少需要填写一个条件', {icon: 2});
+                hasError = true;
+            }
+
+
             if (hasError) {
                 console.error('表单校验失败，请检查标红字段');
                 return null;
             } else {
-                console.log(allValues)
+                console.log(allValues);
+
+                // 构建请求数据：配置 + 表单值
+                const requestData = {
+                    config: dynamicTableConfig,
+                    formValues: allValues,
+                };
+
+                console.log('提交的数据:', requestData);
+
+                // 显示加载提示
+                const loadingIndex = layui.layer.load(2);
+
+                // 使用 axios 发送 POST 请求
+                axios.post('/api/dynamic/submit/', requestData)
+                    .then(function (response) {
+                        layui.layer.close(loadingIndex);
+                        console.log('提交成功:', response.data);
+
+                        if (response.data.success) {
+                            layui.layer.msg('提交成功！', {icon: 1});
+                        } else {
+                            layui.layer.msg('提交失败：' + (response.data.message || '未知错误'), {icon: 2});
+                        }
+                    })
+                    .catch(function (error) {
+                        layui.layer.close(loadingIndex);
+                        console.error('提交失败:', error);
+
+                        let errorMsg = '网络错误';
+                        if (error.response) {
+                            errorMsg = error.response.data?.message || `服务器错误：${error.response.status}`;
+                        } else if (error.request) {
+                            errorMsg = '无法连接到服务器';
+                        } else {
+                            errorMsg = error.message;
+                        }
+
+                        layui.layer.msg(errorMsg, {icon: 2});
+                    });
             }
+
         };
 
 
@@ -1455,7 +1507,7 @@
 
         window.onload = function () {
             // 临时的配置项数组（后续可以从后端接口获取）
-            const dynamicTableConfig = {
+            dynamicTableConfig = {
                 formName: "合同明细单价修改",
                 tableNameList: ["t1", "t2", "t3"],
                 queryItems: [
@@ -1465,7 +1517,7 @@
                         defaultValue: "",
                         bindingKey: "itemId",
                         sortOrder: 1,
-                        tableNameList: ["t1", "t2", "t3"],
+                        connectedTable: ["t1", "t2", "t3"],
                         ValidRule: "requiredReverse",
                     },
                     {
@@ -1474,7 +1526,7 @@
                         defaultValue: "",
                         bindingKey: "bpoLineId",
                         sortOrder: 3,
-                        tableNameList: ["t1", "t2", "t3"],
+                        connectedTable: ["t1", "t2", "t3"],
                         ValidRule: "required"
                     }
                 ],

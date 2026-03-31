@@ -28,4 +28,6 @@ urlpatterns = [
     path("dashboard/", views.dashboard, name="dashboard"),
     path("dynamic/<str:form_id>", views.dynamic, name="dynamic"),
     path("test/", views.test),
+    path("api/dynamic/submit/", views.dynamic_submit, name="dynamic_submit"),
 ]
+
