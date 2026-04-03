@@ -66,7 +66,26 @@
                 <div id="supplementContainer">
                     <!-- 每个补充框单独一行，包含主输入框和子输入框 -->
                 </div>
-
+                      <!--下载导入模板链接  批量导入按钮-->
+                <!-- 功能按钮区域 -->
+                <div class="row g-3 align-items-center mb-4">
+                    <div class="col-auto">
+                        <a href="javascript:void(0)" onclick="downloadTemplate()" class="btn btn-outline-primary"
+                           id="downloadTemplateBtn">
+                            <i class="bi bi-download"></i> 下载导入模板
+                        </a>
+                    </div>
+                    <div class="col-auto">
+                        <input type="file" id="batchImportFile" accept=".xlsx" style="display: none;" onchange="handleBatchImportFile(this)">
+                        <button type="button" onclick="document.getElementById('batchImportFile').click()" class="btn btn-outline-success"
+                                id="batchImportBtn">
+                            <i class="bi bi-upload"></i> 批量导入
+                        </button>
+                    </div>
+                    <div class="col-auto">
+                        <span id="batchImportFileName" style="color: #666; margin-left: 10px;"></span>
+                    </div>
+                </div>
 
                 <button onclick="submit()" class="layui-btn">提交</button>
 
@@ -83,6 +102,12 @@
     <script src="/static/layui/layui.js"></script>
 
     <script>
+
+        /**
+         * 存储批量导入的文件
+         */
+        let batchImportFile = null;
+
         // 存储所有 Layui 日期选择器实例
         const laydateInstances = [];
 
@@ -820,10 +845,205 @@
         };
 
 
+        /**
+         * 下载导入模板
+         */
+        window.downloadTemplate = function () {
+            // 显示加载提示
+            const loadingIndex = layui.layer.load(2);
+
+            // 发送配置到后端生成 Excel 模板
+            axios.post('/api/dynamic/download-template/', {
+                config: dynamicTableConfig
+            }, {
+                responseType: 'blob'  // 重要：指定响应类型为二进制流
+            })
+                .then(function (response) {
+                    layui.layer.close(loadingIndex);
+
+                    // 创建下载链接
+                    const blob = new Blob([response.data], {
+                        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    });
+                    // 从 Content-Disposition 头获取文件名
+                    const contentDisposition = response.headers['content-disposition'];
+                    let filename = '模板.xlsx';
+
+                    if (contentDisposition) {
+                        // 尝试匹配 filename* (RFC 5987 标准，UTF-8 编码)
+                        const filenameStarMatch = contentDisposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+                        if (filenameStarMatch && filenameStarMatch[1]) {
+                            filename = decodeURIComponent(filenameStarMatch[1]);
+                        } else {
+                            // 回退到普通 filename 匹配
+                            const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/);
+                            if (filenameMatch && filenameMatch[1]) {
+                                filename = decodeURIComponent(filenameMatch[1]);
+                            }
+                        }
+                    }
+
+
+                    // 触发下载
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+
+                    layui.layer.msg('模板下载成功！', {icon: 1});
+                })
+                .catch(function (error) {
+                    layui.layer.close(loadingIndex);
+                    console.error('下载失败:', error);
+
+                    let errorMsg = '下载失败';
+                    if (error.response) {
+                        errorMsg = error.response.data?.message || `服务器错误：${error.response.status}`;
+                    } else if (error.request) {
+                        errorMsg = '无法连接到服务器';
+                    } else {
+                        errorMsg = error.message;
+                    }
+
+                    layui.layer.msg(errorMsg, {icon: 2});
+                });
+        };
+
+        /**
+         * 批量导入 - 仅选择文件并暂存
+         */
+        window.batchImport = function () {
+            layui.layer.open({
+                type: 1,
+                title: '批量导入',
+                area: ['600px', '250px'],
+                content: `
+                    <div style="padding: 20px;">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label" style="width: 100px;">选择文件</label>
+                            <div class="layui-input-block" style="margin-left: 130px;">
+                                <input type="file" id="importFile" accept=".xlsx" style="display: none;" onchange="handleFileSelect(this)">
+                                <button type="button" class="layui-btn layui-btn-normal" onclick="document.getElementById('importFile').click()">
+                                    <i class="bi bi-folder2-open"></i> 选择 Excel 文件
+                                </button>
+                                <p id="fileName" style="margin-top: 10px; color: #666;"></p>
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label" style="width: 100px;">提示信息</label>
+                            <div class="layui-input-block" style="margin-left: 130px;">
+                                <div style="padding: 10px; background: #f0f9ff; border: 1px solid #b3e5fc; border-radius: 4px; color: #0288d1;">
+                                    <i class="bi bi-info-circle"></i> 仅支持 .xlsx 格式文件<br>
+                                    选择文件后点击主表单的"提交"按钮一起提交<br>
+                                    校验失败的数据将在结果文件中标注
+                                </div>
+                            </div>
+                        </div>
+                        <div class="layui-form-item" style="margin-top: 20px;">
+                            <div class="layui-input-block" style="margin-left: 130px;">
+                                <button type="button" class="layui-btn layui-btn-primary" onclick="clearBatchImport(); layui.layer.closeAll()">
+                                    <i class="bi bi-x-circle"></i> 取消选择
+                                </button>
+                                <button type="button" class="layui-btn layui-btn-primary" onclick="layui.layer.closeAll()">
+                                    关闭
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `,
+                success: function (layero, index) {
+                    const fileInput = layero.find('#importFile')[0];
+                    if (fileInput) {
+                        fileInput.selectedFile = null;
+                    }
+                }
+            });
+        };
+
+
+        /**
+         * 处理批量导入文件选择
+         */
+        window.handleBatchImportFile = function(input) {
+            const file = input.files[0];
+            if (file) {
+                if (!file.name.endsWith('.xlsx')) {
+                    layui.layer.msg('仅支持 .xlsx 格式的 Excel 文件', {icon: 2});
+                    input.value = '';
+                    batchImportFile = null;
+                    document.getElementById('batchImportFileName').textContent = '';
+                    return;
+                }
+
+                batchImportFile = file;
+                document.getElementById('batchImportFileName').textContent = '已选择：' + file.name + ' (' + formatFileSize(file.size) + ')';
+                layui.layer.msg('文件已选择，请点击"提交"按钮进行导入', {icon: 1});
+            }
+        };
+
+        /**
+         * 处理文件选择
+         */
+        window.handleFileSelect = function (input) {
+            const file = input.files[0];
+            if (file) {
+                input.selectedFile = file;
+                batchImportFile = file;
+
+                if (!file.name.endsWith('.xlsx')) {
+                    layui.layer.msg('仅支持 .xlsx 格式的 Excel 文件', {icon: 2});
+                    input.value = '';
+                    document.getElementById('fileName').textContent = '';
+                    batchImportFile = null;
+                    return;
+                }
+
+                document.getElementById('fileName').textContent = '已选择：' + file.name + ' (' + formatFileSize(file.size) + ')';
+            }
+        };
+
+        /**
+         * 格式化文件大小
+         */
+        function formatFileSize(bytes) {
+            if (bytes < 1024) {
+                return bytes + ' B';
+            } else if (bytes < 1024 * 1024) {
+                return (bytes / 1024).toFixed(2) + ' KB';
+            } else {
+                return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            }
+        }
+
+        /**
+         * 清除批量导入文件
+         */
+        window.clearBatchImport = function () {
+            batchImportFile = null;
+            const fileInput = document.getElementById('importFile');
+            if (fileInput) {
+                fileInput.value = '';
+                fileInput.selectedFile = null;
+            }
+            document.getElementById('fileName').textContent = '';
+            layui.layer.msg('已取消批量导入', {icon: 1});
+        };
+
+
         window.submit = function () {
             if (!layui.$) {
                 console.error('Layui 尚未完全加载，请稍后再试');
                 return null;
+            }
+
+            // 如果有批量导入文件，跳过表单校验，直接走批量导入逻辑
+            if (batchImportFile) {
+                submitWithBatchImport();
+                return;
             }
 
             var hasError = false;
@@ -1037,6 +1257,95 @@
 
         };
 
+
+          /**
+         * 带批量导入的提交
+         */
+        function submitWithBatchImport() {
+            const loadingIndex = layui.layer.load(2);
+
+            const formData = new FormData();
+            formData.append('file', batchImportFile);
+            formData.append('config', JSON.stringify(dynamicTableConfig));
+
+            axios.post('/api/dynamic/batch-import/', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                },
+                responseType: 'blob'
+            })
+            .then(function (response) {
+                layui.layer.close(loadingIndex);
+
+                const blob = new Blob([response.data], {
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                });
+
+                const contentDisposition = response.headers['content-disposition'];
+                let filename = '导入结果.xlsx';
+
+                if (contentDisposition) {
+                    const filenameStarMatch = contentDisposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+                    if (filenameStarMatch && filenameStarMatch[1]) {
+                        filename = decodeURIComponent(filenameStarMatch[1]);
+                    } else {
+                        const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/);
+                        if (filenameMatch && filenameMatch[1]) {
+                            filename = decodeURIComponent(filenameMatch[1]);
+                        }
+                    }
+                }
+
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+
+                layui.layer.msg('批量导入完成，请查看结果文件', {icon: 1});
+
+                // 清除已上传的文件
+                batchImportFile = null;
+                document.getElementById('batchImportFile').value = '';
+                document.getElementById('batchImportFileName').textContent = '';
+            })
+            .catch(function (error) {
+                layui.layer.close(loadingIndex);
+                console.error('导入失败:', error);
+
+                let errorMsg = '导入失败';
+
+                if (error.response && error.response.status === 400) {
+                    const blob = error.response.data;
+                    if (blob && blob instanceof Blob) {
+                        const reader = new FileReader();
+                        reader.onload = function () {
+                            try {
+                                const errorData = JSON.parse(reader.result);
+                                layui.layer.msg(errorData.message || '导入失败', {icon: 2});
+                            } catch (e) {
+                                layui.layer.msg('导入失败：' + reader.result, {icon: 2});
+                            }
+                        };
+                        reader.readAsText(blob);
+                        return;
+                    } else if (error.response.data && error.response.data.message) {
+                        errorMsg = error.response.data.message;
+                    }
+                } else if (error.response) {
+                    errorMsg = `服务器错误：${error.response.status}`;
+                } else if (error.request) {
+                    errorMsg = '无法连接到服务器';
+                } else {
+                    errorMsg = error.message;
+                }
+
+                layui.layer.msg(errorMsg, {icon: 2});
+            });
+        }
 
         /**
          * 在输入框下方添加或更新错误描述

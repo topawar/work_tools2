@@ -3,6 +3,9 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 import json
 import sqlparse
+from datetime import datetime
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill
 
 from work_tools2.models import Menu
 
@@ -191,11 +194,16 @@ def generate_update_sql(config, form_values):
                         if forward_sub_set_value is not None:
                             forward_set_clauses.append(forward_sub_set_value)
 
-                        # 回退语句：子字段继承主字段的表关联和验证规则
-                        backward_sub_set_value = handle_field_value(sub_binding_key, sub_origin_value,
-                                                                    origin_valid_rule)
-                        if backward_sub_set_value is not None:
-                            backward_set_clauses.append(backward_sub_set_value)
+                        # 回退语句：子字段特殊处理 - 输入什么保留什么，为空就拼接=''
+                        if table_name in connected_tables:
+                            # 子字段的回退语句不使用 ValidRule，直接处理
+                            if sub_origin_value is None or sub_origin_value == '':
+                                backward_sub_set_value = f"{sub_binding_key} = ''"
+                            else:
+                                backward_sub_set_value = f"{sub_binding_key} = '{sub_origin_value}'"
+
+                            if backward_sub_set_value is not None:
+                                backward_set_clauses.append(backward_sub_set_value)
             else:
                 # 普通字段直接处理
                 binding_key = item.get('bindingKey')
@@ -332,6 +340,527 @@ def handle_field_value(field_name, value, valid_rule):
             return f"{field_name} = '{value}'"
 
 
+@csrf_exempt
+def download_template(request):
+    """
+    根据配置动态生成 Excel 导入模板
+    """
+    if request.method == 'POST':
+        try:
+            # 解析 JSON 数据
+            data = json.loads(request.body)
+            config = data.get('config', {})
+
+            form_name = config.get('formName', '模板')
+            query_items = config.get('queryItems', [])
+            update_items = config.get('updateItems', [])
+
+            # 创建工作簿和工作表
+            wb = Workbook()
+            ws = wb.active
+            ws.title = form_name[:31]  # Excel 工作表名最长 31 字符
+
+            # 设置表头样式
+            header_font = Font(bold=True, size=12)
+            header_alignment = Alignment(horizontal='center', vertical='center')
+            header_fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
+
+            # 构建表头列表
+            headers = []
+
+            # 1. 添加查询字段表头（仅一个 label）
+            for item in query_items:
+                headers.append({
+                    'label': item.get('label', ''),
+                    'bindingKey': item.get('bindingKey', ''),
+                    'type': 'query'
+                })
+
+            # 2. 添加更新字段表头
+            for item in update_items:
+                if item.get('inputType') == 'supplement':
+                    # 补充框特殊处理
+                    parent_label = item.get('label', '')
+                    parent_binding_key = item.get('bindingKey', '')
+                    sub_fields = item.get('subFields', [])
+
+                    # 新值：只添加主字段 label
+                    headers.append({
+                        'label': f'新{parent_label}',
+                        'bindingKey': parent_binding_key,
+                        'type': 'update_new'
+                    })
+
+                    # 原值：添加主字段 label + 所有子字段 label
+                    # 主字段原值
+                    headers.append({
+                        'label': f'原{parent_label}',
+                        'bindingKey': parent_binding_key,
+                        'type': 'update_origin'
+                    })
+
+                    # 子字段原值
+                    for sub_field in sub_fields:
+                        sub_label = sub_field.get('label', '')
+                        sub_binding_key = sub_field.get('bindingKey', '')
+
+                        headers.append({
+                            'label': f'原{sub_label}',
+                            'bindingKey': sub_binding_key,
+                            'type': 'update_origin_sub'
+                        })
+                else:
+                    # 普通字段的新值和原值
+                    label = item.get('label', '')
+                    binding_key = item.get('bindingKey', '')
+
+                    headers.append({
+                        'label': f'新{label}',
+                        'bindingKey': binding_key,
+                        'type': 'update_new'
+                    })
+                    headers.append({
+                        'label': f'原{label}',
+                        'bindingKey': binding_key,
+                        'type': 'update_origin'
+                    })
+
+            # 写入表头
+            for col_num, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col_num, value=header['label'])
+                cell.font = header_font
+                cell.alignment = header_alignment
+                cell.fill = header_fill
+
+                # 设置列宽
+                col_letter = chr(64 + (col_num % 26)) if col_num <= 26 else chr(64 + (col_num // 26)) + chr(
+                    64 + (col_num % 26))
+                ws.column_dimensions[col_letter].width = 15
+
+            # 生成文件名：formName_时间戳.xlsx
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"{form_name}_{timestamp}.xlsx".replace('/', '-').replace('\\', '-')
+            # 保存到内存
+            from io import BytesIO
+            buffer = BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+
+            # 返回文件
+            response = HttpResponse(
+                buffer.getvalue(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+
+            # 使用 quote 处理中文文件名
+            from urllib.parse import quote
+            encoded_filename = quote(filename)
+            response['Content-Disposition'] = f'attachment; filename*=UTF-8\'\'{encoded_filename}'
+
+            return response
+
+
+        except json.JSONDecodeError as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'JSON 解析失败：{str(e)}'
+            }, status=400)
+        except Exception as e:
+            print(f"处理异常：{e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'服务器错误：{str(e)}'
+            }, status=500)
+
+    return JsonResponse({
+        'success': False,
+        'message': '仅支持 POST 请求'
+    }, status=405)
+
+
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+import json
+import sqlparse
+from datetime import datetime
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font, Alignment, PatternFill, Color
+from io import BytesIO
+
+from work_tools2.models import Menu
+
+
+@csrf_exempt
+def batch_import(request):
+    """
+    批量导入数据
+    逻辑：
+    1. 接收 Excel 文件和配置
+    2. 读取 Excel 数据
+    3. 检查是否有有效的数据列
+    4. 对每一行数据进行校验和 SQL 生成
+    5. 如果校验失败，在失败列记录错误信息
+    6. 返回包含失败信息的 Excel 文件
+    """
+    if request.method == 'POST':
+        try:
+            # 获取上传的文件
+            file = request.FILES.get('file')
+            config_json = request.POST.get('config')
+
+            if not file or not config_json:
+                return JsonResponse({
+                    'success': False,
+                    'message': '缺少文件或配置参数'
+                }, status=400)
+
+            # 解析配置
+            config = json.loads(config_json)
+            form_name = config.get('formName', '模板')
+            query_items = config.get('queryItems', [])
+            update_items = config.get('updateItems', [])
+
+            # 加载 Excel 文件
+            wb = load_workbook(file)
+            ws = wb.active
+
+            # 构建表头映射（从第一行读取）
+            headers = {}
+            for col in range(1, ws.max_column + 1):
+                cell_value = ws.cell(row=1, column=col).value
+                # 去除首尾空格并检查是否为有效字符串
+                if cell_value is not None and str(cell_value).strip():
+                    headers[str(cell_value).strip()] = col
+
+            # ... existing code ...
+
+            print(f"headers: {headers}")
+
+            # 检查是否有有效的数据列
+            required_columns = []
+            # 查询字段至少需要一个
+            for item in query_items:
+                required_columns.append(item.get('label', ''))
+
+            # 更新字段需要新值列（补充框只检查主字段，子字段通过匹配自动填充）
+            for item in update_items:
+                if item.get('inputType') == 'supplement':
+                    # 补充框只添加主字段的新值，不添加子字段
+                    required_columns.append(f'新{item.get("label", "")}')
+                else:
+                    required_columns.append(f'新{item.get("label", "")}')
+
+            print(f"required_columns: {required_columns}")
+
+            # ... existing code ...
+
+
+            # 检查是否有任何一个必需的列存在
+            has_valid_data = any(col in headers for col in required_columns)
+
+
+            print(f"has_valid_data: {has_valid_data}")
+
+            if not has_valid_data or len(headers) == 0:
+                return JsonResponse({
+                    'success': False,
+                    'message': '数据表中无有效的数据，请检查 Excel 文件格式是否正确'
+                }, status=400)
+
+            print(f"Excel 总行数：{ws.max_row}")
+
+            # 检查是否有实际的数据行（至少要有表头 +1 行数据）
+            if ws.max_row < 2:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Excel 文件没有数据行，请至少填写一行数据'
+                }, status=400)
+
+            # 统计有多少行包含有效的必填数据
+            valid_data_rows = 0
+            for row_idx in range(2, ws.max_row + 1):
+                has_required_value = False
+                for col_name in required_columns:
+                    col_num = headers.get(col_name)
+                    if col_num:
+                        cell_value = ws.cell(row=row_idx, column=col_num).value
+                        if cell_value is not None and str(cell_value).strip():
+                            has_required_value = True
+                            break
+                if has_required_value:
+                    valid_data_rows += 1
+
+            if valid_data_rows == 0:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Excel 中没有有效的必填数据（共{ws.max_row - 1}行，但都没有必填字段的值）'
+                }, status=400)
+
+            print(f"有效数据行数：{valid_data_rows}")
+            # 添加失败原因列
+            fail_column = ws.max_column + 1
+            ws.cell(row=1, column=fail_column, value='失败原因')
+            ws.cell(row=1, column=fail_column).font = Font(bold=True)
+            ws.cell(row=1, column=fail_column).alignment = Alignment(horizontal='center')
+            ws.cell(row=1, column=fail_column).fill = PatternFill(start_color="FFCCCC", end_color="FFCCCC",
+                                                                  fill_type="solid")
+
+            # 统计信息
+            total_rows = ws.max_row - 1  # 减去表头
+            success_count = 0
+            fail_count = 0
+            all_results = []
+
+            # 从第二行开始处理数据
+            for row_idx in range(2, ws.max_row + 1):
+                row_result = {
+                    'row': row_idx,
+                    'success': True,
+                    'errors': [],
+                    'forward_sqls': [],
+                    'backward_sqls': []
+                }
+
+                # 构建表单值
+                form_values, missing_columns = build_form_values_from_excel(ws, row_idx, headers, query_items,
+                                                                            update_items)
+
+                # 如果有缺失的列，直接记录错误
+                if missing_columns:
+                    row_result['success'] = False
+                    missing_cols_str = ', '.join(missing_columns)
+                    row_result['errors'] = [f'缺少必需的列：{missing_cols_str}']
+                    fail_count += 1
+
+                    ws.cell(row=row_idx, column=fail_column, value=f'缺少必需的列：{missing_cols_str}')
+                    ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
+                                                                                end_color="FFFFCC", fill_type="solid")
+                    all_results.append(row_result)
+                    continue
+
+                # 执行校验
+                validation_result = validate_form_data(config, form_values)
+
+                if not validation_result['success']:
+                    row_result['success'] = False
+                    row_result['errors'] = validation_result.get('errors', [])
+                    fail_count += 1
+
+                    # 写入失败原因
+                    fail_reason = '; '.join(validation_result.get('errors', []))
+                    ws.cell(row=row_idx, column=fail_column, value=fail_reason)
+                    ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
+                                                                                end_color="FFFFCC", fill_type="solid")
+                else:
+                    # 生成 SQL 语句
+                    sql_result = generate_update_sql(config, form_values)
+
+                    if sql_result['forward_sqls'] and sql_result['backward_sqls']:
+                        row_result['forward_sqls'] = sql_result['forward_sqls']
+                        row_result['backward_sqls'] = sql_result['backward_sqls']
+                        success_count += 1
+                    else:
+                        row_result['success'] = False
+                        row_result['errors'] = ['未生成有效的 SQL 语句']
+                        fail_count += 1
+
+                        fail_reason = '未生成有效的 SQL 语句'
+                        ws.cell(row=row_idx, column=fail_column, value=fail_reason)
+                        ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
+                                                                                    end_color="FFFFCC",
+                                                                                    fill_type="solid")
+
+                all_results.append(row_result)
+
+            # 添加统计信息工作表
+            stats_ws = wb.create_sheet(title='导入统计')
+            stats_ws.cell(row=1, column=1, value='总行数').font = Font(bold=True)
+            stats_ws.cell(row=1, column=2, value=total_rows).font = Font(bold=True)
+            stats_ws.cell(row=2, column=1, value='成功数').font = Font(bold=True)
+            stats_ws.cell(row=2, column=2, value=success_count).font = Font(bold=True)
+            stats_ws.cell(row=3, column=1, value='失败数').font = Font(bold=True)
+            stats_ws.cell(row=3, column=2, value=fail_count).font = Font(bold=True)
+            stats_ws.cell(row=4, column=1, value='成功率').font = Font(bold=True)
+            stats_ws.cell(row=4, column=2,
+                          value=f'{success_count / total_rows * 100:.2f}%' if total_rows > 0 else '0%').font = Font(
+                bold=True)
+
+            # 生成文件名
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"{form_name}_导入结果_{timestamp}.xlsx".replace('/', '-').replace('\\', '-')
+
+            # 保存到内存
+            buffer = BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+
+            # 返回文件
+            response = HttpResponse(
+                buffer.getvalue(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+
+            # 使用 quote 处理中文文件名
+            from urllib.parse import quote
+            encoded_filename = quote(filename)
+            response['Content-Disposition'] = f'attachment; filename*=UTF-8\'\'{encoded_filename}'
+
+            return response
+
+        except Exception as e:
+            print(f"批量导入异常：{e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'服务器错误：{str(e)}'
+            }, status=500)
+
+    return JsonResponse({
+        'success': False,
+        'message': '仅支持 POST 请求'
+    }, status=405)
+
+
+def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items):
+    """
+    从 Excel 行构建表单值
+    返回：(form_values, missing_columns)
+    - form_values: 表单值字典
+    - missing_columns: 缺失的列名列表
+
+    注意：
+    - 补充框的主字段新值是必填的
+    - 补充框的子字段是可选的（Excel 中有则读取，没有则留空，后续通过主字段匹配填充）
+    """
+    form_values = {}
+    missing_columns = []
+
+    # 处理查询字段
+    for item in query_items:
+        label = item.get('label', '')
+        binding_key = item.get('bindingKey', '')
+
+        if label in headers:
+            col = headers[label]
+            value = ws.cell(row=row_idx, column=col).value
+            form_values[binding_key] = {
+                'label': label,
+                'value': str(value) if value is not None else '',
+                'inputType': 'query',
+                'fieldType': item.get('type', 'text'),
+                'ValidRule': item.get('ValidRule', '')
+            }
+        else:
+            missing_columns.append(label)
+            form_values[binding_key] = {
+                'label': label,
+                'value': '',
+                'inputType': 'query',
+                'fieldType': item.get('type', 'text'),
+                'ValidRule': item.get('ValidRule', '')
+            }
+
+    # 处理更新字段
+    for item in update_items:
+        label = item.get('label', '')
+        binding_key = item.get('bindingKey', '')
+        input_type = item.get('inputType', '')
+
+        if input_type == 'supplement':
+            # 补充框特殊处理
+            sub_fields = item.get('subFields', [])
+
+            # 主字段新值（必填）
+            new_label = f'新{label}'
+            origin_label = f'原{label}'
+
+            new_value = ''
+            origin_value = ''
+
+            if new_label in headers:
+                col = headers[new_label]
+                new_value = ws.cell(row=row_idx, column=col).value
+            else:
+                missing_columns.append(new_label)
+
+            # 原值（可选，有则读取）
+            if origin_label in headers:
+                col = headers[origin_label]
+                origin_value = ws.cell(row=row_idx, column=col).value
+
+            form_values[binding_key] = {
+                'label': label,
+                'newValue': str(new_value) if new_value is not None else '',
+                'originValue': str(origin_value) if origin_value is not None else '',
+                'inputType': 'supplement',
+                'fieldType': 'supplement',
+                'newValidRule': item.get('newValidRule', ''),
+                'originValidRule': item.get('originValidRule', '')
+            }
+
+            # 子字段（可选，有则读取，没有留空后续通过匹配填充）
+            for sub_field in sub_fields:
+                sub_label = sub_field.get('label', '')
+                sub_binding_key = sub_field.get('bindingKey', '')
+
+                new_sub_label = f'新{sub_label}'
+                origin_sub_label = f'原{sub_label}'
+
+                new_sub_value = ''
+                origin_sub_value = ''
+
+                # 新子字段（可选）
+                if new_sub_label in headers:
+                    col = headers[new_sub_label]
+                    new_sub_value = ws.cell(row=row_idx, column=col).value
+
+                # 原子字段（可选）
+                if origin_sub_label in headers:
+                    col = headers[origin_sub_label]
+                    origin_sub_value = ws.cell(row=row_idx, column=col).value
+
+                form_values[sub_binding_key] = {
+                    'newValue': str(new_sub_value) if new_sub_value is not None else '',
+                    'originValue': str(origin_sub_value) if origin_sub_value is not None else '',
+                    'inputType': 'supplement-sub',
+                    'fieldType': 'supplement-sub',
+                    'parentKey': binding_key,
+                    'label': sub_label
+                }
+        else:
+            # 普通字段
+            new_label = f'新{label}'
+            origin_label = f'原{label}'
+
+            new_value = ''
+            origin_value = ''
+
+            if new_label in headers:
+                col = headers[new_label]
+                new_value = ws.cell(row=row_idx, column=col).value
+            else:
+                missing_columns.append(new_label)
+
+            if origin_label in headers:
+                col = headers[origin_label]
+                origin_value = ws.cell(row=row_idx, column=col).value
+            else:
+                missing_columns.append(origin_label)
+
+            form_values[binding_key] = {
+                'label': label,
+                'newValue': str(new_value) if new_value is not None else '',
+                'originValue': str(origin_value) if origin_value is not None else '',
+                'inputType': input_type,
+                'fieldType': item.get('type', 'text'),
+                'newValidRule': item.get('newValidRule', ''),
+                'originValidRule': item.get('originValidRule', '')
+            }
+
+    return form_values, missing_columns
+
+
 def validate_form_data(config, form_values):
     """
     后端表单校验（与前端逻辑一致）
@@ -380,27 +909,27 @@ def validate_form_data(config, form_values):
 
         if (value is None or value == '') and valid_rule == 'required':
             errors.append(f"{item.get('label')}不能为空")
-
-    # 4. 校验补充框的主输入框和子输入框
-    for item in update_items:
-        if item.get('inputType') == 'supplement':
-            binding_key = item.get('bindingKey')
-            value_data = form_values.get(binding_key, {})
-
-            # 主输入框校验
-            new_value = value_data.get('newValue')
-            if new_value is None or new_value == '':
-                errors.append(f"新{item.get('label')}不能为空")
-
-            # 子输入框校验
-            sub_fields = item.get('subFields', [])
-            for sub_field in sub_fields:
-                sub_binding_key = sub_field.get('bindingKey')
-                sub_value_data = form_values.get(sub_binding_key, {})
-                sub_new_value = sub_value_data.get('newValue')
-
-                if sub_new_value is None or sub_new_value == '':
-                    errors.append(f"新{sub_field.get('label')}不能为空")
+    #
+    # # 4. 校验补充框的主输入框和子输入框
+    # for item in update_items:
+    #     if item.get('inputType') == 'supplement':
+    #         binding_key = item.get('bindingKey')
+    #         value_data = form_values.get(binding_key, {})
+    #
+    #         # 主输入框校验
+    #         new_value = value_data.get('newValue')
+    #         if new_value is None or new_value == '':
+    #             errors.append(f"新{item.get('label')}不能为空")
+    #
+    #         # 子输入框校验
+    #         sub_fields = item.get('subFields', [])
+    #         for sub_field in sub_fields:
+    #             sub_binding_key = sub_field.get('bindingKey')
+    #             sub_value_data = form_values.get(sub_binding_key, {})
+    #             sub_new_value = sub_value_data.get('newValue')
+    #
+    #             if sub_new_value is None or sub_new_value == '':
+    #                 errors.append(f"新{sub_field.get('label')}不能为空")
 
     # 5. 校验公共字段
     common_fields = ['filePrefix', 'onesLink', 'dynamicNo']
