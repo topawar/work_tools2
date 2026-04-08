@@ -27,9 +27,8 @@ urlpatterns = [
     path("form_merge/", views.form_merge, name="form_merge"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("dynamic/<str:form_id>", views.dynamic, name="dynamic"),
-    path("test/", views.test),
     path("api/dynamic/submit/", views.dynamic_submit, name="dynamic_submit"),
     path("api/dynamic/download-template/", views.download_template, name="download_template"),
     path("api/dynamic/batch-import/", views.batch_import, name="batch_import"),
+    path("api/dynamic/download-failed-file/", views.download_failed_file, name="download_failed_file"),
 ]
-

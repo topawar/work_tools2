@@ -66,7 +66,7 @@
                 <div id="supplementContainer">
                     <!-- 每个补充框单独一行，包含主输入框和子输入框 -->
                 </div>
-                      <!--下载导入模板链接  批量导入按钮-->
+                <!--下载导入模板链接  批量导入按钮-->
                 <!-- 功能按钮区域 -->
                 <div class="row g-3 align-items-center mb-4">
                     <div class="col-auto">
@@ -76,8 +76,10 @@
                         </a>
                     </div>
                     <div class="col-auto">
-                        <input type="file" id="batchImportFile" accept=".xlsx" style="display: none;" onchange="handleBatchImportFile(this)">
-                        <button type="button" onclick="document.getElementById('batchImportFile').click()" class="btn btn-outline-success"
+                        <input type="file" id="batchImportFile" accept=".xlsx" style="display: none;"
+                               onchange="handleBatchImportFile(this)">
+                        <button type="button" onclick="document.getElementById('batchImportFile').click()"
+                                class="btn btn-outline-success"
                                 id="batchImportBtn">
                             <i class="bi bi-upload"></i> 批量导入
                         </button>
@@ -86,6 +88,17 @@
                         <span id="batchImportFileName" style="color: #666; margin-left: 10px;"></span>
                     </div>
                 </div>
+
+                <!-- 提交结果显示区域 -->
+                <div id="submitResultArea" style="display: none; margin-bottom: 20px;">
+                    <div class="alert" id="resultAlert" role="alert">
+                        <h5 class="alert-heading" id="resultTitle"></h5>
+                        <p id="resultMessage"></p>
+                        <hr>
+                        <div id="resultActions"></div>
+                    </div>
+                </div>
+
 
                 <button onclick="submit()" class="layui-btn">提交</button>
 
@@ -293,7 +306,7 @@
             // 获取硬编码的公用字段
             result['filePrefix'] = $('#filePrefix').val() || '';
             result['onesLink'] = $('#onesLink').val() || '';
-            result['bpoLineId'] = $('#bpoLineId').val() || '';
+            result['dynamicNo'] = $('#dynamicNo').val() || '';
 
             console.log('查询字段值:', result);
             return result;
@@ -968,7 +981,7 @@
         /**
          * 处理批量导入文件选择
          */
-        window.handleBatchImportFile = function(input) {
+        window.handleBatchImportFile = function (input) {
             const file = input.files[0];
             if (file) {
                 if (!file.name.endsWith('.xlsx')) {
@@ -1034,6 +1047,9 @@
         };
 
 
+        /**
+         * 提交表单
+         */
         window.submit = function () {
             if (!layui.$) {
                 console.error('Layui 尚未完全加载，请稍后再试');
@@ -1042,6 +1058,12 @@
 
             // 如果有批量导入文件，跳过表单校验，直接走批量导入逻辑
             if (batchImportFile) {
+                // 即使是批量导入，也要校验公共字段
+                const commonFieldsValid = validateCommonFields();
+                if (!commonFieldsValid) {
+                    return;
+                }
+
                 submitWithBatchImport();
                 return;
             }
@@ -1162,34 +1184,12 @@
                         }
                     }
 
-                    // 新子输入框校验（遍历所有子字段）
-                    if (supplementItem && supplementItem.subFields) {
-                        supplementItem.subFields.forEach((subField, index) => {
-                            const subNewId = `newSub${key.charAt(0).toUpperCase() + key.slice(1)}_${index}`;
-                            const subElement = document.getElementById(subNewId);
-                            const subValue = subElement ? subElement.value : '';
-
-                            if ((subValue === '' || subValue === null || subValue === undefined)) {
-                                const subErrorId = `error_${subNewId}`;
-                                const subErrorLabel = `新${subField.label}不能为空`;
-
-                                if (subElement) {
-                                    markAsError(subElement, subErrorId, subErrorLabel);
-                                    console.error(subErrorLabel);
-                                    hasError = true;
-                                }
-                            }
-                        });
-                    }
-                }
-
-                // 补充框子输入框校验（独立的子字段校验）
-                if (item.inputType === 'supplement-sub') {
-                    if ((item.newValue === '' || item.newValue === null || item.newValue === undefined)) {
-                        const subNewId = `newSub${item.parentKey.charAt(0).toUpperCase() + item.parentKey.slice(1)}_${key.split('_').pop()}`;
-                        element = document.getElementById(subNewId);
-                        errorId = `error_${subNewId}`;
-                        errorLabel = `新${item.label} 不能为空`;
+                    // 原主输入框校验
+                    if ((item.originValue === '' || item.originValue === null || item.originValue === undefined)) {
+                        const mainOriginId = `originMain${key.charAt(0).toUpperCase() + key.slice(1)}`;
+                        element = document.getElementById(mainOriginId);
+                        errorId = `error_${mainOriginId}`;
+                        errorLabel = `原${item.label}不能为空`;
 
                         if (element) {
                             markAsError(element, errorId, errorLabel);
@@ -1199,153 +1199,239 @@
                     }
                 }
             }
-            // 补充一个校验：从 allValues 获取所有查询字段的值，查询字段至少要有一个字段不能为空
-            const queryFields = Object.entries(allValues).filter(([key, item]) => item.inputType === 'query');
-            const hasNonEmptyQueryField = queryFields.some(([key, item]) => item.value !== '' && item.value !== null && item.value !== undefined);
-
-            if (queryFields.length > 0 && !hasNonEmptyQueryField) {
-                layui.layer.msg('查询字段至少需要填写一个条件', {icon: 2});
-                hasError = true;
-            }
-
 
             if (hasError) {
-                console.error('表单校验失败，请检查标红字段');
+                layui.layer.msg('请修正错误后重新提交', {icon: 2});
                 return null;
-            } else {
-                console.log(allValues);
-
-                // 构建请求数据：配置 + 表单值
-                const requestData = {
-                    config: dynamicTableConfig,
-                    formValues: allValues,
-                };
-
-                console.log('提交的数据:', requestData);
-
-                // 显示加载提示
-                const loadingIndex = layui.layer.load(2);
-
-                // 使用 axios 发送 POST 请求
-                axios.post('/api/dynamic/submit/', requestData)
-                    .then(function (response) {
-                        layui.layer.close(loadingIndex);
-                        console.log('提交成功:', response.data);
-
-                        if (response.data.success) {
-                            layui.layer.msg('提交成功！', {icon: 1});
-                        } else {
-                            layui.layer.msg('提交失败：' + (response.data.message || '未知错误'), {icon: 2});
-                        }
-                    })
-                    .catch(function (error) {
-                        layui.layer.close(loadingIndex);
-                        console.error('提交失败:', error);
-
-                        let errorMsg = '网络错误';
-                        if (error.response) {
-                            errorMsg = error.response.data?.message || `服务器错误：${error.response.status}`;
-                        } else if (error.request) {
-                            errorMsg = '无法连接到服务器';
-                        } else {
-                            errorMsg = error.message;
-                        }
-
-                        layui.layer.msg(errorMsg, {icon: 2});
-                    });
             }
 
+            // 没有错误，提交数据
+            submitData();
         };
 
+        /**
+         * 校验公共字段
+         */
+        function validateCommonFields() {
+            var hasError = false;
+            const allValues = window.getAllFormValues();
 
-          /**
+            // 只校验公共字段
+            ['filePrefix', 'onesLink', 'dynamicNo'].forEach(function (key) {
+                const item = allValues[key];
+                if (item && (item.value === '' || item.value === null || item.value === undefined)) {
+                    const element = document.getElementById(key);
+                    const errorId = `error_${key}`;
+                    const errorLabel = `${element ? element.previousElementSibling?.textContent || key : key}不能为空`;
+
+                    if (element) {
+                        markAsError(element, errorId, errorLabel);
+                        console.error(errorLabel);
+                        hasError = true;
+                    }
+                }
+            });
+
+            if (hasError) {
+                layui.layer.msg('请填写公共字段信息', {icon: 2});
+            }
+
+            return !hasError;
+        }
+
+
+             /**
+         * 显示提交结果
+         * @param {boolean} isSuccess - 是否成功
+         * @param {string} message - 消息内容
+         * @param {Object} data - 额外数据（如文件路径）
+         * @param {boolean} isBatchImport - 是否是批量导入
+         */
+        function showSubmitResult(isSuccess, message, data, isBatchImport) {
+            const resultArea = document.getElementById('submitResultArea');
+            const resultAlert = document.getElementById('resultAlert');
+            const resultTitle = document.getElementById('resultTitle');
+            const resultMessage = document.getElementById('resultMessage');
+            const resultActions = document.getElementById('resultActions');
+
+            // 设置样式
+            resultAlert.className = isSuccess ? 'alert alert-success' : 'alert alert-danger';
+            resultTitle.textContent = isSuccess ? (isBatchImport ? '批量导入完成' : '提交成功') : (isBatchImport ? '批量导入失败' : '提交失败');
+            resultMessage.textContent = message;
+
+            // 清空操作按钮
+            resultActions.innerHTML = '';
+
+            // 根据情况添加操作按钮
+            if (isSuccess && isBatchImport) {
+                // 批量导入成功：只显示 SQL 文件路径
+                if (data.sqlFilePath) {
+                    const pathContainer = document.createElement('div');
+
+                    const pathLabel = document.createElement('span');
+                    pathLabel.className = 'text-muted me-2';
+                    pathLabel.textContent = '保存位置:';
+
+                    const pathText = document.createElement('code');
+                    pathText.style.cssText = 'background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.9em;';
+                    pathText.textContent = data.sqlFilePath;
+
+                    pathContainer.appendChild(pathLabel);
+                    pathContainer.appendChild(pathText);
+                    resultActions.appendChild(pathContainer);
+                }
+
+                // 显示统计信息
+                if (data.totalRows !== undefined) {
+                    const statsInfo = document.createElement('div');
+                    statsInfo.className = 'text-muted mt-2';
+                    statsInfo.textContent = `共${data.totalRows}条，成功${data.successCount}条，失败${data.failCount}条`;
+                    resultActions.appendChild(statsInfo);
+                }
+            } else if (!isSuccess && isBatchImport && data && data.excelFilePath) {
+                // 批量导入失败：显示失败文件路径
+                const pathContainer = document.createElement('div');
+
+                const pathLabel = document.createElement('span');
+                pathLabel.className = 'text-muted me-2';
+                pathLabel.textContent = '失败报告位置:';
+
+                const pathText = document.createElement('code');
+                pathText.style.cssText = 'background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.9em;';
+                pathText.textContent = data.excelFilePath;
+
+                pathContainer.appendChild(pathLabel);
+                pathContainer.appendChild(pathText);
+                resultActions.appendChild(pathContainer);
+            } else if (isSuccess && !isBatchImport && data && data.filePath) {
+                // 单条导入成功：显示文件完整路径
+                const pathContainer = document.createElement('div');
+
+                const pathLabel = document.createElement('span');
+                pathLabel.className = 'text-muted me-2';
+                pathLabel.textContent = '保存位置:';
+
+                const pathText = document.createElement('code');
+                pathText.style.cssText = 'background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 0.9em;';
+                pathText.textContent = data.filePath;
+
+                pathContainer.appendChild(pathLabel);
+                pathContainer.appendChild(pathText);
+                resultActions.appendChild(pathContainer);
+            }
+
+            // 显示结果区域
+            resultArea.style.display = 'block';
+
+            // 滚动到结果区域
+            resultArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // ... existing code ...
+
+        /**
          * 带批量导入的提交
          */
         function submitWithBatchImport() {
             const loadingIndex = layui.layer.load(2);
 
+            // 获取公共字段的值
+            const queryValues = window.getQueryFieldValues();
+
             const formData = new FormData();
             formData.append('file', batchImportFile);
             formData.append('config', JSON.stringify(dynamicTableConfig));
+            formData.append('queryValues', JSON.stringify(queryValues));
 
             axios.post('/api/dynamic/batch-import/', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
-                },
-                responseType: 'blob'
+                }
             })
-            .then(function (response) {
-                layui.layer.close(loadingIndex);
+                .then(function (response) {
+                    layui.layer.close(loadingIndex);
 
-                const blob = new Blob([response.data], {
-                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                });
-
-                const contentDisposition = response.headers['content-disposition'];
-                let filename = '导入结果.xlsx';
-
-                if (contentDisposition) {
-                    const filenameStarMatch = contentDisposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
-                    if (filenameStarMatch && filenameStarMatch[1]) {
-                        filename = decodeURIComponent(filenameStarMatch[1]);
+                    if (response.data.success) {
+                        // 成功：显示 SQL 文件路径
+                        showSubmitResult(true, response.data.message || '批量导入完成', {
+                            sqlFilePath: response.data.sqlFilePath,
+                            totalRows: response.data.totalRows,
+                            successCount: response.data.successCount,
+                            failCount: response.data.failCount
+                        }, true);
                     } else {
-                        const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/);
-                        if (filenameMatch && filenameMatch[1]) {
-                            filename = decodeURIComponent(filenameMatch[1]);
+                        // 失败：显示失败文件下载链接
+                        showSubmitResult(false, response.data.message || '批量导入失败', {
+                            excelFilePath: response.data.excelFilePath
+                        }, true);
+                    }
+
+                    // 清除已上传的文件
+                    batchImportFile = null;
+                    document.getElementById('batchImportFile').value = '';
+                    document.getElementById('batchImportFileName').textContent = '';
+                })
+                .catch(function (error) {
+                    layui.layer.close(loadingIndex);
+                    console.error('导入失败:', error);
+
+                    let errorMsg = '导入失败';
+                    if (error.response && error.response.data) {
+                        if (error.response.data.message) {
+                            errorMsg = error.response.data.message;
                         }
+                    } else if (error.response) {
+                        errorMsg = `服务器错误：${error.response.status}`;
+                    } else if (error.request) {
+                        errorMsg = '无法连接到服务器';
+                    } else {
+                        errorMsg = error.message;
                     }
-                }
 
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = filename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(url);
-
-                layui.layer.msg('批量导入完成，请查看结果文件', {icon: 1});
-
-                // 清除已上传的文件
-                batchImportFile = null;
-                document.getElementById('batchImportFile').value = '';
-                document.getElementById('batchImportFileName').textContent = '';
-            })
-            .catch(function (error) {
-                layui.layer.close(loadingIndex);
-                console.error('导入失败:', error);
-
-                let errorMsg = '导入失败';
-
-                if (error.response && error.response.status === 400) {
-                    const blob = error.response.data;
-                    if (blob && blob instanceof Blob) {
-                        const reader = new FileReader();
-                        reader.onload = function () {
-                            try {
-                                const errorData = JSON.parse(reader.result);
-                                layui.layer.msg(errorData.message || '导入失败', {icon: 2});
-                            } catch (e) {
-                                layui.layer.msg('导入失败：' + reader.result, {icon: 2});
-                            }
-                        };
-                        reader.readAsText(blob);
-                        return;
-                    } else if (error.response.data && error.response.data.message) {
-                        errorMsg = error.response.data.message;
-                    }
-                } else if (error.response) {
-                    errorMsg = `服务器错误：${error.response.status}`;
-                } else if (error.request) {
-                    errorMsg = '无法连接到服务器';
-                } else {
-                    errorMsg = error.message;
-                }
-
-                layui.layer.msg(errorMsg, {icon: 2});
-            });
+                    showSubmitResult(false, errorMsg, {}, true);
+                });
         }
+
+        /**
+         * 普通提交（非批量导入）
+         */
+        function submitData() {
+            const loadingIndex = layui.layer.load(2);
+
+            // 获取所有表单值
+            const allValues = window.getAllFormValues();
+
+            axios.post('/api/dynamic/submit/', {
+                config: dynamicTableConfig,
+                formValues: allValues
+            })
+                .then(function (response) {
+                    layui.layer.close(loadingIndex);
+
+                    if (response.data.success) {
+                        // 成功：显示结果和文件路径
+                        showSubmitResult(true, response.data.message || 'SQL 文件生成成功', {
+                            filePath: response.data.filePath || ''
+                        }, false);
+                    } else {
+                        // 失败：显示错误信息
+                        showSubmitResult(false, response.data.message || '提交失败', {}, false);
+                    }
+                })
+                .catch(function (error) {
+                    layui.layer.close(loadingIndex);
+                    console.error('提交失败:', error);
+
+                    let errorMsg = '提交失败';
+                    if (error.response && error.response.data) {
+                        errorMsg = error.response.data.message || error.response.data.error || '服务器错误';
+                    }
+
+                    showSubmitResult(false, errorMsg, {}, false);
+                });
+        }
+
+
 
         /**
          * 在输入框下方添加或更新错误描述

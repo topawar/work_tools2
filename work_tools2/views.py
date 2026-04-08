@@ -24,11 +24,6 @@ def dashboard(request):
     return render(request, "dashboard.html", {"active_page": "dashboard"})
 
 
-def test(request):
-    """Test page."""
-    return HttpResponse("123")
-
-
 def dynamic(request, form_id: str):
     """Orders list page."""
     return render(request, "dynamic.html", {"active_page": "dynamic"})
@@ -73,12 +68,67 @@ def dynamic_submit(request):
             for i, formatted_sql in enumerate(sql_result['backward_sqls'], 1):
                 print(f"{i}. \n{formatted_sql}\n")
 
-            # TODO: 在这里添加业务逻辑处理
-            # 例如：保存到数据库、调用外部 API 等
+            # 从公共字段获取 dynamicNo
+            dynamic_no = form_values.get('dynamicNo', {}).get('value', '')
 
+            # 创建保存目录 D:\临时文件\YYYYMM\DD\
+            import os
+            now = datetime.now()
+            year_month = now.strftime('%Y%m')
+            day = now.strftime('%d')
+            save_dir = f"D:\\临时文件\\{year_month}\\{day}"
+
+            print(f"保存目录: {save_dir}")
+
+            # 确保目录存在
+            try:
+                os.makedirs(save_dir, exist_ok=True)
+                print(f"目录创建成功: {os.path.exists(save_dir)}")
+            except Exception as e:
+                print(f"创建目录失败: {e}")
+                raise
+
+            # 生成 SQL 文件内容
+            sql_content = []
+            sql_content.append(f"-- 表单：{config.get('formName', '未知')}")
+            sql_content.append(f"-- 生成时间：{now.strftime('%Y-%m-%d %H:%M:%S')}")
+            sql_content.append(f"-- 文件名：{dynamic_no}")
+            sql_content.append("")
+
+            # 添加执行语句
+            if sql_result['forward_sqls']:
+                sql_content.append("-- ==================== 执行语句 ====================")
+                sql_content.append("")
+                for i, sql in enumerate(sql_result['forward_sqls'], 1):
+                    sql_content.append(f"-- 执行语句 {i}")
+                    sql_content.append(sql)
+                    sql_content.append("")
+
+            # 添加回退语句
+            if sql_result['backward_sqls']:
+                sql_content.append("-- ==================== 回退语句 ====================")
+                sql_content.append("")
+                for i, sql in enumerate(sql_result['backward_sqls'], 1):
+                    sql_content.append(f"-- 回退语句 {i}")
+                    sql_content.append(sql)
+                    sql_content.append("")
+
+            # 写入文件
+            filename = f"{dynamic_no}.sql"
+            filepath = os.path.join(save_dir, filename)
+
+            print(f"SQL 文件路径: {filepath}")
+
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(sql_content))
+
+            print(f"SQL 文件写入成功: {os.path.exists(filepath)}")
+
+            # 返回本地完整路径
             return JsonResponse({
                 'success': True,
-                'message': '数据接收成功',
+                'message': 'SQL 文件生成成功',
+                'filePath': filepath,  # 返回本地完整路径
                 'sql_count': len(sql_result['forward_sqls']),
                 'forward_sqls': sql_result['forward_sqls'],
                 'backward_sqls': sql_result['backward_sqls']
@@ -497,18 +547,24 @@ def batch_import(request):
     """
     批量导入数据
     逻辑：
-    1. 接收 Excel 文件和配置
-    2. 读取 Excel 数据
-    3. 检查是否有有效的数据列
-    4. 对每一行数据进行校验和 SQL 生成
-    5. 如果校验失败，在失败列记录错误信息
-    6. 返回包含失败信息的 Excel 文件
+    1. 接收 Excel 文件、配置和公共字段
+    2. 校验公共字段（filePrefix、onesLink、dynamicNo）
+    3. 读取 Excel 数据
+    4. 检查是否有有效的数据列
+    5. 对每一行数据进行校验和 SQL 生成
+    6. 如果校验失败，在失败列记录错误信息
+    7. 全部成功：将所有 SQL 写入 .sql 文件到 D:\临时文件\YYYYMM\DD\
+    8. 有失败：将包含失败信息的 Excel 保存到 D:\临时文件\YYYYMM\DD\
+    9. 返回文件的本地完整路径
     """
     if request.method == 'POST':
         try:
+            import os
+
             # 获取上传的文件
             file = request.FILES.get('file')
             config_json = request.POST.get('config')
+            query_values_json = request.POST.get('queryValues')
 
             if not file or not config_json:
                 return JsonResponse({
@@ -522,6 +578,33 @@ def batch_import(request):
             query_items = config.get('queryItems', [])
             update_items = config.get('updateItems', [])
 
+            # 解析公共字段值
+            query_values = {}
+            if query_values_json:
+                try:
+                    query_values = json.loads(query_values_json)
+                except json.JSONDecodeError:
+                    query_values = {}
+
+            # 校验公共字段（始终校验）
+            common_fields = ['filePrefix', 'onesLink', 'dynamicNo']
+            for field_name in common_fields:
+                value_data = query_values.get(field_name, {})
+
+                # 处理 value_data 可能是字符串或字典的情况
+                if isinstance(value_data, dict):
+                    value = value_data.get('value', '')
+                elif isinstance(value_data, str):
+                    value = value_data
+                else:
+                    value = ''
+
+                if not value or str(value).strip() == '':
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'{field_name}不能为空'
+                    }, status=400)
+
             # 加载 Excel 文件
             wb = load_workbook(file)
             ws = wb.active
@@ -533,8 +616,6 @@ def batch_import(request):
                 # 去除首尾空格并检查是否为有效字符串
                 if cell_value is not None and str(cell_value).strip():
                     headers[str(cell_value).strip()] = col
-
-            # ... existing code ...
 
             print(f"headers: {headers}")
 
@@ -554,12 +635,8 @@ def batch_import(request):
 
             print(f"required_columns: {required_columns}")
 
-            # ... existing code ...
-
-
             # 检查是否有任何一个必需的列存在
             has_valid_data = any(col in headers for col in required_columns)
-
 
             print(f"has_valid_data: {has_valid_data}")
 
@@ -599,6 +676,7 @@ def batch_import(request):
                 }, status=400)
 
             print(f"有效数据行数：{valid_data_rows}")
+
             # 添加失败原因列
             fail_column = ws.max_column + 1
             ws.cell(row=1, column=fail_column, value='失败原因')
@@ -611,41 +689,28 @@ def batch_import(request):
             total_rows = ws.max_row - 1  # 减去表头
             success_count = 0
             fail_count = 0
-            all_results = []
+            all_sql_statements = []  # 存储所有成功的 SQL 语句
 
             # 从第二行开始处理数据
             for row_idx in range(2, ws.max_row + 1):
-                row_result = {
-                    'row': row_idx,
-                    'success': True,
-                    'errors': [],
-                    'forward_sqls': [],
-                    'backward_sqls': []
-                }
-
                 # 构建表单值
                 form_values, missing_columns = build_form_values_from_excel(ws, row_idx, headers, query_items,
                                                                             update_items)
 
                 # 如果有缺失的列，直接记录错误
                 if missing_columns:
-                    row_result['success'] = False
                     missing_cols_str = ', '.join(missing_columns)
-                    row_result['errors'] = [f'缺少必需的列：{missing_cols_str}']
                     fail_count += 1
 
                     ws.cell(row=row_idx, column=fail_column, value=f'缺少必需的列：{missing_cols_str}')
                     ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
                                                                                 end_color="FFFFCC", fill_type="solid")
-                    all_results.append(row_result)
                     continue
 
-                # 执行校验
-                validation_result = validate_form_data(config, form_values)
+                # 执行校验（传入 query_values 用于校验公共字段）
+                validation_result = validate_form_data(config, form_values, query_values)
 
                 if not validation_result['success']:
-                    row_result['success'] = False
-                    row_result['errors'] = validation_result.get('errors', [])
                     fail_count += 1
 
                     # 写入失败原因
@@ -658,12 +723,14 @@ def batch_import(request):
                     sql_result = generate_update_sql(config, form_values)
 
                     if sql_result['forward_sqls'] and sql_result['backward_sqls']:
-                        row_result['forward_sqls'] = sql_result['forward_sqls']
-                        row_result['backward_sqls'] = sql_result['backward_sqls']
+                        # 收集 SQL 语句
+                        all_sql_statements.append({
+                            'row': row_idx,
+                            'forward_sqls': sql_result['forward_sqls'],
+                            'backward_sqls': sql_result['backward_sqls']
+                        })
                         success_count += 1
                     else:
-                        row_result['success'] = False
-                        row_result['errors'] = ['未生成有效的 SQL 语句']
                         fail_count += 1
 
                         fail_reason = '未生成有效的 SQL 语句'
@@ -671,8 +738,6 @@ def batch_import(request):
                         ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
                                                                                     end_color="FFFFCC",
                                                                                     fill_type="solid")
-
-                all_results.append(row_result)
 
             # 添加统计信息工作表
             stats_ws = wb.create_sheet(title='导入统计')
@@ -687,30 +752,103 @@ def batch_import(request):
                           value=f'{success_count / total_rows * 100:.2f}%' if total_rows > 0 else '0%').font = Font(
                 bold=True)
 
-            # 生成文件名
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"{form_name}_导入结果_{timestamp}.xlsx".replace('/', '-').replace('\\', '-')
+            # 从公共字段获取 dynamicNo
+            dynamic_no = ''
+            if query_values:
+                dynamic_no_data = query_values.get('dynamicNo', '')
+                if isinstance(dynamic_no_data, dict):
+                    dynamic_no = dynamic_no_data.get('value', '')
+                elif isinstance(dynamic_no_data, str):
+                    dynamic_no = dynamic_no_data
 
-            # 保存到内存
-            buffer = BytesIO()
-            wb.save(buffer)
-            buffer.seek(0)
+            # 创建保存目录 D:\临时文件\YYYYMM\DD\
+            now = datetime.now()
+            year_month = now.strftime('%Y%m')
+            day = now.strftime('%d')
+            save_dir = f"D:\\临时文件\\{year_month}\\{day}"
 
-            # 返回文件
-            response = HttpResponse(
-                buffer.getvalue(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
+            print(f"保存目录: {save_dir}")
 
-            # 使用 quote 处理中文文件名
-            from urllib.parse import quote
-            encoded_filename = quote(filename)
-            response['Content-Disposition'] = f'attachment; filename*=UTF-8\'\'{encoded_filename}'
+            # 确保目录存在
+            try:
+                os.makedirs(save_dir, exist_ok=True)
+                print(f"目录创建成功: {os.path.exists(save_dir)}")
+            except Exception as e:
+                print(f"创建目录失败: {e}")
+                raise
 
-            return response
+            # 判断是否全部成功
+            all_success = (fail_count == 0 and success_count > 0)
+
+            # 只有全部成功时才生成 SQL 文件
+            sql_file_path = None
+            if all_success and all_sql_statements:
+                sql_filename = f"{dynamic_no}.sql"
+                sql_filepath = os.path.join(save_dir, sql_filename)
+
+                print(f"SQL 文件路径: {sql_filepath}")
+
+                # 生成 SQL 文件内容
+                sql_content = []
+                sql_content.append(f"-- 批量导入 SQL 文件")
+                sql_content.append(f"-- 表单：{form_name}")
+                sql_content.append(f"-- 生成时间：{now.strftime('%Y-%m-%d %H:%M:%S')}")
+                sql_content.append(f"-- 总行数：{total_rows}，成功：{success_count}，失败：{fail_count}")
+                sql_content.append("")
+
+                for idx, stmt in enumerate(all_sql_statements, 1):
+                    sql_content.append(f"-- ==================== 第 {stmt['row']} 行数据 ====================")
+                    sql_content.append("")
+                    sql_content.append("-- 执行语句")
+                    for sql in stmt['forward_sqls']:
+                        sql_content.append(sql)
+                        sql_content.append("")
+                    sql_content.append("-- 回退语句")
+                    for sql in stmt['backward_sqls']:
+                        sql_content.append(sql)
+                        sql_content.append("")
+
+                # 写入文件
+                try:
+                    with open(sql_filepath, 'w', encoding='utf-8') as f:
+                        f.write('\n'.join(sql_content))
+                    print(f"SQL 文件写入成功: {os.path.exists(sql_filepath)}")
+                    sql_file_path = sql_filepath
+                except Exception as e:
+                    print(f"SQL 文件写入失败: {e}")
+                    raise
+
+            # 只有有失败记录时才保存 Excel 结果文件
+            excel_file_path = None
+            if fail_count > 0:
+                excel_filename = f"{dynamic_no}_导入结果_{now.strftime('%Y%m%d_%H%M%S')}.xlsx"
+                excel_filepath = os.path.join(save_dir, excel_filename)
+
+                print(f"Excel 文件路径: {excel_filepath}")
+
+                try:
+                    wb.save(excel_filepath)
+                    print(f"Excel 文件写入成功: {os.path.exists(excel_filepath)}")
+                    excel_file_path = excel_filepath
+                except Exception as e:
+                    print(f"Excel 文件写入失败: {e}")
+                    raise
+
+            # 返回文件路径
+            return JsonResponse({
+                'success': True,
+                'message': f'批量导入完成，成功{success_count}条，失败{fail_count}条',
+                'sqlFilePath': sql_file_path,  # 只有全部成功时才有值
+                'excelFilePath': excel_file_path,  # 只有有失败时才有值
+                'totalRows': total_rows,
+                'successCount': success_count,
+                'failCount': fail_count
+            })
 
         except Exception as e:
             print(f"批量导入异常：{e}")
+            import traceback
+            traceback.print_exc()
             return JsonResponse({
                 'success': False,
                 'message': f'服务器错误：{str(e)}'
@@ -720,6 +858,50 @@ def batch_import(request):
         'success': False,
         'message': '仅支持 POST 请求'
     }, status=405)
+
+
+@csrf_exempt
+def download_failed_file(request):
+    """
+    下载失败的 Excel 结果文件
+    """
+    if request.method == 'GET':
+        try:
+            import os
+            from django.http import FileResponse
+
+            file_path = request.GET.get('path', '')
+
+            if not file_path or not os.path.exists(file_path):
+                return JsonResponse({
+                    'success': False,
+                    'message': '文件不存在'
+                }, status=404)
+
+            # 返回文件
+            response = FileResponse(open(file_path, 'rb'))
+            response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+            # 设置文件名
+            filename = os.path.basename(file_path)
+            from urllib.parse import quote
+            encoded_filename = quote(filename)
+            response['Content-Disposition'] = f'attachment; filename*=UTF-8\'\'{encoded_filename}'
+
+            return response
+
+        except Exception as e:
+            print(f"下载文件异常：{e}")
+            return JsonResponse({
+                'success': False,
+                'message': f'服务器错误：{str(e)}'
+            }, status=500)
+
+    return JsonResponse({
+        'success': False,
+        'message': '仅支持 GET 请求'
+    }, status=405)
+
 
 
 def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items):
@@ -861,10 +1043,15 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
     return form_values, missing_columns
 
 
-def validate_form_data(config, form_values):
+def validate_form_data(config, form_values, query_values=None):
     """
     后端表单校验（与前端逻辑一致）
     返回：{'success': bool, 'message': str, 'errors': list}
+
+    参数：
+    - config: 配置对象
+    - form_values: 表单值字典
+    - query_values: 查询字段值（包含公共字段），可选
     """
     errors = []
 
@@ -909,38 +1096,26 @@ def validate_form_data(config, form_values):
 
         if (value is None or value == '') and valid_rule == 'required':
             errors.append(f"{item.get('label')}不能为空")
-    #
-    # # 4. 校验补充框的主输入框和子输入框
-    # for item in update_items:
-    #     if item.get('inputType') == 'supplement':
-    #         binding_key = item.get('bindingKey')
-    #         value_data = form_values.get(binding_key, {})
-    #
-    #         # 主输入框校验
-    #         new_value = value_data.get('newValue')
-    #         if new_value is None or new_value == '':
-    #             errors.append(f"新{item.get('label')}不能为空")
-    #
-    #         # 子输入框校验
-    #         sub_fields = item.get('subFields', [])
-    #         for sub_field in sub_fields:
-    #             sub_binding_key = sub_field.get('bindingKey')
-    #             sub_value_data = form_values.get(sub_binding_key, {})
-    #             sub_new_value = sub_value_data.get('newValue')
-    #
-    #             if sub_new_value is None or sub_new_value == '':
-    #                 errors.append(f"新{sub_field.get('label')}不能为空")
 
-    # 5. 校验公共字段
+    # 4. 校验公共字段（优先使用 query_values，否则从 form_values 中读取）
     common_fields = ['filePrefix', 'onesLink', 'dynamicNo']
     for field_name in common_fields:
-        value_data = form_values.get(field_name, {})
-        value = value_data.get('value')
+        value = None
 
-        if value is None or value == '':
+        # 先从 query_values 中读取（批量导入场景）
+        if query_values:
+            value_data = query_values.get(field_name, {})
+            value = value_data.get('value') if isinstance(value_data, dict) else value_data
+
+        # 如果 query_values 中没有，再从 form_values 中读取（普通提交场景）
+        if not value:
+            value_data = form_values.get(field_name, {})
+            value = value_data.get('value')
+
+        if value is None or str(value).strip() == '':
             errors.append(f"{field_name}不能为空")
 
-    # 6. 校验查询字段至少有一个不为空
+    # 5. 校验查询字段至少有一个不为空
     query_field_values = [
         form_values.get(item.get('bindingKey'), {}).get('value')
         for item in query_items
