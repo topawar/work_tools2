@@ -7,7 +7,8 @@ from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
 
-from work_tools2.models import Menu
+from work_tools2.models import Menu, FormConfig, FormQueryItem, FormUpdateItem
+
 
 def home(request):
     """Home page."""
@@ -17,6 +18,11 @@ def home(request):
 def form_merge(request):
     """Runoob tutorial page."""
     return render(request, "form_merge.html", {"active_page": "form_merge"})
+
+
+def table_config(request):
+    """Runoob tutorial page."""
+    return render(request, "table_config.html", {"active_page": "table_config"})
 
 
 def dashboard(request):
@@ -1193,3 +1199,250 @@ def render_with_menus(request, template_name, context=None):
     context["menus"] = get_menus()
 
     return render(request, template_name, context)
+
+
+@csrf_exempt
+def get_form_configs(request):
+    """获取所有表单配置列表"""
+    if request.method == 'GET':
+        try:
+            configs = FormConfig.objects.all().order_by('-created_at')
+            config_list = []
+
+            for config in configs:
+                config_list.append({
+                    'id': config.id,
+                    'form_id': config.form_id,
+                    'form_name': config.form_name,
+                    'table_name_list': config.table_name_list,
+                    'is_active': config.is_active,
+                    'created_at': config.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'updated_at': config.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
+                })
+
+            return JsonResponse({
+                'success': True,
+                'data': config_list
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'获取失败：{str(e)}'
+            }, status=500)
+
+    return JsonResponse({
+        'success': False,
+        'message': '仅支持 GET 请求'
+    }, status=405)
+
+
+@csrf_exempt
+def get_form_config_detail(request, form_id):
+    """获取单个表单配置详情"""
+    if request.method == 'GET':
+        try:
+            config = FormConfig.objects.get(form_id=form_id)
+
+            # 构建配置对象
+            config_data = {
+                'formName': config.form_name,
+                'tableNameList': config.table_name_list,
+                'queryItems': [],
+                'updateItems': []
+            }
+
+            # 获取查询字段
+            query_items = FormQueryItem.objects.filter(form_config=config).order_by('sort_order')
+            for item in query_items:
+                config_data['queryItems'].append({
+                    'label': item.label,
+                    'type': item.field_type,
+                    'defaultValue': item.default_value,
+                    'bindingKey': item.binding_key,
+                    'sortOrder': item.sort_order,
+                    'connectedTable': item.connected_table,
+                    'ValidRule': item.valid_rule,
+                })
+
+            # 获取更新字段
+            update_items = FormUpdateItem.objects.filter(form_config=config).order_by('sort_order')
+            for item in update_items:
+                update_item_data = {
+                    'label': item.label,
+                    'type': item.field_type,
+                    'originDefaultValue': item.origin_default_value,
+                    'newDefaultValue': item.new_default_value,
+                    'bindingKey': item.binding_key,
+                    'sortOrder': item.sort_order,
+                    'inputType': item.input_type,
+                    'connectedTable': item.connected_table,
+                    'newValidRule': item.new_valid_rule,
+                    'originValidRule': item.origin_valid_rule,
+                }
+
+                # 如果有选项配置
+                if item.options:
+                    update_item_data['options'] = item.options
+
+                # 如果是补充框
+                if item.input_type == 'supplement':
+                    update_item_data['mainField'] = item.main_field
+                    update_item_data['subFields'] = item.sub_fields
+
+                config_data['updateItems'].append(update_item_data)
+
+            return JsonResponse({
+                'success': True,
+                'data': config_data
+            })
+        except FormConfig.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': '表单配置不存在'
+            }, status=404)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'获取失败：{str(e)}'
+            }, status=500)
+
+    return JsonResponse({
+        'success': False,
+        'message': '仅支持 GET 请求'
+    }, status=405)
+
+
+@csrf_exempt
+def save_form_config(request):
+    """保存表单配置（新增或更新）"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+
+            form_id = data.get('formId')  # 编辑时传入
+            form_name = data.get('formName')
+            table_name_list = data.get('tableNameList', [])
+            query_items = data.get('queryItems', [])
+            update_items = data.get('updateItems', [])
+
+            if not form_name:
+                return JsonResponse({
+                    'success': False,
+                    'message': '表单名称不能为空'
+                }, status=400)
+
+            if not table_name_list or len(table_name_list) == 0:
+                return JsonResponse({
+                    'success': False,
+                    'message': '至少需要配置一个表名'
+                }, status=400)
+
+            # 检查是否已存在（编辑模式）
+            if form_id:
+                try:
+                    config = FormConfig.objects.get(form_id=form_id)
+                    config.form_name = form_name
+                    config.table_name_list = table_name_list
+                    config.save()
+                except FormConfig.DoesNotExist:
+                    return JsonResponse({
+                        'success': False,
+                        'message': '表单配置不存在'
+                    }, status=404)
+            else:
+                # 新增模式，自动生成 form_id
+                config = FormConfig.objects.create(
+                    form_name=form_name,
+                    table_name_list=table_name_list,
+                    is_active=True,
+                )
+                form_id = config.form_id
+
+            # 删除旧的查询字段
+            FormQueryItem.objects.filter(form_config=config).delete()
+
+            # 创建新的查询字段
+            for item_data in query_items:
+                FormQueryItem.objects.create(
+                    form_config=config,
+                    label=item_data.get('label'),
+                    field_type=item_data.get('type', 'text'),
+                    binding_key=item_data.get('bindingKey'),
+                    sort_order=item_data.get('sortOrder', 0),
+                    connected_table=item_data.get('connectedTable', []),
+                    valid_rule=item_data.get('ValidRule', 'required'),
+                    default_value=item_data.get('defaultValue', ''),
+                )
+
+            # 删除旧的更新字段
+            FormUpdateItem.objects.filter(form_config=config).delete()
+
+            # 创建新的更新字段
+            for item_data in update_items:
+                FormUpdateItem.objects.create(
+                    form_config=config,
+                    label=item_data.get('label'),
+                    field_type=item_data.get('type', 'text'),
+                    binding_key=item_data.get('bindingKey'),
+                    sort_order=item_data.get('sortOrder', 0),
+                    input_type=item_data.get('inputType', 'input'),
+                    connected_table=item_data.get('connectedTable', []),
+                    new_valid_rule=item_data.get('newValidRule', 'required'),
+                    origin_valid_rule=item_data.get('originValidRule', 'required'),
+                    origin_default_value=item_data.get('originDefaultValue', ''),
+                    new_default_value=item_data.get('newDefaultValue', ''),
+                    main_field=item_data.get('mainField', ''),
+                    sub_fields=item_data.get('subFields', []),
+                    options=item_data.get('options', []),
+                )
+
+            return JsonResponse({
+                'success': True,
+                'message': '保存成功',
+                'form_id': form_id
+            })
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'message': 'JSON 解析失败'
+            }, status=400)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'保存失败：{str(e)}'
+            }, status=500)
+
+    return JsonResponse({
+        'success': False,
+        'message': '仅支持 POST 请求'
+    }, status=405)
+
+
+@csrf_exempt
+def delete_form_config(request, form_id):
+    """删除表单配置"""
+    if request.method == 'DELETE':
+        try:
+            config = FormConfig.objects.get(form_id=form_id)
+            config.delete()
+
+            return JsonResponse({
+                'success': True,
+                'message': '删除成功'
+            })
+        except FormConfig.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': '表单配置不存在'
+            }, status=404)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'删除失败：{str(e)}'
+            }, status=500)
+
+    return JsonResponse({
+        'success': False,
+        'message': '仅支持 DELETE 请求'
+    }, status=405)
+

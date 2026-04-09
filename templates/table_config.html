@@ -1,0 +1,897 @@
+{% extends "base.html" %}
+
+{% block title %}动态表单配置{% endblock %}
+
+{% block main_content %}
+<div class="container-fluid p-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h4>动态表单配置管理</h4>
+        </div>
+    </div>
+
+    <!-- 表单列表 -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>表单列表</span>
+            <button type="button" class="btn btn-primary btn-sm" onclick="showAddFormModal()">
+                <i class="bi bi-plus-lg"></i> 新增表单
+            </button>
+        </div>
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>表单名称</th>
+                        <th>表名列表</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="formListBody">
+                    <tr>
+                        <td colspan="4" class="text-center">加载中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 表单配置编辑器 -->
+    <div class="card" id="configEditorCard" style="display: none;">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span id="editorTitle">新增表单配置</span>
+            <div>
+                <button type="button" class="btn btn-secondary btn-sm me-2" onclick="closeEditor()">
+                    <i class="bi bi-x-lg"></i> 关闭
+                </button>
+                <button type="button" class="btn btn-success btn-sm" onclick="saveFormConfig()">
+                    <i class="bi bi-save"></i> 保存配置
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- 基本信息 -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">表单名称 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="formName" placeholder="例如: 合同明细单价修改">
+                </div>
+            </div>
+
+            <!-- 表名列表（标签式输入） -->
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label class="form-label">表名列表 <span class="text-danger">*</span></label>
+                    <div class="border rounded p-2" style="min-height: 80px; background-color: #f8f9fa;">
+                        <div id="tableTagsContainer" class="d-flex flex-wrap gap-2 mb-2">
+                            <!-- 标签将在这里动态生成 -->
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <input type="text" class="form-control form-control-sm" id="tableNameInput"
+                                   placeholder="输入表名后按回车添加"
+                                   onkeypress="handleTableNameKeyPress(event)">
+                            <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="addTableNameTag()">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <small class="text-muted">提示：输入表名后按回车或点击 + 按钮添加</small>
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- Tab 导航 -->
+            <ul class="nav nav-tabs mb-3" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#queryTab" type="button">
+                        查询字段配置
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#updateTab" type="button">
+                        更新字段配置
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab 内容 -->
+            <div class="tab-content">
+                <!-- 查询字段配置 -->
+                <div class="tab-pane fade show active" id="queryTab">
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="addQueryItem()">
+                            <i class="bi bi-plus-lg"></i> 添加查询字段
+                        </button>
+                        <small class="text-muted ms-2">提示：拖动卡片可调整字段顺序</small>
+                    </div>
+                    <div id="queryItemsContainer" class="sortable-container">
+                        <!-- 动态生成查询字段卡片 -->
+                    </div>
+                </div>
+
+                <!-- 更新字段配置 -->
+                <div class="tab-pane fade" id="updateTab">
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="addUpdateItem()">
+                            <i class="bi bi-plus-lg"></i> 添加更新字段
+                        </button>
+                        <small class="text-muted ms-2">提示：拖动卡片可调整字段顺序</small>
+                    </div>
+                    <div id="updateItemsContainer" class="sortable-container">
+                        <!-- 动态生成更新字段卡片 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 引入 Layui 样式 -->
+<link rel="stylesheet" href="/static/layui/css/layui.css">
+<!-- 引入 SortableJS -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<script>
+let currentEditingFormId = null;
+let queryItemCount = 0;
+let updateItemCount = 0;
+let tableNameList = []; // 存储表名列表
+let querySortable = null;
+let updateSortable = null;
+
+// 页面加载时获取表单列表
+document.addEventListener('DOMContentLoaded', function() {
+    loadFormList();
+    initSortable();
+});
+
+/**
+ * 初始化拖拽排序
+ */
+function initSortable() {
+    // 查询字段容器
+    const queryContainer = document.getElementById('queryItemsContainer');
+    if (queryContainer) {
+        querySortable = new Sortable(queryContainer, {
+            animation: 150,
+            handle: '.drag-handle',
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            onEnd: function(evt) {
+                updateSortOrder('query');
+            }
+        });
+    }
+
+    // 更新字段容器
+    const updateContainer = document.getElementById('updateItemsContainer');
+    if (updateContainer) {
+        updateSortable = new Sortable(updateContainer, {
+            animation: 150,
+            handle: '.drag-handle',
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            onEnd: function(evt) {
+                updateSortOrder('update');
+            }
+        });
+    }
+}
+
+/**
+ * 更新排序值（根据DOM顺序）
+ */
+function updateSortOrder(type) {
+    const container = type === 'query' ?
+        document.getElementById('queryItemsContainer') :
+        document.getElementById('updateItemsContainer');
+
+    const cards = container.querySelectorAll('.field-card');
+    cards.forEach((card, index) => {
+        const sortOrderInput = card.querySelector('.sort-order-value');
+        if (sortOrderInput) {
+            sortOrderInput.value = index;
+        }
+
+        // 更新卡片标题中的序号
+        const titleElement = card.querySelector('.card-sequence-number');
+        if (titleElement) {
+            titleElement.textContent = `#${index + 1}`;
+        }
+    });
+}
+
+/**
+ * 加载表单列表
+ */
+function loadFormList() {
+    fetch('/api/form-configs/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderFormList(data.data);
+            } else {
+                alert('加载失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('加载失败');
+        });
+}
+
+/**
+ * 渲染表单列表
+ */
+function renderFormList(configs) {
+    const tbody = document.getElementById('formListBody');
+
+    if (configs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center">暂无数据</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = configs.map(config => `
+        <tr>
+            <td>${config.form_name}</td>
+            <td>
+                ${config.table_name_list.map(name => `<span class="badge bg-info me-1">${name}</span>`).join('')}
+            </td>
+            <td>${config.created_at}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="editForm('${config.form_id}')">
+                    <i class="bi bi-pencil"></i> 编辑
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteForm('${config.form_id}')">
+                    <i class="bi bi-trash"></i> 删除
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+/**
+ * 显示新增表单模态框
+ */
+function showAddFormModal() {
+    currentEditingFormId = null;
+    document.getElementById('editorTitle').textContent = '新增表单配置';
+    document.getElementById('configEditorCard').style.display = 'block';
+
+    // 清空表单
+    document.getElementById('formName').value = '';
+    tableNameList = [];
+    renderTableTags();
+
+    // 清空配置项
+    document.getElementById('queryItemsContainer').innerHTML = '';
+    document.getElementById('updateItemsContainer').innerHTML = '';
+    queryItemCount = 0;
+    updateItemCount = 0;
+
+    // 滚动到编辑器
+    document.getElementById('configEditorCard').scrollIntoView({ behavior: 'smooth' });
+}
+
+/**
+ * 编辑表单
+ */
+function editForm(formId) {
+    fetch(`/api/form-config/${formId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentEditingFormId = formId;
+                document.getElementById('editorTitle').textContent = '编辑表单配置';
+                document.getElementById('configEditorCard').style.display = 'block';
+
+                const config = data.data;
+                document.getElementById('formName').value = config.formName;
+
+                // 加载表名列表
+                tableNameList = config.tableNameList || [];
+                renderTableTags();
+
+                // 加载查询字段
+                document.getElementById('queryItemsContainer').innerHTML = '';
+                queryItemCount = 0;
+                config.queryItems.forEach(item => {
+                    addQueryItem(item);
+                });
+
+                // 加载更新字段
+                document.getElementById('updateItemsContainer').innerHTML = '';
+                updateItemCount = 0;
+                config.updateItems.forEach(item => {
+                    addUpdateItem(item);
+                });
+
+                // 滚动到编辑器
+                document.getElementById('configEditorCard').scrollIntoView({ behavior: 'smooth' });
+            } else {
+                alert('加载失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('加载失败');
+        });
+}
+
+/**
+ * 删除表单
+ */
+function deleteForm(formId) {
+    if (!confirm('确定要删除此表单配置吗？')) {
+        return;
+    }
+
+    fetch(`/api/form-config/delete/${formId}/`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('删除成功');
+            loadFormList();
+        } else {
+            alert('删除失败：' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('删除失败');
+    });
+}
+
+/**
+ * 关闭编辑器
+ */
+function closeEditor() {
+    document.getElementById('configEditorCard').style.display = 'none';
+}
+
+/**
+ * 处理表名输入框按键事件
+ */
+function handleTableNameKeyPress(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        addTableNameTag();
+    }
+}
+
+/**
+ * 添加表名标签
+ */
+function addTableNameTag() {
+    const input = document.getElementById('tableNameInput');
+    const tableName = input.value.trim();
+
+    if (!tableName) {
+        return;
+    }
+
+    if (tableNameList.includes(tableName)) {
+        alert('表名已存在');
+        input.value = '';
+        return;
+    }
+
+    tableNameList.push(tableName);
+    renderTableTags();
+
+    // 关键：更新所有已存在字段的关联表复选框
+    refreshAllConnectedTableCheckboxes();
+
+    input.value = '';
+    input.focus();
+}
+
+/**
+ * 删除表名标签
+ */
+function removeTableName(index) {
+    const removedTableName = tableNameList[index];
+    tableNameList.splice(index, 1);
+    renderTableTags();
+
+    // 关键：更新所有已存在字段的关联表复选框，并移除已删除的表名选中状态
+    refreshAllConnectedTableCheckboxes(removedTableName);
+}
+
+/**
+ * 刷新所有字段的关联表复选框
+ * @param {string} removedTableName - 被删除的表名（如果有）
+ */
+function refreshAllConnectedTableCheckboxes(removedTableName = null) {
+    // 刷新查询字段的关联表
+    document.querySelectorAll('#queryItemsContainer .field-card').forEach(card => {
+        const container = card.querySelector('.connected-tables-container');
+        if (container) {
+            // 获取当前已选中的表名
+            const currentSelected = getSelectedTables(card);
+
+            // 如果有关联表被删除，从选中列表中移除
+            let updatedSelected = currentSelected;
+            if (removedTableName) {
+                updatedSelected = currentSelected.filter(name => name !== removedTableName);
+            }
+
+            // 重新生成复选框
+            container.innerHTML = generateConnectedTableCheckboxes(updatedSelected, 'query');
+        }
+    });
+
+    // 刷新更新字段的关联表
+    document.querySelectorAll('#updateItemsContainer .field-card').forEach(card => {
+        const container = card.querySelector('.connected-tables-container');
+        if (container) {
+            // 获取当前已选中的表名
+            const currentSelected = getSelectedTables(card);
+
+            // 如果有关联表被删除，从选中列表中移除
+            let updatedSelected = currentSelected;
+            if (removedTableName) {
+                updatedSelected = currentSelected.filter(name => name !== removedTableName);
+            }
+
+            // 重新生成复选框
+            container.innerHTML = generateConnectedTableCheckboxes(updatedSelected, 'update');
+        }
+    });
+}
+
+/**
+ * 渲染表名标签
+ */
+function renderTableTags() {
+    const container = document.getElementById('tableTagsContainer');
+
+    if (tableNameList.length === 0) {
+        container.innerHTML = '<small class="text-muted">暂无表名</small>';
+        return;
+    }
+
+    container.innerHTML = tableNameList.map((name, index) => `
+        <span class="badge bg-primary d-flex align-items-center" style="font-size: 14px; padding: 6px 10px;">
+            ${name}
+            <button type="button" class="btn-close btn-close-white ms-2"
+                    style="font-size: 8px;"
+                    onclick="removeTableName(${index})"></button>
+        </span>
+    `).join('');
+}
+
+/**
+ * 生成关联表复选框HTML
+ */
+function generateConnectedTableCheckboxes(connectedTables = [], prefix) {
+    if (tableNameList.length === 0) {
+        return '<small class="text-muted">请先在上方添加表名</small>';
+    }
+
+    return tableNameList.map(tableName => {
+        const isChecked = connectedTables.includes(tableName) ? 'checked' : '';
+        return `
+            <div class="form-check form-check-inline">
+                <input class="form-check-input connected-table-checkbox" type="checkbox"
+                       value="${tableName}" ${isChecked}>
+                <label class="form-check-label">${tableName}</label>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * 获取选中的关联表
+ */
+function getSelectedTables(cardElement) {
+    const checkboxes = cardElement.querySelectorAll('.connected-table-checkbox:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+/**
+ * 添加查询字段卡片
+ */
+function addQueryItem(data = null) {
+    queryItemCount++;
+    const index = queryItemCount;
+    const sortOrder = data?.sortOrder !== undefined ? data.sortOrder : index - 1;
+
+    const container = document.getElementById('queryItemsContainer');
+    const div = document.createElement('div');
+    div.className = 'card mb-3 border field-card';
+    div.id = `queryItem_${index}`;
+    div.dataset.sortOrder = sortOrder;
+
+    const connectedTables = data?.connectedTable || [];
+
+    div.innerHTML = `
+        <div class="card-header d-flex align-items-center" style="cursor: move;">
+            <i class="bi bi-grip-vertical drag-handle me-2 text-muted"></i>
+            <h6 class="mb-0 flex-grow-1">
+                <span class="card-sequence-number">#${sortOrder + 1}</span>
+                查询字段
+            </h6>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeQueryItem(${index})">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        <div class="card-body">
+            <input type="hidden" class="sort-order-value" value="${sortOrder}">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">标签 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control query-label" value="${data?.label || ''}" placeholder="例如: 订单号">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">绑定键 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control query-binding-key" value="${data?.bindingKey || ''}" placeholder="例如: itemId">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">验证规则</label>
+                    <select class="form-select query-valid-rule">
+                        <option value="required" ${data?.ValidRule === 'required' ? 'selected' : ''}>必填</option>
+                        <option value="requiredReverse" ${data?.ValidRule === 'requiredReverse' ? 'selected' : ''}>不必填</option>
+                    </select>
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">关联表</label>
+                    <div class="connected-tables-container border rounded p-2" style="background-color: #f8f9fa;">
+                        ${generateConnectedTableCheckboxes(connectedTables, 'query')}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">默认值</label>
+                    <input type="text" class="form-control query-default-value" value="${data?.defaultValue || ''}" placeholder="可选">
+                </div>
+            </div>
+        </div>
+    `;
+
+    container.appendChild(div);
+}
+
+/**
+ * 删除查询字段
+ */
+function removeQueryItem(index) {
+    const element = document.getElementById(`queryItem_${index}`);
+    if (element) {
+        element.remove();
+        updateSortOrder('query');
+    }
+}
+
+/**
+ * 添加更新字段卡片
+ */
+function addUpdateItem(data = null) {
+    updateItemCount++;
+    const index = updateItemCount;
+    const sortOrder = data?.sortOrder !== undefined ? data.sortOrder : index - 1;
+
+    const container = document.getElementById('updateItemsContainer');
+    const div = document.createElement('div');
+    div.className = 'card mb-3 border field-card';
+    div.id = `updateItem_${index}`;
+    div.dataset.sortOrder = sortOrder;
+
+    const fieldType = data?.type || 'text';
+    const connectedTables = data?.connectedTable || [];
+
+    // 根据字段类型确定输入类型
+    let inputType = 'input';
+    if (fieldType === 'select') {
+        inputType = 'select';
+    } else if (fieldType === 'radio') {
+        inputType = 'radio';
+    } else if (fieldType === 'supplement') {
+        inputType = 'supplement';
+    }
+
+    div.innerHTML = `
+        <div class="card-header d-flex align-items-center" style="cursor: move;">
+            <i class="bi bi-grip-vertical drag-handle me-2 text-muted"></i>
+            <h6 class="mb-0 flex-grow-1">
+                <span class="card-sequence-number">#${sortOrder + 1}</span>
+                更新字段
+            </h6>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeUpdateItem(${index})">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+        <div class="card-body">
+            <input type="hidden" class="sort-order-value" value="${sortOrder}">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">标签 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control update-label" value="${data?.label || ''}" placeholder="例如: 数量">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">绑定键 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control update-binding-key" value="${data?.bindingKey || ''}" placeholder="例如: qty">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">字段类型</label>
+                    <select class="form-select update-field-type" onchange="handleFieldTypeChange(${index})">
+                        <option value="text" ${fieldType === 'text' ? 'selected' : ''}>文本</option>
+                        <option value="number" ${fieldType === 'number' ? 'selected' : ''}>数值</option>
+                        <option value="date" ${fieldType === 'date' ? 'selected' : ''}>日期</option>
+                        <option value="select" ${fieldType === 'select' ? 'selected' : ''}>下拉框</option>
+                        <option value="radio" ${fieldType === 'radio' ? 'selected' : ''}>单选框</option>
+                        <option value="supplement" ${fieldType === 'supplement' ? 'selected' : ''}>补充框</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">新值验证规则</label>
+                    <select class="form-select update-new-valid-rule">
+                        <option value="required" ${data?.newValidRule === 'required' ? 'selected' : ''}>必填</option>
+                        <option value="requiredReverse" ${data?.newValidRule === 'requiredReverse' ? 'selected' : ''}>不必填</option>
+                        <option value="defaultNull" ${data?.newValidRule === 'defaultNull' ? 'selected' : ''}>默认空值</option>
+                        <option value="defaultField" ${data?.newValidRule === 'defaultField' ? 'selected' : ''}>默认字段</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">原值验证规则</label>
+                    <select class="form-select update-origin-valid-rule">
+                        <option value="required" ${data?.originValidRule === 'required' ? 'selected' : ''}>必填</option>
+                        <option value="requiredReverse" ${data?.originValidRule === 'requiredReverse' ? 'selected' : ''}>不必填</option>
+                        <option value="defaultNull" ${data?.originValidRule === 'defaultNull' ? 'selected' : ''}>默认空值</option>
+                        <option value="defaultField" ${data?.originValidRule === 'defaultField' ? 'selected' : ''}>默认字段</option>
+                    </select>
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">关联表</label>
+                    <div class="connected-tables-container border rounded p-2" style="background-color: #f8f9fa;">
+                        ${generateConnectedTableCheckboxes(connectedTables, 'update')}
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">原值默认值</label>
+                    <input type="text" class="form-control update-origin-default-value" value="${data?.originDefaultValue || ''}" placeholder="可选">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">新值默认值</label>
+                    <input type="text" class="form-control update-new-default-value" value="${data?.newDefaultValue || ''}" placeholder="可选">
+                </div>
+
+                <!-- 选项配置（select/radio/supplement） -->
+                <div class="col-md-12 options-config" id="options_${index}" style="display: ${(fieldType === 'select' || fieldType === 'radio' || fieldType === 'supplement') ? 'block' : 'none'};">
+                    <label class="form-label">选项配置（JSON格式）</label>
+                    <textarea class="form-control update-options" rows="3" placeholder='例如: [{"value":"active","label":"启用"},{"value":"inactive","label":"禁用"}]'>${data?.options ? JSON.stringify(data.options, null, 2) : ''}</textarea>
+                </div>
+
+                <!-- 补充框配置 -->
+                <div class="col-md-12 supplement-config" id="supplement_${index}" style="display: ${fieldType === 'supplement' ? 'block' : 'none'};">
+                    <label class="form-label">主字段名</label>
+                    <input type="text" class="form-control update-main-field" value="${data?.mainField || ''}" placeholder="例如: main_value">
+
+                    <label class="form-label mt-2">子字段配置（JSON格式）</label>
+                    <textarea class="form-control update-sub-fields" rows="3" placeholder='例如: [{"label":"区","width":100,"bindingKey":"address_district"}]'>${data?.subFields ? JSON.stringify(data.subFields, null, 2) : ''}</textarea>
+                </div>
+            </div>
+        </div>
+    `;
+
+    container.appendChild(div);
+}
+
+/**
+ * 删除更新字段
+ */
+function removeUpdateItem(index) {
+    const element = document.getElementById(`updateItem_${index}`);
+    if (element) {
+        element.remove();
+        updateSortOrder('update');
+    }
+}
+
+/**
+ * 处理字段类型变化
+ */
+function handleFieldTypeChange(index) {
+    const element = document.getElementById(`updateItem_${index}`);
+    const fieldType = element.querySelector('.update-field-type').value;
+
+    const optionsDiv = document.getElementById(`options_${index}`);
+    const supplementDiv = document.getElementById(`supplement_${index}`);
+
+    // select、radio、supplement 需要选项配置
+    if (fieldType === 'select' || fieldType === 'radio' || fieldType === 'supplement') {
+        optionsDiv.style.display = 'block';
+    } else {
+        optionsDiv.style.display = 'none';
+    }
+
+    // 只有 supplement 需要子字段配置
+    if (fieldType === 'supplement') {
+        supplementDiv.style.display = 'block';
+    } else {
+        supplementDiv.style.display = 'none';
+    }
+}
+
+/**
+ * 保存表单配置
+ */
+function saveFormConfig() {
+    const formName = document.getElementById('formName').value.trim();
+
+    if (!formName) {
+        alert('表单名称不能为空');
+        return;
+    }
+
+    if (tableNameList.length === 0) {
+        alert('至少需要配置一个表名');
+        return;
+    }
+
+    // 收集查询字段（按DOM顺序）
+    const queryItems = [];
+    document.querySelectorAll('#queryItemsContainer .field-card').forEach((div, idx) => {
+        const label = div.querySelector('.query-label').value.trim();
+        const bindingKey = div.querySelector('.query-binding-key').value.trim();
+
+        if (!label || !bindingKey) {
+            return;
+        }
+
+        queryItems.push({
+            label: label,
+            type: 'text', // 查询字段固定为文本类型
+            defaultValue: div.querySelector('.query-default-value').value,
+            bindingKey: bindingKey,
+            sortOrder: idx, // 使用索引作为排序
+            connectedTable: getSelectedTables(div), // 从复选框获取
+            ValidRule: div.querySelector('.query-valid-rule').value,
+        });
+    });
+
+    // 收集更新字段（按DOM顺序）
+    const updateItems = [];
+    document.querySelectorAll('#updateItemsContainer .field-card').forEach((div, idx) => {
+        const label = div.querySelector('.update-label').value.trim();
+        const bindingKey = div.querySelector('.update-binding-key').value.trim();
+
+        if (!label || !bindingKey) {
+            return;
+        }
+
+        const fieldType = div.querySelector('.update-field-type').value;
+
+        // 根据字段类型自动设置 inputType
+        let inputType = 'input';
+        if (fieldType === 'select') {
+            inputType = 'select';
+        } else if (fieldType === 'radio') {
+            inputType = 'radio';
+        } else if (fieldType === 'supplement') {
+            inputType = 'supplement';
+        }
+
+        const item = {
+            label: label,
+            type: fieldType,
+            originDefaultValue: div.querySelector('.update-origin-default-value').value,
+            newDefaultValue: div.querySelector('.update-new-default-value').value,
+            bindingKey: bindingKey,
+            sortOrder: idx, // 使用索引作为排序
+            inputType: inputType,
+            connectedTable: getSelectedTables(div), // 从复选框获取
+            newValidRule: div.querySelector('.update-new-valid-rule').value,
+            originValidRule: div.querySelector('.update-origin-valid-rule').value,
+        };
+
+        // 处理选项（select/radio/supplement）
+        if (fieldType === 'select' || fieldType === 'radio' || fieldType === 'supplement') {
+            const optionsText = div.querySelector('.update-options').value.trim();
+            if (optionsText) {
+                try {
+                    item.options = JSON.parse(optionsText);
+                } catch (e) {
+                    alert('选项配置JSON格式错误');
+                    throw e;
+                }
+            }
+        }
+
+        // 处理补充框的子字段配置
+        if (fieldType === 'supplement') {
+            item.mainField = div.querySelector('.update-main-field').value.trim();
+            const subFieldsText = div.querySelector('.update-sub-fields').value.trim();
+            if (subFieldsText) {
+                try {
+                    item.subFields = JSON.parse(subFieldsText);
+                } catch (e) {
+                    alert('子字段配置JSON格式错误');
+                    throw e;
+                }
+            }
+        }
+
+        updateItems.push(item);
+    });
+
+    if (queryItems.length === 0 && updateItems.length === 0) {
+        alert('至少需要配置一个查询字段或更新字段');
+        return;
+    }
+
+    const configData = {
+        formId: currentEditingFormId, // 编辑时传入
+        formName: formName,
+        tableNameList: tableNameList,
+        queryItems: queryItems,
+        updateItems: updateItems,
+    };
+
+    fetch('/api/form-config/save/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(configData),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('保存成功');
+            closeEditor();
+            loadFormList();
+        } else {
+            alert('保存失败：' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('保存失败');
+    });
+}
+</script>
+
+<style>
+/* SortableJS 样式 */
+.sortable-ghost {
+    opacity: 0.4;
+    background-color: #f0f0f0;
+}
+
+.sortable-chosen {
+    background-color: #e3f2fd;
+}
+
+.sortable-drag {
+    opacity: 0.8;
+}
+
+.field-card {
+    transition: all 0.2s;
+}
+
+.field-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.drag-handle {
+    cursor: grab;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.connected-tables-container {
+    max-height: 150px;
+    overflow-y: auto;
+}
+</style>
+{% endblock %}
+
