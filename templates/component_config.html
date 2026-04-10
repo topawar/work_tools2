@@ -1,0 +1,551 @@
+{% extends "base.html" %}
+
+{% block title %}表单配置项{% endblock %}
+
+{% block main_content %}
+<div class="container-fluid p-4">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h4>表单配置项管理</h4>
+            <small class="text-muted">管理可复用的下拉框、单选框等配置项，供动态表单引用</small>
+        </div>
+    </div>
+
+    <!-- 配置项列表 -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>配置项列表</span>
+            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#componentModal" onclick="showAddComponentModal()">
+                <i class="bi bi-plus-lg"></i> 新增配置项
+            </button>
+        </div>
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>配置项名称</th>
+                        <th>类型</th>
+                        <th>选项数量</th>
+                        <th>使用次数</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="componentListBody">
+                    <tr>
+                        <td colspan="6" class="text-center">加载中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 配置项编辑模态框 -->
+<div class="modal fade" id="componentModal" tabindex="-1" aria-labelledby="componentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editorTitle">新增配置项</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 基本信息 -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">配置项名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="componentName" placeholder="例如: 订单状态">
+                        <small class="text-muted">名称将作为唯一标识</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">组件类型 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="componentType" onchange="handleTypeChange()">
+                            <option value="select">下拉框</option>
+                            <option value="radio">单选框</option>
+                        </select>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- 选项配置 -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">选项配置</h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="addOptionBtn" onclick="addOption()">
+                            <i class="bi bi-plus-lg"></i> 添加选项
+                        </button>
+                    </div>
+                    <small class="text-muted d-block mb-3" id="optionsHint">至少需要配置一个选项，可通过拖动或点击箭头调整顺序</small>
+
+                    <div id="optionsContainer" class="sortable-container">
+                        <!-- 动态生成选项卡片 -->
+                    </div>
+                </div>
+
+                <!-- 预览区域 -->
+                <div class="mb-3">
+                    <h6>预览效果</h6>
+                    <div class="border rounded p-3 bg-light" id="previewContainer">
+                        <p class="text-muted mb-0">请添加选项后查看预览</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success" onclick="saveComponent()">
+                    <i class="bi bi-save"></i> 保存配置
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 引入 SortableJS -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<script>
+let currentEditingId = null;
+let optionCount = 0;
+let optionsSortable = null;
+
+// 页面加载时获取配置项列表
+document.addEventListener('DOMContentLoaded', function() {
+    loadComponentList();
+    initSortable();
+});
+
+/**
+ * 初始化拖拽排序
+ */
+function initSortable() {
+    const container = document.getElementById('optionsContainer');
+    if (container) {
+        optionsSortable = new Sortable(container, {
+            animation: 150,
+            handle: '.drag-handle',
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            onEnd: function(evt) {
+                updateOptionNumbers();
+                updatePreview();
+            }
+        });
+    }
+}
+
+/**
+ * 加载配置项列表
+ */
+function loadComponentList() {
+    // TODO: 调用后端 API
+    setTimeout(() => {
+        const mockData = [
+            {
+                id: 1,
+                name: '订单状态',
+                type: 'select',
+                option_count: 5,
+                usage_count: 12,
+                created_at: '2024-01-15 10:30:00'
+            },
+            {
+                id: 2,
+                name: '是否启用',
+                type: 'radio',
+                option_count: 2,
+                usage_count: 8,
+                created_at: '2024-01-16 14:20:00'
+            }
+        ];
+        renderComponentList(mockData);
+    }, 500);
+}
+
+/**
+ * 渲染配置项列表
+ */
+function renderComponentList(components) {
+    const tbody = document.getElementById('componentListBody');
+
+    if (components.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">暂无数据</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = components.map(component => `
+        <tr>
+            <td><strong>${component.name}</strong></td>
+            <td>
+                ${component.type === 'select' ?
+                    '<span class="badge bg-info">下拉框</span>' :
+                    '<span class="badge bg-warning">单选框</span>'}
+            </td>
+            <td>${component.option_count} 个</td>
+            <td>${component.usage_count} 次</td>
+            <td>${component.created_at}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="editComponent(${component.id})" data-bs-toggle="modal" data-bs-target="#componentModal">
+                    <i class="bi bi-pencil"></i> 编辑
+                </button>
+                <button class="btn btn-sm btn-outline-info me-1" onclick="viewUsage(${component.id})">
+                    <i class="bi bi-eye"></i> 查看引用
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteComponent(${component.id})">
+                    <i class="bi bi-trash"></i> 删除
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+/**
+ * 处理类型切换
+ */
+function handleTypeChange() {
+    const componentType = document.getElementById('componentType').value;
+    const addOptionBtn = document.getElementById('addOptionBtn');
+    const optionsHint = document.getElementById('optionsHint');
+
+    if (componentType === 'radio') {
+        // 单选框：提示只能有2个选项，但不自动删除
+        addOptionBtn.disabled = true;
+        addOptionBtn.title = '单选框只能有2个选项';
+        optionsHint.textContent = '单选框固定为2个选项（例如：是/否、启用/禁用），请在保存前调整为2个选项';
+    } else {
+        // 下拉框：不限制
+        addOptionBtn.disabled = false;
+        addOptionBtn.title = '';
+        optionsHint.textContent = '至少需要配置一个选项，可通过拖动或点击箭头调整顺序';
+    }
+
+    updatePreview();
+}
+
+/**
+ * 显示新增配置项模态框
+ */
+function showAddComponentModal() {
+    currentEditingId = null;
+    document.getElementById('editorTitle').textContent = '新增配置项';
+
+    // 清空表单
+    document.getElementById('componentName').value = '';
+    document.getElementById('componentType').value = 'select';
+
+    // 清空选项
+    document.getElementById('optionsContainer').innerHTML = '';
+    optionCount = 0;
+
+    // 重置按钮状态
+    document.getElementById('addOptionBtn').disabled = false;
+    document.getElementById('addOptionBtn').title = '';
+    document.getElementById('optionsHint').textContent = '至少需要配置一个选项，可通过拖动或点击箭头调整顺序';
+
+    // 添加默认选项
+    addOption();
+    addOption();
+
+    updatePreview();
+}
+
+/**
+ * 编辑配置项
+ */
+function editComponent(id) {
+    currentEditingId = id;
+    document.getElementById('editorTitle').textContent = '编辑配置项';
+
+    // 模拟数据
+    document.getElementById('componentName').value = '订单状态';
+    document.getElementById('componentType').value = 'select';
+
+    // 重置按钮状态
+    document.getElementById('addOptionBtn').disabled = false;
+    document.getElementById('addOptionBtn').title = '';
+    document.getElementById('optionsHint').textContent = '至少需要配置一个选项，可通过拖动或点击箭头调整顺序';
+
+    // 清空并重新加载选项
+    document.getElementById('optionsContainer').innerHTML = '';
+    optionCount = 0;
+
+    const mockOptions = [
+        {value: "active", label: "启用"},
+        {value: "inactive", label: "禁用"},
+        {value: "pending", label: "待审核"}
+    ];
+
+    mockOptions.forEach(opt => addOption(opt));
+
+    updatePreview();
+}
+
+/**
+ * 删除配置项
+ */
+function deleteComponent(id) {
+    if (!confirm('确定要删除此配置项吗？删除后将无法在表单中使用。')) {
+        return;
+    }
+
+    // TODO: 调用后端 API
+    alert('删除功能待实现');
+}
+
+/**
+ * 查看引用
+ */
+function viewUsage(id) {
+    // TODO: 显示使用该配置项的表单列表
+    alert('查看引用功能待实现');
+}
+
+/**
+ * 添加选项
+ */
+function addOption(data = null) {
+    const componentType = document.getElementById('componentType').value;
+    const currentOptions = document.querySelectorAll('#optionsContainer .option-card');
+
+    // 单选框限制为2个选项
+    if (componentType === 'radio' && currentOptions.length >= 2) {
+        alert('单选框只能有2个选项');
+        return;
+    }
+
+    optionCount++;
+    const index = optionCount;
+
+    const container = document.getElementById('optionsContainer');
+    const div = document.createElement('div');
+    div.className = 'card mb-2 border option-card';
+    div.dataset.optionIndex = index;
+
+    div.innerHTML = `
+        <div class="card-body py-2 px-3">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-grip-vertical drag-handle text-muted" style="cursor: move;" title="拖动排序"></i>
+                <span class="badge bg-secondary option-number" style="min-width: 30px;">#${optionCount}</span>
+                <div class="flex-grow-1">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control form-control-sm option-value"
+                                   placeholder="值（value）" value="${data?.value || ''}">
+                        </div>
+                        <div class="col-md-6">
+                            <input type="text" class="form-control form-control-sm option-label"
+                                   placeholder="显示文本（label）" value="${data?.label || ''}">
+                        </div>
+                        <div class="col-md-2 d-flex gap-1">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveOptionUp(this)" title="上移">
+                                <i class="bi bi-arrow-up"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveOptionDown(this)" title="下移">
+                                <i class="bi bi-arrow-down"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeOption(this)" title="删除">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    container.appendChild(div);
+
+    // 绑定输入事件，实时更新预览
+    const inputs = div.querySelectorAll('input');
+    inputs.forEach(input => {
+        input.addEventListener('input', updatePreview);
+    });
+
+    updatePreview();
+}
+
+/**
+ * 上移选项
+ */
+function moveOptionUp(btn) {
+    const card = btn.closest('.option-card');
+    if (card && card.previousElementSibling) {
+        card.parentNode.insertBefore(card, card.previousElementSibling);
+        updateOptionNumbers();
+        updatePreview();
+    }
+}
+
+/**
+ * 下移选项
+ */
+function moveOptionDown(btn) {
+    const card = btn.closest('.option-card');
+    if (card && card.nextElementSibling) {
+        card.parentNode.insertBefore(card.nextElementSibling, card);
+        updateOptionNumbers();
+        updatePreview();
+    }
+}
+
+/**
+ * 更新选项序号
+ */
+function updateOptionNumbers() {
+    const cards = document.querySelectorAll('#optionsContainer .option-card');
+    cards.forEach((card, idx) => {
+        const numberBadge = card.querySelector('.option-number');
+        if (numberBadge) {
+            numberBadge.textContent = `#${idx + 1}`;
+        }
+    });
+}
+
+/**
+ * 删除选项
+ */
+function removeOption(btn) {
+    const card = btn.closest('.option-card');
+    if (card) {
+        card.remove();
+        updateOptionNumbers();
+        updatePreview();
+    }
+}
+
+/**
+ * 更新预览
+ */
+function updatePreview() {
+    const componentType = document.getElementById('componentType').value;
+    const options = getOptions();
+
+    const previewContainer = document.getElementById('previewContainer');
+
+    if (options.length === 0) {
+        previewContainer.innerHTML = '<p class="text-muted mb-0">请添加选项后查看预览</p>';
+        return;
+    }
+
+    let html = '';
+
+    if (componentType === 'select') {
+        // 下拉框预览
+        html = '<select class="form-select" disabled>';
+        html += '<option value="">请选择...</option>';
+        options.forEach(opt => {
+            html += `<option value="${opt.value}">${opt.label}</option>`;
+        });
+        html += '</select>';
+    } else if (componentType === 'radio') {
+        // 单选框预览
+        html = '<div class="d-flex flex-wrap gap-3">';
+        options.forEach((opt, idx) => {
+            const id = `preview_radio_${idx}`;
+            html += `
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="preview_radio"
+                           id="${id}" value="${opt.value}" disabled>
+                    <label class="form-check-label" for="${id}">${opt.label}</label>
+                </div>
+            `;
+        });
+        html += '</div>';
+    }
+
+    previewContainer.innerHTML = html;
+}
+
+/**
+ * 获取所有选项（返回与 dynamic.html 一致的数据结构）
+ */
+function getOptions() {
+    const options = [];
+    document.querySelectorAll('#optionsContainer .option-card').forEach(card => {
+        const value = card.querySelector('.option-value').value.trim();
+        const label = card.querySelector('.option-label').value.trim();
+
+        if (value && label) {
+            options.push({
+                value: value,
+                label: label
+            });
+        }
+    });
+    return options;
+}
+
+/**
+ * 保存配置项
+ */
+function saveComponent() {
+    const name = document.getElementById('componentName').value.trim();
+    const type = document.getElementById('componentType').value;
+
+    if (!name) {
+        alert('配置项名称不能为空');
+        return;
+    }
+
+    const options = getOptions();
+
+    // 验证选项数量
+    if (type === 'radio') {
+        if (options.length !== 2) {
+            alert(`单选框必须有且仅有2个选项，当前有${options.length}个选项，请调整后再保存`);
+            return;
+        }
+    } else {
+        if (options.length === 0) {
+            alert('至少需要配置一个选项');
+            return;
+        }
+    }
+
+    // 构建与 dynamic.html 一致的数据结构
+    const componentData = {
+        id: currentEditingId,
+        name: name,
+        type: type,
+        options: options
+    };
+
+    console.log('保存的配置项数据结构:', JSON.stringify(componentData, null, 2));
+
+    // TODO: 调用后端 API
+    alert('保存功能待实现（前端验证已通过）\n\n数据结构示例：\n' + JSON.stringify(componentData, null, 2));
+}
+</script>
+
+<style>
+.sortable-ghost {
+    opacity: 0.4;
+    background-color: #f0f0f0;
+}
+
+.sortable-chosen {
+    background-color: #e3f2fd;
+}
+
+.sortable-drag {
+    opacity: 0.8;
+}
+
+.option-card {
+    transition: all 0.2s;
+}
+
+.option-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.drag-handle {
+    cursor: grab;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+</style>
+{% endblock %}
