@@ -77,3 +77,33 @@ fabric.properties
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
 
+# PyInstaller打包输出
+dist/
+build/
+*.spec
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 便携式Python环境
+dist_portable/
+portable_python/
+
+# 虚拟环境
+venv/
+env/
+ENV/
+
+# 数据库文件（可选，根据需要注释掉）
+# db.sqlite3
+
+# 临时文件
+临时文件/
+batch_results/
+*.log
+
+# IDE配置
+.vscode/
+*.swp
+*.swo
+*~

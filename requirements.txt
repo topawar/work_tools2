@@ -1,0 +1,16 @@
+altgraph==0.17.5
+asgiref==3.11.1
+Django==6.0.2
+et_xmlfile @ file:///C:/b/abs_b0ifp_j3js/croot/et_xmlfile_1756462499666/work
+openpyxl @ file:///C:/b/abs_6cdczthntz/croot/openpyxl_1736371239628/work
+packaging @ file:///C:/miniconda3/conda-bld/packaging_1761049099114/work
+pefile==2024.8.26
+pyinstaller==6.19.0
+pyinstaller-hooks-contrib==2026.4
+pypinyin==0.55.0
+pywin32-ctypes==0.2.3
+setuptools==80.10.2
+sqlparse==0.5.5
+tzdata==2025.3
+wheel==0.46.3
+xlrd==2.0.2
