@@ -3,256 +3,513 @@
 {% block title %}动态表单配置{% endblock %}
 
 {% block main_content %}
-<div class="container-fluid p-4">
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <h4>动态表单配置管理</h4>
+    <div class="container-fluid p-4">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h4>动态表单配置管理</h4>
+            </div>
         </div>
-    </div>
 
-    <!-- 表单列表 -->
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span>表单列表</span>
-            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#configModal" onclick="showAddFormModal()">
-                <i class="bi bi-plus-lg"></i> 新增表单
-            </button>
-        </div>
-        <div class="card-body">
-            <table class="table table-hover">
-                <thead>
+        <!-- 表单列表 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>表单列表</span>
+                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal"
+                        data-bs-target="#configModal" onclick="showAddFormModal()">
+                    <i class="bi bi-plus-lg"></i> 新增表单
+                </button>
+            </div>
+            <div class="card-body">
+                <!-- 搜索和分页控制 -->
+                <div class="row mb-3 align-items-center">
+                    <div class="col-md-6">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control" id="formSearchInput"
+                                   placeholder="搜索表单名称或表名..." oninput="filterForms()">
+                            <button class="btn btn-outline-secondary" type="button"
+                                    onclick="clearFormSearch()">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <span class="text-muted small me-2">每页显示:</span>
+                        <select class="form-select form-select-sm d-inline-block" style="width: auto;"
+                                id="formPageSize" onchange="changeFormPageSize()">
+                            <option value="5">5条</option>
+                            <option value="10" selected>10条</option>
+                            <option value="20">20条</option>
+                            <option value="50">50条</option>
+                        </select>
+                        <span id="formPageInfo" class="ms-3 text-muted small">共 0 条，第 0/0 页</span>
+                    </div>
+                </div>
+                
+                <table class="table table-hover">
+                    <thead>
                     <tr>
                         <th>表单名称</th>
                         <th>表名列表</th>
                         <th>创建时间</th>
                         <th>操作</th>
                     </tr>
-                </thead>
-                <tbody id="formListBody">
+                    </thead>
+                    <tbody id="formListBody">
                     <tr>
                         <td colspan="4" class="text-center">加载中...</td>
                     </tr>
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+                
+                <!-- 分页导航 -->
+                <nav id="formPagination" class="mt-3">
+                    <ul class="pagination pagination-sm justify-content-center mb-0"></ul>
+                </nav>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- 表单配置编辑模态框 -->
-<div class="modal fade" id="configModal" tabindex="-1" aria-labelledby="configModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="editorTitle">新增表单配置</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <!-- 基本信息 -->
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label">表单名称 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="formName" placeholder="例如: 合同明细单价修改">
+    <!-- 表单配置编辑模态框 -->
+    <div class="modal fade" id="configModal" tabindex="-1" aria-labelledby="configModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editorTitle">新增表单配置</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- 基本信息 -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">表单名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="formName" placeholder="例如: 合同明细单价修改">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">所属主菜单</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="parentMenuInput"
+                                       list="parentMenuList"
+                                       placeholder="选择或输入新菜单名">
+                                <datalist id="parentMenuList">
+                                    <!-- 动态生成菜单选项 -->
+                                </datalist>
+                                <button class="btn btn-outline-secondary" type="button" onclick="clearParentMenu()">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">可从列表选择，或直接输入新菜单名（将自动创建）</small>
+                        </div>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">所属主菜单</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="parentMenuInput"
-                                   list="parentMenuList"
-                                   placeholder="选择或输入新菜单名">
-                            <datalist id="parentMenuList">
-                                <!-- 动态生成菜单选项 -->
-                            </datalist>
-                            <button class="btn btn-outline-secondary" type="button" onclick="clearParentMenu()">
+
+                    <!-- 表名列表（标签式输入） -->
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">表名列表 <span class="text-danger">*</span></label>
+                            <div class="border rounded p-2" style="min-height: 80px; background-color: #f8f9fa;">
+                                <div id="tableTagsContainer" class="d-flex flex-wrap gap-2 mb-2">
+                                    <!-- 标签将在这里动态生成 -->
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <input type="text" class="form-control form-control-sm" id="tableNameInput"
+                                           placeholder="输入表名后按回车添加"
+                                           onkeypress="handleTableNameKeyPress(event)">
+                                    <button type="button" class="btn btn-sm btn-outline-primary ms-2"
+                                            onclick="addTableNameTag()">
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <small class="text-muted">提示：输入表名后按回车或点击 + 按钮添加</small>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Tab 导航 -->
+                    <ul class="nav nav-tabs mb-3" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#queryTab"
+                                    type="button">
+                                查询字段配置
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#updateTab" type="button">
+                                更新字段配置
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#databaseTab" type="button">
+                                <i class="bi bi-database"></i> 数据库配置
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <!-- Tab 内容 -->
+                    <div class="tab-content">
+                        <!-- 查询字段配置 -->
+                        <div class="tab-pane fade show active" id="queryTab">
+                            <div class="mb-3 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                            onclick="addQueryItem()">
+                                        <i class="bi bi-plus-lg"></i> 添加查询字段
+                                    </button>
+                                    <small class="text-muted ms-2">提示：拖动卡片或点击箭头可调整字段顺序</small>
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary me-2"
+                                            onclick="collapseAll('queryItemsContainer')">
+                                        <i class="bi bi-arrows-collapse"></i> 全部折叠
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            onclick="expandAll('queryItemsContainer')">
+                                        <i class="bi bi-arrows-expand"></i> 全部展开
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 搜索和分页控制 -->
+                            <div class="row mb-3 align-items-center">
+                                <div class="col-md-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                        <input type="text" class="form-control" id="querySearchInput"
+                                               placeholder="搜索字段中文名或英文名..." oninput="filterQueryItems()">
+                                        <button class="btn btn-outline-secondary" type="button"
+                                                onclick="clearQuerySearch()">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <span class="text-muted small me-2">每页显示:</span>
+                                    <select class="form-select form-select-sm d-inline-block" style="width: auto;"
+                                            id="queryPageSize" onchange="changeQueryPageSize()">
+                                        <option value="5" selected>5条</option>
+                                        <option value="10">10条</option>
+                                        <option value="20">20条</option>
+                                        <option value="50">50条</option>
+                                    </select>
+                                    <span id="queryPageInfo" class="ms-3 text-muted small">共 0 条，第 0/0 页</span>
+                                </div>
+                            </div>
+
+                            <div id="queryItemsContainer" class="sortable-container">
+                                <!-- 动态生成查询字段卡片 -->
+                            </div>
+
+                            <!-- 分页导航 -->
+                            <nav id="queryPagination" class="mt-3">
+                                <ul class="pagination pagination-sm justify-content-center mb-0"></ul>
+                            </nav>
+                        </div>
+
+                        <!-- 更新字段配置 -->
+                        <div class="tab-pane fade" id="updateTab">
+                            <div class="mb-3 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                            onclick="addUpdateItem()">
+                                        <i class="bi bi-plus-lg"></i> 添加更新字段
+                                    </button>
+                                    <small class="text-muted ms-2">提示：拖动卡片或点击箭头可调整字段顺序</small>
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary me-2"
+                                            onclick="collapseAll('updateItemsContainer')">
+                                        <i class="bi bi-arrows-collapse"></i> 全部折叠
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            onclick="expandAll('updateItemsContainer')">
+                                        <i class="bi bi-arrows-expand"></i> 全部展开
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 搜索和分页控制 -->
+                            <div class="row mb-3 align-items-center">
+                                <div class="col-md-6">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                        <input type="text" class="form-control" id="updateSearchInput"
+                                               placeholder="搜索字段中文名或英文名..." oninput="filterUpdateItems()">
+                                        <button class="btn btn-outline-secondary" type="button"
+                                                onclick="clearUpdateSearch()">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <span class="text-muted small me-2">每页显示:</span>
+                                    <select class="form-select form-select-sm d-inline-block" style="width: auto;"
+                                            id="updatePageSize" onchange="changeUpdatePageSize()">
+                                        <option value="5" selected>5条</option>
+                                        <option value="10">10条</option>
+                                        <option value="20">20条</option>
+                                        <option value="50">50条</option>
+                                    </select>
+                                    <span id="updatePageInfo" class="ms-3 text-muted small">共 0 条，第 0/0 页</span>
+                                </div>
+                            </div>
+
+                            <div id="updateItemsContainer" class="sortable-container">
+                                <!-- 动态生成更新字段卡片 -->
+                            </div>
+
+                            <!-- 分页导航 -->
+                            <nav id="updatePagination" class="mt-3">
+                                <ul class="pagination pagination-sm justify-content-center mb-0"></ul>
+                            </nav>
+                        </div>
+
+                        <!-- 数据库配置 -->
+                        <div class="tab-pane fade" id="databaseTab">
+                            <div class="ps-3 pe-3">
+                                <div class="mb-3">
+                                    <h6 class="mb-3">选择数据库配置 <small class="text-muted">（可多选）</small></h6>
+                                    
+                                    <!-- 搜索框 -->
+                                    <div class="input-group input-group-sm mb-3" style="max-width: 400px;">
+                                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                        <input type="text" class="form-control" id="databaseIpSearchInput" placeholder="搜索配置名称、IP地址或数据库名..." oninput="filterDatabaseIps()">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="clearDatabaseIpSearch()">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- 数据库配置列表 -->
+                                <div id="databaseIpListContainer" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
+                                    <!-- 数据库配置列表将在这里动态生成 -->
+                                </div>
+
+                                <div class="alert alert-info">
+                                    <i class="bi bi-lightbulb"></i>
+                                    <strong>提示：</strong>选择的数据库配置将用于生成SQL语句。可以选择多个数据库配置，系统会为每个数据库生成对应的SQL。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-success" onclick="saveFormConfig()">
+                        <i class="bi bi-save"></i> 保存配置
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 子字段配置模态框 -->
+    <div class="modal fade" id="subFieldsModal" tabindex="-1" aria-labelledby="subFieldsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="modal-header"
+                     style="background: rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.2);">
+                    <h5 class="modal-title text-white" id="subFieldsModalLabel">
+                        <i class="bi bi-diagram-3"></i> 配置子字段映射
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="background: rgba(255,255,255,0.95);">
+                    <div class="alert alert-warning border-0" style="background: #fff3cd;">
+                        <i class="bi bi-lightbulb"></i>
+                        <strong>提示：</strong>子字段将使用主字段选择的表。每个子字段需要配置显示名称、自定义字段名，并选择数据库中的映射字段。
+                    </div>
+
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="addSubField()"
+                                style="background: #667eea; border: none;">
+                            <i class="bi bi-plus-circle"></i> 添加子字段
+                        </button>
+                    </div>
+
+                    <div id="subFieldsContainer" class="sortable-container">
+                        <!-- 动态生成子字段卡片 -->
+                    </div>
+                </div>
+                <div class="modal-footer"
+                     style="background: rgba(255,255,255,0.1); border-top: 1px solid rgba(255,255,255,0.2);">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn text-white" onclick="saveSubFieldsConfig()"
+                            style="background: #764ba2; border: none;">
+                        <i class="bi bi-check-circle"></i> 保存配置
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据库IP选择模态框 -->
+    <div class="modal fade" id="databaseIpSelectModal" tabindex="-1" aria-labelledby="databaseIpSelectModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="databaseIpSelectModalLabel">
+                        <i class="bi bi-database"></i> 选择数据库配置
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        请选择一个或多个数据库配置，这些配置将用于生成SQL语句。
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control" id="databaseIpSearchInput" placeholder="搜索配置名称、IP地址或数据库名..." oninput="filterDatabaseIps()">
+                            <button class="btn btn-outline-secondary" type="button" onclick="clearDatabaseIpSearch()">
                                 <i class="bi bi-x-lg"></i>
                             </button>
                         </div>
-                        <small class="text-muted">可从列表选择，或直接输入新菜单名（将自动创建）</small>
+                    </div>
+                    
+                    <div id="databaseIpListContainer" style="max-height: 400px; overflow-y: auto;">
+                        <!-- 数据库IP列表将在这里动态生成 -->
                     </div>
                 </div>
-
-                <!-- 表名列表（标签式输入） -->
-                <div class="row mb-3">
-                    <div class="col-md-12">
-                        <label class="form-label">表名列表 <span class="text-danger">*</span></label>
-                        <div class="border rounded p-2" style="min-height: 80px; background-color: #f8f9fa;">
-                            <div id="tableTagsContainer" class="d-flex flex-wrap gap-2 mb-2">
-                                <!-- 标签将在这里动态生成 -->
-                            </div>
-                            <div class="d-flex align-items-center">
-                                <input type="text" class="form-control form-control-sm" id="tableNameInput"
-                                       placeholder="输入表名后按回车添加"
-                                       onkeypress="handleTableNameKeyPress(event)">
-                                <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="addTableNameTag()">
-                                    <i class="bi bi-plus-lg"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <small class="text-muted">提示：输入表名后按回车或点击 + 按钮添加</small>
-                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmDatabaseIpSelection()">
+                        <i class="bi bi-check-lg"></i> 确认选择
+                    </button>
                 </div>
-
-                <hr>
-
-                <!-- Tab 导航 -->
-                <ul class="nav nav-tabs mb-3" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#queryTab" type="button">
-                            查询字段配置
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#updateTab" type="button">
-                            更新字段配置
-                        </button>
-                    </li>
-                </ul>
-
-                <!-- Tab 内容 -->
-                <div class="tab-content">
-                    <!-- 查询字段配置 -->
-                    <div class="tab-pane fade show active" id="queryTab">
-                        <div class="mb-3">
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addQueryItem()">
-                                <i class="bi bi-plus-lg"></i> 添加查询字段
-                            </button>
-                            <small class="text-muted ms-2">提示：拖动卡片或点击箭头可调整字段顺序</small>
-                        </div>
-                        <div id="queryItemsContainer" class="sortable-container">
-                            <!-- 动态生成查询字段卡片 -->
-                        </div>
-                    </div>
-
-                    <!-- 更新字段配置 -->
-                    <div class="tab-pane fade" id="updateTab">
-                        <div class="mb-3">
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addUpdateItem()">
-                                <i class="bi bi-plus-lg"></i> 添加更新字段
-                            </button>
-                            <small class="text-muted ms-2">提示：拖动卡片或点击箭头可调整字段顺序</small>
-                        </div>
-                        <div id="updateItemsContainer" class="sortable-container">
-                            <!-- 动态生成更新字段卡片 -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-success" onclick="saveFormConfig()">
-                    <i class="bi bi-save"></i> 保存配置
-                </button>
             </div>
         </div>
     </div>
-</div>
 
-<!-- 引入 Layui 样式 -->
-<link rel="stylesheet" href="/static/layui/css/layui.css">
-<!-- 引入 SortableJS -->
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <!-- 引入 Layui 样式 -->
+    <link rel="stylesheet" href="/static/layui/css/layui.css">
+    <!-- 引入 SortableJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
-<script>
-let currentEditingFormId = null;
-let queryItemCount = 0;
-let updateItemCount = 0;
-let tableNameList = []; // 存储表名列表
-let querySortable = null;
-let updateSortable = null;
-let menuList = []; // 存储菜单列表
+    <script>
+        let currentEditingFormId = null;
+        let queryItemCount = 0;
+        let updateItemCount = 0;
+        let tableNameList = [];
+        let querySortable = null;
+        let updateSortable = null;
+        let menuList = [];
+        let componentList = [];
+        let currentEditingCard = null;
+        let subFieldCount = 0;
+        let subFieldsSortable = null;
+        let databaseTables = [];
+        
+        // 数据库IP配置相关变量
+        let allDatabaseIpConfigs = [];
+        let selectedDatabaseIpIds = [];  // 已选择的数据库IP ID列表
 
-// 页面加载时获取表单列表和菜单列表
-document.addEventListener('DOMContentLoaded', function() {
-    loadFormList();
-    loadMenuList();
-    initSortable();
-});
+        // 分页和搜索相关变量
+        let queryCurrentPage = 1;
+        let queryPageSize = 5;
+        let queryFilteredCards = [];
 
-/**
- * 初始化拖拽排序
- */
-function initSortable() {
-    const queryContainer = document.getElementById('queryItemsContainer');
-    if (queryContainer) {
-        querySortable = new Sortable(queryContainer, {
-            animation: 150,
-            handle: '.drag-handle',
-            ghostClass: 'sortable-ghost',
-            chosenClass: 'sortable-chosen',
-            dragClass: 'sortable-drag',
-            onEnd: function(evt) {
-                updateSortOrder('query');
-            }
+        let updateCurrentPage = 1;
+        let updatePageSize = 5;
+        let updateFilteredCards = [];
+        
+        // 表单列表分页和搜索变量
+        let allForms = [];  // 所有表单数据
+        let formFilteredData = [];  // 过滤后的表单数据
+        let formCurrentPage = 1;
+        let formPageSize = 10;  // 默认每页10条
+
+
+        document.addEventListener('DOMContentLoaded', function () {
+            loadFormList();
+            loadMenuList();
+            loadComponentList();
+            loadDatabaseTables();
+            loadDatabaseIpConfigs();
+            initSortable();
         });
-    }
 
-    const updateContainer = document.getElementById('updateItemsContainer');
-    if (updateContainer) {
-        updateSortable = new Sortable(updateContainer, {
-            animation: 150,
-            handle: '.drag-handle',
-            ghostClass: 'sortable-ghost',
-            chosenClass: 'sortable-chosen',
-            dragClass: 'sortable-drag',
-            onEnd: function(evt) {
-                updateSortOrder('update');
+        function initSortable() {
+            const queryContainer = document.getElementById('queryItemsContainer');
+            if (queryContainer) {
+                querySortable = new Sortable(queryContainer, {
+                    animation: 150,
+                    handle: '.drag-handle',
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    dragClass: 'sortable-drag',
+                    onEnd: function (evt) {
+                        updateSortOrder('query');
+                    }
+                });
             }
-        });
-    }
-}
 
-/**
- * 更新排序值（根据DOM顺序）
- */
-function updateSortOrder(type) {
-    const container = type === 'query' ?
-        document.getElementById('queryItemsContainer') :
-        document.getElementById('updateItemsContainer');
-
-    const cards = container.querySelectorAll('.field-card');
-    cards.forEach((card, index) => {
-        const sortOrderInput = card.querySelector('.sort-order-value');
-        if (sortOrderInput) {
-            sortOrderInput.value = index;
+            const updateContainer = document.getElementById('updateItemsContainer');
+            if (updateContainer) {
+                updateSortable = new Sortable(updateContainer, {
+                    animation: 150,
+                    handle: '.drag-handle',
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    dragClass: 'sortable-drag',
+                    onEnd: function (evt) {
+                        updateSortOrder('update');
+                    }
+                });
+            }
         }
 
-        const titleElement = card.querySelector('.card-sequence-number');
-        if (titleElement) {
-            titleElement.textContent = `#${index + 1}`;
+        function updateSortOrder(type) {
+            const container = type === 'query' ?
+                document.getElementById('queryItemsContainer') :
+                document.getElementById('updateItemsContainer');
+
+            const cards = container.querySelectorAll('.field-card');
+            cards.forEach((card, index) => {
+                const sortOrderInput = card.querySelector('.sort-order-value');
+                if (sortOrderInput) {
+                    sortOrderInput.value = index;
+                }
+
+                const titleElement = card.querySelector('.card-sequence-number');
+                if (titleElement) {
+                    titleElement.textContent = `#${index + 1}`;
+                }
+            });
         }
-    });
-}
 
-/**
- * 加载表单列表
- */
-function loadFormList() {
-    fetch('/api/form-configs/')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                renderFormList(data.data);
-            } else {
-                alert('加载失败：' + data.message);
+        function loadFormList() {
+            fetch('/api/form-configs/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        allForms = data.data;  // 保存所有数据
+                        formFilteredData = [...allForms];  // 初始化过滤数据
+                        formCurrentPage = 1;  // 重置到第一页
+                        renderFormPage();  // 渲染分页
+                    } else {
+                        alert('加载失败：' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('加载失败');
+                });
+        }
+
+        function renderFormList(configs) {
+            const tbody = document.getElementById('formListBody');
+
+            if (configs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center">暂无数据</td></tr>';
+                return;
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('加载失败');
-        });
-}
 
-/**
- * 渲染表单列表
- */
-function renderFormList(configs) {
-    const tbody = document.getElementById('formListBody');
-
-    if (configs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center">暂无数据</td></tr>';
-        return;
-    }
-
-    tbody.innerHTML = configs.map(config => `
+            tbody.innerHTML = configs.map(config => `
         <tr>
             <td>${config.form_name}</td>
             <td>
@@ -269,256 +526,413 @@ function renderFormList(configs) {
             </td>
         </tr>
     `).join('');
-}
-
-/**
- * 编辑表单
- */
-function editForm(formId) {
-    fetch(`/api/form-config/${formId}/`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                currentEditingFormId = formId;
-                document.getElementById('editorTitle').textContent = '编辑表单配置';
-
-                const config = data.data;
-                document.getElementById('formName').value = config.formName;
-
-                tableNameList = config.tableNameList || [];
-                renderTableTags();
-
-                document.getElementById('queryItemsContainer').innerHTML = '';
-                queryItemCount = 0;
-                config.queryItems.forEach(item => {
-                    addQueryItem(item);
-                });
-
-                document.getElementById('updateItemsContainer').innerHTML = '';
-                updateItemCount = 0;
-                config.updateItems.forEach(item => {
-                    addUpdateItem(item);
-                });
+        }
+        
+        /**
+         * 渲染表单列表当前页
+         */
+        function renderFormPage() {
+            const totalPages = Math.ceil(formFilteredData.length / formPageSize) || 1;
+            
+            // 确保当前页不超出范围
+            if (formCurrentPage > totalPages) {
+                formCurrentPage = totalPages;
+            }
+            
+            // 计算当前页的数据
+            const start = (formCurrentPage - 1) * formPageSize;
+            const end = start + formPageSize;
+            const currentPageData = formFilteredData.slice(start, end);
+            
+            // 渲染表格
+            renderFormList(currentPageData);
+            
+            // 更新分页信息
+            document.getElementById('formPageInfo').textContent = 
+                `共 ${formFilteredData.length} 条，第 ${formCurrentPage}/${totalPages} 页`;
+            
+            // 渲染分页按钮
+            renderFormPagination(totalPages);
+        }
+        
+        /**
+         * 渲染表单列表分页按钮
+         */
+        function renderFormPagination(totalPages) {
+            const pagination = document.querySelector('#formPagination ul');
+            if (!pagination) return;
+            
+            let html = '';
+            
+            // 上一页
+            html += `<li class="page-item ${formCurrentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changeFormPage(${formCurrentPage - 1}); return false;">上一页</a>
+            </li>`;
+            
+            // 页码
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= formCurrentPage - 2 && i <= formCurrentPage + 2)) {
+                    html += `<li class="page-item ${i === formCurrentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changeFormPage(${i}); return false;">${i}</a>
+                    </li>`;
+                } else if (i === formCurrentPage - 3 || i === formCurrentPage + 3) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+            
+            // 下一页
+            html += `<li class="page-item ${formCurrentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changeFormPage(${formCurrentPage + 1}); return false;">下一页</a>
+            </li>`;
+            
+            pagination.innerHTML = html;
+        }
+        
+        /**
+         * 切换表单列表页码
+         */
+        function changeFormPage(page) {
+            const totalPages = Math.ceil(formFilteredData.length / formPageSize) || 1;
+            if (page < 1 || page > totalPages) return;
+            
+            formCurrentPage = page;
+            renderFormPage();
+        }
+        
+        /**
+         * 改变表单列表每页显示条数
+         */
+        function changeFormPageSize() {
+            formPageSize = parseInt(document.getElementById('formPageSize').value);
+            formCurrentPage = 1;
+            renderFormPage();
+        }
+        
+        /**
+         * 过滤表单列表
+         */
+        function filterForms() {
+            const searchText = document.getElementById('formSearchInput').value.trim().toLowerCase();
+            
+            if (!searchText) {
+                // 没有搜索文本，显示所有数据
+                formFilteredData = [...allForms];
             } else {
-                alert('加载失败：' + data.message);
+                // 根据表单名称或表名过滤
+                formFilteredData = allForms.filter(form => {
+                    const formName = form.form_name.toLowerCase();
+                    const tableNames = form.table_name_list.join(' ').toLowerCase();
+                    return formName.includes(searchText) || tableNames.includes(searchText);
+                });
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('加载失败');
-        });
-}
-
-/**
- * 删除表单
- */
-function deleteForm(formId) {
-    if (!confirm('确定要删除此表单配置吗？')) {
-        return;
-    }
-
-    fetch(`/api/form-config/delete/${formId}/`, {
-        method: 'DELETE'
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('删除成功');
-            loadFormList();
-        } else {
-            alert('删除失败：' + data.message);
+            
+            // 重置到第一页
+            formCurrentPage = 1;
+            renderFormPage();
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('删除失败');
-    });
-}
+        
+        /**
+         * 清除表单搜索
+         */
+        function clearFormSearch() {
+            document.getElementById('formSearchInput').value = '';
+            filterForms();
+        }
 
-/**
- * 加载菜单列表
- */
-function loadMenuList() {
-    fetch('/api/menu-list/')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                menuList = data.data;
-                renderMenuDatalist();
+        function editForm(formId) {
+            fetch(`/api/form-config/${formId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentEditingFormId = formId;
+                        document.getElementById('editorTitle').textContent = '编辑表单配置';
+
+                        const config = data.data;
+                        document.getElementById('formName').value = config.formName;
+
+                        if (config.parentMenuName) {
+                            document.getElementById('parentMenuInput').value = config.parentMenuName;
+                        }
+
+                        tableNameList = config.tableNameList || [];
+                        renderTableTags();
+
+                        document.getElementById('queryItemsContainer').innerHTML = '';
+                        queryItemCount = 0;
+                        config.queryItems.forEach(item => {
+                            addQueryItem(item);
+                        });
+
+                        document.getElementById('updateItemsContainer').innerHTML = '';
+                        updateItemCount = 0;
+                        config.updateItems.forEach(item => {
+                            addUpdateItem(item);
+                        });
+
+                        // 初始化搜索和分页
+                        queryFilteredCards = Array.from(document.querySelectorAll('#queryItemsContainer .field-card'));
+                        renderQueryPage();
+                        updateFilteredCards = Array.from(document.querySelectorAll('#updateItemsContainer .field-card'));
+                        renderUpdatePage();
+                        
+                        // 编辑时默认全部折叠
+                        setTimeout(() => {
+                            collapseAll('queryItemsContainer');
+                            collapseAll('updateItemsContainer');
+                        }, 100);
+                        
+                        // 加载已选择的数据库IP配置
+                        selectedDatabaseIpIds = config.databaseIpIds || [];
+                        renderDatabaseIpList(allDatabaseIpConfigs);
+                    } else {
+                        alert('加载失败：' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('加载失败');
+                });
+        }
+
+        function deleteForm(formId) {
+            if (!confirm('确定要删除此表单配置吗？')) {
+                return;
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-        });
-}
 
-/**
- * 渲染菜单 datalist
- */
-function renderMenuDatalist() {
-    const datalist = document.getElementById('parentMenuList');
-    datalist.innerHTML = '';
-
-    menuList.forEach(menu => {
-        const option = document.createElement('option');
-        option.value = menu.name;
-        option.dataset.menuId = menu.id;
-        datalist.appendChild(option);
-    });
-}
-
-/**
- * 清空父级菜单
- */
-function clearParentMenu() {
-    document.getElementById('parentMenuInput').value = '';
-}
-
-/**
- * 获取或创建父级菜单ID
- */
-async function getOrCreateParentMenuId() {
-    const menuName = document.getElementById('parentMenuInput').value.trim();
-
-    if (!menuName) {
-        return null;
-    }
-
-    const existingMenu = menuList.find(m => m.name === menuName);
-    if (existingMenu) {
-        return existingMenu.id;
-    }
-
-    try {
-        const response = await fetch('/api/menu/create-or-get/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                menuName: menuName
+            fetch(`/api/form-config/delete/${formId}/`, {
+                method: 'DELETE'
             })
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            await loadMenuList();
-            return data.data.id;
-        } else {
-            throw new Error(data.message);
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 使用 Toast 提示
+                        if (window.showSuccessToast) {
+                            window.showSuccessToast('删除成功');
+                        } else {
+                            alert('删除成功');
+                        }
+                        
+                        // 清除搜索条件
+                        document.getElementById('formSearchInput').value = '';
+                        
+                        // 重新加载列表
+                        loadFormList();
+                    } else {
+                        alert('删除失败：' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('删除失败');
+                });
         }
-    } catch (error) {
-        console.error('创建菜单失败:', error);
-        alert('创建菜单失败：' + error.message);
-        return null;
-    }
-}
 
-/**
- * 显示新增表单模态框
- */
-function showAddFormModal() {
-    currentEditingFormId = null;
-    document.getElementById('editorTitle').textContent = '新增表单配置';
+        function loadMenuList() {
+            fetch('/api/menu-list/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        menuList = data.data;
+                        renderMenuDatalist();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
 
-    document.getElementById('formName').value = '';
-    document.getElementById('parentMenuInput').value = '';
-    tableNameList = [];
-    renderTableTags();
+        function loadComponentList() {
+            fetch('/api/components/?page=1&page_size=1000')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        componentList = data.data.map(comp => ({
+                            id: comp.id,
+                            name: comp.name,
+                            type: comp.type,
+                            options: comp.options || []
+                        }));
+                    } else {
+                        console.error('加载配置项失败:', data.error);
+                        componentList = [];
+                    }
+                })
+                .catch(error => {
+                    console.error('请求失败:', error);
+                    componentList = [];
+                });
+        }
 
-    document.getElementById('queryItemsContainer').innerHTML = '';
-    document.getElementById('updateItemsContainer').innerHTML = '';
-    queryItemCount = 0;
-    updateItemCount = 0;
-}
+        function loadDatabaseTables() {
+            fetch('/api/database/tables/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        databaseTables = data.data;
+                    } else {
+                        console.error('加载数据库表失败:', data.message);
+                        databaseTables = [];
+                    }
+                })
+                .catch(error => {
+                    console.error('请求失败:', error);
+                    databaseTables = [];
+                });
+        }
 
-/**
- * 处理表名输入框按键事件
- */
-function handleTableNameKeyPress(event) {
-    if (event.key === 'Enter') {
-        event.preventDefault();
-        addTableNameTag();
-    }
-}
+        function renderMenuDatalist() {
+            const datalist = document.getElementById('parentMenuList');
+            datalist.innerHTML = '';
 
-/**
- * 添加表名标签
- */
-function addTableNameTag() {
-    const input = document.getElementById('tableNameInput');
-    const tableName = input.value.trim();
+            menuList.forEach(menu => {
+                const option = document.createElement('option');
+                option.value = menu.name;
+                option.dataset.menuId = menu.id;
+                datalist.appendChild(option);
+            });
+        }
 
-    if (!tableName) {
-        return;
-    }
+        function clearParentMenu() {
+            document.getElementById('parentMenuInput').value = '';
+        }
 
-    if (tableNameList.includes(tableName)) {
-        alert('表名已存在');
-        input.value = '';
-        return;
-    }
+        async function getOrCreateParentMenuId() {
+            const menuName = document.getElementById('parentMenuInput').value.trim();
 
-    tableNameList.push(tableName);
-    renderTableTags();
-    refreshAllConnectedTableCheckboxes();
-
-    input.value = '';
-    input.focus();
-}
-
-/**
- * 删除表名标签
- */
-function removeTableName(index) {
-    const removedTableName = tableNameList[index];
-    tableNameList.splice(index, 1);
-    renderTableTags();
-    refreshAllConnectedTableCheckboxes(removedTableName);
-}
-
-/**
- * 刷新所有字段的关联表复选框
- */
-function refreshAllConnectedTableCheckboxes(removedTableName = null) {
-    document.querySelectorAll('#queryItemsContainer .field-card').forEach(card => {
-        const container = card.querySelector('.connected-tables-container');
-        if (container) {
-            const currentSelected = getSelectedTables(card);
-            let updatedSelected = currentSelected;
-            if (removedTableName) {
-                updatedSelected = currentSelected.filter(name => name !== removedTableName);
+            if (!menuName) {
+                return null;
             }
-            container.innerHTML = generateConnectedTableCheckboxes(updatedSelected, 'query');
-        }
-    });
 
-    document.querySelectorAll('#updateItemsContainer .field-card').forEach(card => {
-        const container = card.querySelector('.connected-tables-container');
-        if (container) {
-            const currentSelected = getSelectedTables(card);
-            let updatedSelected = currentSelected;
-            if (removedTableName) {
-                updatedSelected = currentSelected.filter(name => name !== removedTableName);
+            const existingMenu = menuList.find(m => m.name === menuName);
+            if (existingMenu) {
+                return existingMenu.id;
             }
-            container.innerHTML = generateConnectedTableCheckboxes(updatedSelected, 'update');
+
+            try {
+                const response = await fetch('/api/menu/create-or-get/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        menuName: menuName
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    await loadMenuList();
+                    return data.data.id;
+                } else {
+                    throw new Error(data.message);
+                }
+            } catch (error) {
+                console.error('创建菜单失败:', error);
+                alert('创建菜单失败：' + error.message);
+                return null;
+            }
         }
-    });
-}
 
-/**
- * 渲染表名标签
- */
-function renderTableTags() {
-    const container = document.getElementById('tableTagsContainer');
+        function showAddFormModal() {
+            currentEditingFormId = null;
+            document.getElementById('editorTitle').textContent = '新增表单配置';
 
-    if (tableNameList.length === 0) {
-        container.innerHTML = '<small class="text-muted">暂无表名</small>';
-        return;
-    }
+            document.getElementById('formName').value = '';
+            document.getElementById('parentMenuInput').value = '';
+            tableNameList = [];
+            renderTableTags();
 
-    container.innerHTML = tableNameList.map((name, index) => `
+            document.getElementById('queryItemsContainer').innerHTML = '';
+            document.getElementById('updateItemsContainer').innerHTML = '';
+            queryItemCount = 0;
+            updateItemCount = 0;
+            
+            // 重置数据库IP选择
+            selectedDatabaseIpIds = [];
+            renderDatabaseIpList(allDatabaseIpConfigs);
+
+            // 重置分页和搜索
+            queryCurrentPage = 1;
+            updateCurrentPage = 1;
+            queryFilteredCards = [];
+            updateFilteredCards = [];
+            document.getElementById('querySearchInput').value = '';
+            document.getElementById('updateSearchInput').value = '';
+
+        }
+
+        function handleTableNameKeyPress(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                addTableNameTag();
+            }
+        }
+
+        function addTableNameTag() {
+            const input = document.getElementById('tableNameInput');
+            const tableName = input.value.trim();
+
+            if (!tableName) {
+                return;
+            }
+
+            if (tableNameList.includes(tableName)) {
+                alert('表名已存在');
+                input.value = '';
+                return;
+            }
+
+            tableNameList.push(tableName);
+            renderTableTags();
+            refreshAllConnectedTableCheckboxes();
+
+            input.value = '';
+            input.focus();
+        }
+
+        function removeTableName(index) {
+            const removedTableName = tableNameList[index];
+            tableNameList.splice(index, 1);
+            renderTableTags();
+            refreshAllConnectedTableCheckboxes(removedTableName);
+        }
+
+        function refreshAllConnectedTableCheckboxes(removedTableName = null) {
+            document.querySelectorAll('#queryItemsContainer .field-card').forEach(card => {
+                const container = card.querySelector('.connected-tables-container');
+                if (container) {
+                    const currentSelected = getSelectedTables(card);
+                    let updatedSelected = currentSelected;
+                    if (removedTableName) {
+                        updatedSelected = currentSelected.filter(name => name !== removedTableName);
+                    }
+                    container.innerHTML = generateConnectedTableCheckboxes(updatedSelected, 'query');
+                }
+            });
+
+            document.querySelectorAll('#updateItemsContainer .field-card').forEach(card => {
+                const container = card.querySelector('.connected-tables-container');
+                if (container) {
+                    const currentSelected = getSelectedTables(card);
+                    let updatedSelected = currentSelected;
+                    if (removedTableName) {
+                        updatedSelected = currentSelected.filter(name => name !== removedTableName);
+                    }
+                    container.innerHTML = generateConnectedTableCheckboxes(updatedSelected, 'update');
+                }
+            });
+        }
+
+        function renderTableTags() {
+            const container = document.getElementById('tableTagsContainer');
+
+            if (tableNameList.length === 0) {
+                container.innerHTML = '<small class="text-muted">暂无表名</small>';
+                return;
+            }
+
+            container.innerHTML = tableNameList.map((name, index) => `
         <span class="badge bg-primary d-flex align-items-center" style="font-size: 14px; padding: 6px 10px;">
             ${name}
             <button type="button" class="btn-close btn-close-white ms-2"
@@ -526,57 +940,109 @@ function renderTableTags() {
                     onclick="removeTableName(${index})"></button>
         </span>
     `).join('');
-}
+        }
 
-/**
- * 生成关联表复选框HTML
- */
-function generateConnectedTableCheckboxes(connectedTables = [], prefix) {
-    if (tableNameList.length === 0) {
-        return '<small class="text-muted">请先在上方添加表名</small>';
-    }
+        function generateConnectedTableCheckboxes(connectedTables = [], prefix) {
+            if (tableNameList.length === 0) {
+                return '<small class="text-muted">请先在上方添加表名</small>';
+            }
 
-    return tableNameList.map(tableName => {
-        const isChecked = connectedTables.includes(tableName) ? 'checked' : '';
-        return `
-            <div class="form-check form-check-inline">
-                <input class="form-check-input connected-table-checkbox" type="checkbox"
-                       value="${tableName}" ${isChecked}>
-                <label class="form-check-label">${tableName}</label>
-            </div>
-        `;
-    }).join('');
-}
+            const checkboxesHtml = tableNameList.map(tableName => {
+                const isChecked = connectedTables.includes(tableName) ? 'checked' : '';
+                return `
+                    <label class="table-checkbox-item">
+                        <input type="checkbox" class="connected-table-checkbox" value="${tableName}" ${isChecked}>
+                        <span class="checkbox-label-text">${tableName}</span>
+                    </label>
+                `;
+            }).join('');
 
-/**
- * 获取选中的关联表
- */
-function getSelectedTables(cardElement) {
-    const checkboxes = cardElement.querySelectorAll('.connected-table-checkbox:checked');
-    return Array.from(checkboxes).map(cb => cb.value);
-}
+            return `<div class="table-checkbox-wrapper">${checkboxesHtml}</div>`;
+        }
 
-/**
- * 添加查询字段卡片
- */
-function addQueryItem(data = null) {
-    queryItemCount++;
-    const index = queryItemCount;
-    const sortOrder = data?.sortOrder !== undefined ? data.sortOrder : index - 1;
+        function getSelectedTables(cardElement) {
+            const checkboxes = cardElement.querySelectorAll('.connected-table-checkbox:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
 
-    const container = document.getElementById('queryItemsContainer');
-    const div = document.createElement('div');
-    div.className = 'card mb-3 border field-card';
-    div.dataset.sortOrder = sortOrder;
+        function generateComponentOptionsSelect(componentName, currentValue, fieldName) {
+            const component = componentList.find(c => c.name === componentName);
 
-    const connectedTables = data?.connectedTable || [];
+            if (!component || !component.options || component.options.length === 0) {
+                return `<input type="text" class="form-control ${fieldName}" value="${currentValue || ''}" placeholder="未找到配置项或配置项无选项">`;
+            }
 
-    div.innerHTML = `
+            const optionsHtml = component.options.map(opt => {
+                const selected = opt.value === currentValue ? 'selected' : '';
+                return `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
+            }).join('');
+
+            return `
+        <select class="form-select ${fieldName}">
+            <option value="">请选择...</option>
+            ${optionsHtml}
+        </select>
+    `;
+        }
+
+        function handleRadioOriginValueChange(card, component) {
+            const originValue = card.querySelector('.update-origin-default-value')?.value;
+
+            if (!originValue || !component || !component.options) {
+                return;
+            }
+
+            const oppositeOption = component.options.find(opt => opt.value !== originValue);
+
+            if (oppositeOption) {
+                const newDefaultInput = card.querySelector('.update-new-default-value');
+                if (newDefaultInput) {
+                    newDefaultInput.value = oppositeOption.value;
+                }
+            }
+        }
+
+        function handleRadioNewValueChange(card, component) {
+            const newValue = card.querySelector('.update-new-default-value')?.value;
+
+            if (!newValue || !component || !component.options || component.options.length !== 2) {
+                return;
+            }
+
+            const oppositeOption = component.options.find(opt => opt.value !== newValue);
+
+            if (oppositeOption) {
+                const originDefaultInput = card.querySelector('.update-origin-default-value');
+                if (originDefaultInput) {
+                    originDefaultInput.value = oppositeOption.value;
+                }
+            }
+        }
+
+        function addQueryItem(data = null) {
+            queryItemCount++;
+            const index = queryItemCount;
+            const sortOrder = data?.sortOrder !== undefined ? data.sortOrder : index - 1;
+
+            const container = document.getElementById('queryItemsContainer');
+            const div = document.createElement('div');
+            div.className = 'card mb-3 border field-card';
+            div.dataset.sortOrder = sortOrder;
+
+            const connectedTables = data?.connectedTable || [];
+
+                           div.innerHTML = `
         <div class="card-header d-flex align-items-center">
             <i class="bi bi-grip-vertical drag-handle me-2 text-muted" style="cursor: move;" title="拖动排序"></i>
             <span class="badge bg-secondary me-2 card-sequence-number" style="min-width: 40px;">#${sortOrder + 1}</span>
-            <h6 class="mb-0 flex-grow-1">查询字段</h6>
-            <div class="d-flex gap-1">
+            <h6 class="mb-0">查询字段</h6>
+            <span class="field-summary me-2" style="display: none; color: #0d6efd; font-weight: 600; font-size: 1rem;">
+                ${data?.label ? data.label : ''}${data?.bindingKey ? ' (' + data.bindingKey + ')' : ''}
+            </span>
+            <div class="d-flex gap-1 ms-auto">
+                <button type="button" class="btn btn-sm btn-outline-secondary toggle-collapse-btn" onclick="toggleCardCollapse(this)" title="收起">
+                    <i class="bi bi-chevron-up"></i>
+                </button>
                 <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveQueryItemUp(this)" title="上移">
                     <i class="bi bi-arrow-up"></i>
                 </button>
@@ -592,12 +1058,12 @@ function addQueryItem(data = null) {
             <input type="hidden" class="sort-order-value" value="${sortOrder}">
             <div class="row g-3">
                 <div class="col-md-4">
-                    <label class="form-label">标签 <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control query-label" value="${data?.label || ''}" placeholder="例如: 订单号">
+                    <label class="form-label">字段中文名 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control query-label" value="${data?.label || ''}" placeholder="例如: 订单号" oninput="updateFieldSummary(this)">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">绑定键 <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control query-binding-key" value="${data?.bindingKey || ''}" placeholder="例如: itemId">
+                    <label class="form-label">字段英文名 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control query-binding-key" value="${data?.bindingKey || ''}" placeholder="例如: itemId" oninput="updateFieldSummary(this)">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">验证规则</label>
@@ -620,76 +1086,207 @@ function addQueryItem(data = null) {
         </div>
     `;
 
-    container.appendChild(div);
-}
+            container.appendChild(div);
 
-/**
- * 上移查询字段
- */
-function moveQueryItemUp(btn) {
-    const card = btn.closest('.field-card');
-    if (card && card.previousElementSibling) {
-        card.parentNode.insertBefore(card, card.previousElementSibling);
-        updateSortOrder('query');
-    }
-}
+            // 更新过滤列表并重新渲染分页
+            queryFilteredCards = Array.from(container.querySelectorAll('.field-card'));
+            renderQueryPage();
+        }
 
-/**
- * 下移查询字段
- */
-function moveQueryItemDown(btn) {
-    const card = btn.closest('.field-card');
-    if (card && card.nextElementSibling) {
-        card.parentNode.insertBefore(card.nextElementSibling, card);
-        updateSortOrder('query');
-    }
-}
 
-/**
- * 删除查询字段
- */
-function removeQueryItem(btn) {
-    const card = btn.closest('.field-card');
-    if (card) {
-        card.remove();
-        updateSortOrder('query');
-    }
-}
+        function moveQueryItemUp(btn) {
+            const card = btn.closest('.field-card');
+            if (card && card.previousElementSibling) {
+                card.parentNode.insertBefore(card, card.previousElementSibling);
+                updateSortOrder('query');
+            }
+        }
 
-/**
- * 添加更新字段卡片
- */
-function addUpdateItem(data = null) {
-    updateItemCount++;
-    const index = updateItemCount;
-    const sortOrder = data?.sortOrder !== undefined ? data.sortOrder : index - 1;
+        function moveQueryItemDown(btn) {
+            const card = btn.closest('.field-card');
+            if (card && card.nextElementSibling) {
+                card.parentNode.insertBefore(card.nextElementSibling, card);
+                updateSortOrder('query');
+            }
+        }
 
-    const container = document.getElementById('updateItemsContainer');
-    const div = document.createElement('div');
-    div.className = 'card mb-3 border field-card';
-    div.dataset.sortOrder = sortOrder;
+        function removeQueryItem(btn) {
+            const card = btn.closest('.field-card');
+            if (card) {
+                card.remove();
+                updateSortOrder('query');
 
-    const fieldType = data?.type || 'text';
-    const connectedTables = data?.connectedTable || [];
+                // 更新过滤列表并重新渲染分页
+                const container = document.getElementById('queryItemsContainer');
+                queryFilteredCards = Array.from(container.querySelectorAll('.field-card'));
+                renderQueryPage();
+            }
+        }
 
-    let inputType = 'input';
-    if (fieldType === 'select') {
-        inputType = 'select';
-    } else if (fieldType === 'radio') {
-        inputType = 'radio';
-    } else if (fieldType === 'supplement') {
-        inputType = 'supplement';
-    }
 
-    div.innerHTML = `
+        function moveUpdateItemUp(btn) {
+            const card = btn.closest('.field-card');
+            if (card && card.previousElementSibling) {
+                card.parentNode.insertBefore(card, card.previousElementSibling);
+                updateSortOrder('update');
+            }
+        }
+
+        function moveUpdateItemDown(btn) {
+            const card = btn.closest('.field-card');
+            if (card && card.nextElementSibling) {
+                card.parentNode.insertBefore(card.nextElementSibling, card);
+                updateSortOrder('update');
+            }
+        }
+
+        function removeUpdateItem(btn) {
+            const card = btn.closest('.field-card');
+            if (card) {
+                card.remove();
+                updateSortOrder('update');
+
+                // 更新过滤列表并重新渲染分页
+                const container = document.getElementById('updateItemsContainer');
+                updateFilteredCards = Array.from(container.querySelectorAll('.field-card'));
+                renderUpdatePage();
+            }
+        }
+
+
+        function handleComponentNameChange(selectElement) {
+            const card = selectElement.closest('.field-card');
+            const componentName = selectElement.value;
+            const fieldType = card.querySelector('.update-field-type').value;
+
+            const component = componentList.find(c => c.name === componentName);
+
+            if (component) {
+                const optionsTextarea = card.querySelector('.update-options');
+                if (optionsTextarea) {
+                    optionsTextarea.value = JSON.stringify(component.options, null, 2);
+                }
+
+                if (fieldType === 'select') {
+                    const originWrapper = card.querySelector('.origin-default-value-wrapper');
+                    if (originWrapper) {
+                        const currentOriginValue = card.querySelector('.update-origin-default-value')?.value || '';
+                        originWrapper.innerHTML = generateComponentOptionsSelect(componentName, currentOriginValue, 'update-origin-default-value');
+
+                        const originInput = originWrapper.querySelector('.update-origin-default-value');
+                        if (originInput) {
+                            originInput.removeAttribute('disabled');
+                            originInput.style.backgroundColor = '';
+                            originInput.style.cursor = '';
+                        }
+                    }
+
+                    const newWrapper = card.querySelector('.new-default-value-wrapper');
+                    if (newWrapper) {
+                        const currentNewValue = card.querySelector('.update-new-default-value')?.value || '';
+                        newWrapper.innerHTML = generateComponentOptionsSelect(componentName, currentNewValue, 'update-new-default-value');
+
+                        const newInput = newWrapper.querySelector('.update-new-default-value');
+                        if (newInput) {
+                            newInput.removeAttribute('disabled');
+                            newInput.style.backgroundColor = '';
+                            newInput.style.cursor = '';
+                        }
+                    }
+                } else if (fieldType === 'radio') {
+                    const newWrapper = card.querySelector('.new-default-value-wrapper');
+                    if (newWrapper) {
+                        const currentNewValue = card.querySelector('.update-new-default-value')?.value || '';
+                        newWrapper.innerHTML = generateComponentOptionsSelect(componentName, currentNewValue, 'update-new-default-value');
+
+                        const newSelect = newWrapper.querySelector('.update-new-default-value');
+                        if (newSelect) {
+                            newSelect.addEventListener('change', function () {
+                                handleRadioNewValueChange(card, component);
+                            });
+                        }
+                    }
+
+                    const originWrapper = card.querySelector('.origin-default-value-wrapper');
+                    if (originWrapper) {
+                        const originInput = originWrapper.querySelector('.update-origin-default-value');
+                        if (originInput) {
+                            const newSelect = card.querySelector('.update-new-default-value');
+                            if (newSelect && newSelect.value) {
+                                handleRadioNewValueChange(card, component);
+                            }
+                            originInput.setAttribute('disabled', 'disabled');
+                            originInput.style.backgroundColor = '#e9ecef';
+                            originInput.style.cursor = 'not-allowed';
+                        }
+                    }
+                }
+            } else {
+                const newWrapper = card.querySelector('.new-default-value-wrapper');
+                if (newWrapper) {
+                    const currentNewValue = card.querySelector('.update-new-default-value')?.value || '';
+                    newWrapper.innerHTML = `<input type="text" class="form-control update-new-default-value" value="${currentNewValue}" placeholder="请输入新值默认值">`;
+                }
+
+                const originWrapper = card.querySelector('.origin-default-value-wrapper');
+                if (originWrapper) {
+                    const currentOriginValue = card.querySelector('.update-origin-default-value')?.value || '';
+                    originWrapper.innerHTML = `<input type="text" class="form-control update-origin-default-value" value="${currentOriginValue}" placeholder="请输入原值默认值">`;
+                }
+            }
+        }
+
+
+        function addUpdateItem(data = null) {
+            updateItemCount++;
+            const index = updateItemCount;
+            const sortOrder = data?.sortOrder !== undefined ? data.sortOrder : index - 1;
+
+            const container = document.getElementById('updateItemsContainer');
+            const div = document.createElement('div');
+            div.className = 'card mb-3 border field-card';
+            div.dataset.sortOrder = sortOrder;
+
+            const fieldType = data?.type || 'text';
+            const connectedTables = data?.connectedTable || [];
+            const componentName = data?.componentName || '';
+
+            let inputType = 'input';
+            if (fieldType === 'select') {
+                inputType = 'select';
+            } else if (fieldType === 'radio') {
+                inputType = 'radio';
+            } else if (fieldType === 'supplement') {
+                inputType = 'supplement';
+            }
+
+            let newDefaultValue = data?.newDefaultValue || '';
+            if (fieldType === 'radio' && componentName && data?.newDefaultValue) {
+                const component = componentList.find(c => c.name === componentName);
+                if (component && component.options) {
+                    const oppositeOption = component.options.find(opt => opt.value !== data.newDefaultValue);
+                    if (oppositeOption) {
+                        data.originDefaultValue = oppositeOption.value;
+                    }
+                }
+            }
+
+                           div.innerHTML = `
         <div class="card-header d-flex align-items-center">
             <i class="bi bi-grip-vertical drag-handle me-2 text-muted" style="cursor: move;" title="拖动排序"></i>
             <span class="badge bg-secondary me-2 card-sequence-number" style="min-width: 40px;">#${sortOrder + 1}</span>
-            <h6 class="mb-0 flex-grow-1">更新字段</h6>
-            <div class="d-flex gap-1">
+            <h6 class="mb-0">更新字段</h6>
+            <span class="field-summary me-2" style="display: none; color: #0d6efd; font-weight: 600; font-size: 1rem;">
+                ${data?.label ? data.label : ''}${data?.bindingKey ? ' (' + data.bindingKey + ')' : ''}
+            </span>
+            <div class="d-flex gap-1 ms-auto">
+                <button type="button" class="btn btn-sm btn-outline-secondary toggle-collapse-btn" onclick="toggleCardCollapse(this)" title="收起">
+                    <i class="bi bi-chevron-up"></i>
+                </button>
                 <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveUpdateItemUp(this)" title="上移">
                     <i class="bi bi-arrow-up"></i>
                 </button>
+
                 <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveUpdateItemDown(this)" title="下移">
                     <i class="bi bi-arrow-down"></i>
                 </button>
@@ -702,14 +1299,16 @@ function addUpdateItem(data = null) {
             <input type="hidden" class="sort-order-value" value="${sortOrder}">
             <div class="row g-3">
                 <div class="col-md-3">
-                    <label class="form-label">标签 <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control update-label" value="${data?.label || ''}" placeholder="例如: 数量">
+                    <label class="form-label">字段中文名 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control update-label" value="${data?.label || ''}" placeholder="例如: 数量" oninput="updateFieldSummary(this)">
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">绑定键 <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control update-binding-key" value="${data?.bindingKey || ''}" placeholder="例如: qty">
+                    <label class="form-label">字段英文名 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control update-binding-key" value="${data?.bindingKey || ''}" placeholder="例如: qty" oninput="updateFieldSummary(this)">
                 </div>
-                <div class="col-md-2">
+
+
+                 <div class="col-md-2">
                     <label class="form-label">字段类型</label>
                     <select class="form-select update-field-type" onchange="handleFieldTypeChange(this)">
                         <option value="text" ${fieldType === 'text' ? 'selected' : ''}>文本</option>
@@ -718,9 +1317,11 @@ function addUpdateItem(data = null) {
                         <option value="select" ${fieldType === 'select' ? 'selected' : ''}>下拉框</option>
                         <option value="radio" ${fieldType === 'radio' ? 'selected' : ''}>单选框</option>
                         <option value="supplement" ${fieldType === 'supplement' ? 'selected' : ''}>补充框</option>
+                        <option value="calculated" ${fieldType === 'calculated' ? 'selected' : ''}>计算字段</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+
+                <div class="col-md-3 new-valid-rule-container" style="display: ${fieldType === 'supplement' ? 'none' : 'block'};">
                     <label class="form-label">新值验证规则</label>
                     <select class="form-select update-new-valid-rule">
                         <option value="required" ${data?.newValidRule === 'required' ? 'selected' : ''}>必填</option>
@@ -729,7 +1330,7 @@ function addUpdateItem(data = null) {
                         <option value="defaultField" ${data?.newValidRule === 'defaultField' ? 'selected' : ''}>默认字段</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-2 origin-valid-rule-container" style="display: ${(fieldType === 'supplement' || fieldType === 'radio') ? 'none' : 'block'};">
                     <label class="form-label">原值验证规则</label>
                     <select class="form-select update-origin-valid-rule">
                         <option value="required" ${data?.originValidRule === 'required' ? 'selected' : ''}>必填</option>
@@ -738,267 +1339,1628 @@ function addUpdateItem(data = null) {
                         <option value="defaultField" ${data?.originValidRule === 'defaultField' ? 'selected' : ''}>默认字段</option>
                     </select>
                 </div>
+
+
                 <div class="col-md-12">
                     <label class="form-label">关联表</label>
                     <div class="connected-tables-container border rounded p-2" style="background-color: #f8f9fa;">
                         ${generateConnectedTableCheckboxes(connectedTables, 'update')}
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">原值默认值</label>
-                    <input type="text" class="form-control update-origin-default-value" value="${data?.originDefaultValue || ''}" placeholder="可选">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">新值默认值</label>
-                    <input type="text" class="form-control update-new-default-value" value="${data?.newDefaultValue || ''}" placeholder="可选">
+
+                <div class="col-md-6 component-selector" style="display: ${(fieldType === 'select' || fieldType === 'radio') ? 'block' : 'none'};">
+                    <label class="form-label">引用配置项</label>
+                    <select class="form-select update-component-name" onchange="handleComponentNameChange(this)">
+                        <option value="">请选择配置项...</option>
+                        ${componentList.filter(comp => comp.type === fieldType).map(comp =>
+                               `<option value="${comp.name}" ${comp.name === componentName ? 'selected' : ''}>${comp.name} (${comp.type === 'select' ? '下拉框' : '单选框'})</option>`
+                           ).join('')}
+                    </select>
+                    <small class="text-muted">仅显示与当前字段类型匹配的配置项</small>
                 </div>
 
-                <div class="col-md-12 options-config" style="display: ${(fieldType === 'select' || fieldType === 'radio' || fieldType === 'supplement') ? 'block' : 'none'};">
+
+                <div class="col-md-3 new-default-value-container" style="display: ${(fieldType === 'select' || fieldType === 'radio') ? 'block' : 'none'};">
+                    <label class="form-label">新值默认值</label>
+                    <div class="new-default-value-wrapper">
+                        ${generateComponentOptionsSelect(componentName, newDefaultValue, 'update-new-default-value')}
+                    </div>
+                </div>
+
+                 <div class="col-md-3 origin-default-value-container" style="display: ${(fieldType === 'select' || fieldType === 'radio') ? 'block' : 'none'};">
+                    <label class="form-label">原值默认值</label>
+                    ${fieldType === 'radio' ? `
+                        <input type="text" class="form-control update-origin-default-value" value="${data?.originDefaultValue || ''}" readonly disabled placeholder="将根据新值自动取反" style="background-color: #e9ecef; cursor: not-allowed;">
+                        <small class="text-muted">原值将自动与新值相反（不可编辑）</small>
+                    ` : `
+                        <div class="origin-default-value-wrapper">
+                            ${generateComponentOptionsSelect(componentName, data?.originDefaultValue, 'update-origin-default-value')}
+                        </div>
+                    `}
+                </div>
+
+                <div class="col-md-12 options-config" style="display: none;">
                     <label class="form-label">选项配置（JSON格式）</label>
                     <textarea class="form-control update-options" rows="3" placeholder='例如: [{"value":"active","label":"启用"},{"value":"inactive","label":"禁用"}]'>${data?.options ? JSON.stringify(data.options, null, 2) : ''}</textarea>
+                    <small class="text-muted">手动配置选项（如果不使用引用配置项）</small>
                 </div>
 
                 <div class="col-md-12 supplement-config" style="display: ${fieldType === 'supplement' ? 'block' : 'none'};">
-                    <label class="form-label">主字段名</label>
-                    <input type="text" class="form-control update-main-field" value="${data?.mainField || ''}" placeholder="例如: main_value">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">选择数据库表 <span class="text-danger">*</span></label>
+                            <select class="form-select update-main-table" onchange="handleMainTableChange(this)">
+                                <option value="">请选择表</option>
+                                ${databaseTables.map(table =>
+                               `<option value="${table}" ${data?.mainTable === table ? 'selected' : ''}>${table}</option>`
+                           ).join('')}
+                            </select>
+                            <small class="text-muted">子字段将使用此表的字段进行映射</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">主字段名（WHERE条件） <span class="text-danger">*</span></label>
+                            <select class="form-select update-main-field" disabled>
+                                <option value="">请先选择表</option>
+                            </select>
+                            <small class="text-muted">用于SQL WHERE条件的字段名</small>
+                        </div>
+                    </div>
 
-                    <label class="form-label mt-2">子字段配置（JSON格式）</label>
-                    <textarea class="form-control update-sub-fields" rows="3" placeholder='例如: [{"label":"区","width":100,"bindingKey":"address_district"}]'>${data?.subFields ? JSON.stringify(data.subFields, null, 2) : ''}</textarea>
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="openSubFieldsModal(this)">
+                            <i class="bi bi-gear"></i> 配置子字段
+                        </button>
+                        <span class="sub-fields-count ms-2 text-muted">${data?.subFields ? data.subFields.length + ' 个子字段' : '暂无子字段'}</span>
+                    </div>
+
+                    <textarea class="form-control update-sub-fields" rows="3" style="display: none;">${data?.subFields ? JSON.stringify(data.subFields, null, 2) : ''}</textarea>
+
+                    <div class="sub-fields-preview mt-2 p-2 border rounded" style="background-color: #f8f9fa; display: ${data?.subFields && data.subFields.length > 0 ? 'block' : 'none'};">
+                        <small class="text-muted d-block mb-2">子字段预览：</small>
+                        ${data?.subFields ? data.subFields.map((sf, idx) => `
+                            <span class="badge bg-info me-1 mb-1" title="自定义字段: ${sf.bindingKey} | 数据库字段: ${sf.dbField}">${idx + 1}. ${sf.label}</span>
+                        `).join('') : ''}
+                    </div>
+                </div>
+
+                  <div class="col-md-12 calculated-config" style="display: ${fieldType === 'calculated' ? 'block' : 'none'};">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>说明：</strong>计算字段不会在页面上显示输入框，而是在后台根据表达式自动生成SQL。<br>
+                        执行时使用引用字段的新值计算，回退时使用引用字段的原值计算。<br>
+                        如果关联多个表，需要为每个表分别配置表达式。
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">各表表达式配置 <span class="text-danger">*</span></label>
+                        <div id="calculatedExpressionsContainer_${index}" class="border rounded p-3" style="background-color: #f8f9fa;">
+                            <div class="text-muted small">请先在上方"关联表"中选择表，然后为每个表配置表达式</div>
+                        </div>
+                    </div>
+
+                    <div class="expression-examples">
+                        <small class="text-muted d-block mb-2">示例：</small>
+                        <ul class="list-unstyled small text-muted">
+                            <li><code>BPO_PRICE * qty</code> - 简单乘法</li>
+                            <li><code>BPO_PRICE / (1 + TAX_RATE)</code> - 除法运算</li>
+                            <li><code>(SELECT SUM(BPO_AMT) FROM tphct02 WHERE BPO_ID = 'xxx')</code> - 子查询</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
     `;
 
-    container.appendChild(div);
-}
+            container.appendChild(div);
 
-/**
- * 上移更新字段
- */
-function moveUpdateItemUp(btn) {
-    const card = btn.closest('.field-card');
-    if (card && card.previousElementSibling) {
-        card.parentNode.insertBefore(card, card.previousElementSibling);
-        updateSortOrder('update');
-    }
-}
+            if ((fieldType === 'select' || fieldType === 'radio') && componentName) {
+                setTimeout(() => {
+                    const componentSelect = div.querySelector('.update-component-name');
+                    if (componentSelect) {
+                        handleComponentNameChange(componentSelect);
+                    }
+                }, 0);
+            }
 
-/**
- * 下移更新字段
- */
-function moveUpdateItemDown(btn) {
-    const card = btn.closest('.field-card');
-    if (card && card.nextElementSibling) {
-        card.parentNode.insertBefore(card.nextElementSibling, card);
-        updateSortOrder('update');
-    }
-}
+            if (fieldType === 'radio' && componentName && data?.newDefaultValue) {
+                setTimeout(() => {
+                    const component = componentList.find(c => c.name === componentName);
+                    if (component && component.options && component.options.length === 2) {
+                        handleRadioNewValueChange(div, component);
+                        const originInput = div.querySelector('.update-origin-default-value');
+                        if (originInput) {
+                            originInput.setAttribute('disabled', 'disabled');
+                            originInput.style.backgroundColor = '#e9ecef';
+                            originInput.style.cursor = 'not-allowed';
+                        }
+                    }
+                }, 100);
+            }
 
-/**
- * 删除更新字段
- */
-function removeUpdateItem(btn) {
-    const card = btn.closest('.field-card');
-    if (card) {
-        card.remove();
-        updateSortOrder('update');
-    }
-}
+            if (fieldType === 'supplement' && data?.mainTable) {
+                setTimeout(() => {
+                    const mainTableSelect = div.querySelector('.update-main-table');
+                    if (mainTableSelect) {
+                        mainTableSelect.value = data.mainTable;
+                        mainTableSelect.dispatchEvent(new Event('change'));
 
-/**
- * 处理字段类型变化
- */
-function handleFieldTypeChange(selectElement) {
-    const card = selectElement.closest('.field-card');
-    const fieldType = selectElement.value;
+                        setTimeout(() => {
+                            if (data?.mainField) {
+                                div.dataset.savedMainField = data.mainField;
+                                const mainFieldSelect = div.querySelector('.update-main-field');
+                                if (mainFieldSelect) {
+                                    mainFieldSelect.value = data.mainField;
+                                }
+                            }
+                        }, 200);
+                    }
+                }, 100);
+            }
 
-    const optionsDiv = card.querySelector('.options-config');
-    const supplementDiv = card.querySelector('.supplement-config');
+            // 初始化计算字段的表达式配置
+            if (fieldType === 'calculated') {
+                setTimeout(() => {
+                    initCalculatedExpressions(div, data);
+                    
+                    // 使用事件委托监听关联表复选框的变化
+                    const tablesContainer = div.querySelector('.connected-tables-container');
+                    if (tablesContainer) {
+                        tablesContainer.addEventListener('change', function(e) {
+                            if (e.target.classList.contains('connected-table-checkbox')) {
+                                console.log('关联表复选框变化，更新表达式UI');
+                                updateCalculatedExpressionsUI(div);
+                            }
+                        });
+                    }
+                }, 100);
+            }
 
-    if (fieldType === 'select' || fieldType === 'radio' || fieldType === 'supplement') {
-        optionsDiv.style.display = 'block';
-    } else {
-        optionsDiv.style.display = 'none';
-    }
-
-    if (fieldType === 'supplement') {
-        supplementDiv.style.display = 'block';
-    } else {
-        supplementDiv.style.display = 'none';
-    }
-}
-
-/**
- * 保存表单配置
- */
-async function saveFormConfig() {
-    const formName = document.getElementById('formName').value.trim();
-
-    if (!formName) {
-        alert('表单名称不能为空');
-        return;
-    }
-
-    if (tableNameList.length === 0) {
-        alert('至少需要配置一个表名');
-        return;
-    }
-
-    const queryItems = [];
-    document.querySelectorAll('#queryItemsContainer .field-card').forEach((div, idx) => {
-        const label = div.querySelector('.query-label').value.trim();
-        const bindingKey = div.querySelector('.query-binding-key').value.trim();
-
-        if (!label || !bindingKey) {
-            return;
+            // 更新过滤列表并重新渲染分页
+            updateFilteredCards = Array.from(container.querySelectorAll('.field-card'));
+            renderUpdatePage();
         }
 
-        queryItems.push({
-            label: label,
-            type: 'text',
-            defaultValue: div.querySelector('.query-default-value').value,
-            bindingKey: bindingKey,
-            sortOrder: idx,
-            connectedTable: getSelectedTables(div),
-            ValidRule: div.querySelector('.query-valid-rule').value,
-        });
-    });
+               function handleFieldTypeChange(selectElement) {
+            const card = selectElement.closest('.field-card');
+            const fieldType = selectElement.value;
 
-    const updateItems = [];
-    document.querySelectorAll('#updateItemsContainer .field-card').forEach((div, idx) => {
-        const label = div.querySelector('.update-label').value.trim();
-        const bindingKey = div.querySelector('.update-binding-key').value.trim();
+            const optionsDiv = card.querySelector('.options-config');
+            const supplementDiv = card.querySelector('.supplement-config');
+            const calculatedDiv = card.querySelector('.calculated-config');
+            const componentSelectorDiv = card.querySelector('.component-selector');
+            const originDefaultValueDiv = card.querySelector('.origin-default-value-container');
+            const newDefaultValueDiv = card.querySelector('.new-default-value-container');
+            const newValidRuleContainer = card.querySelector('.new-valid-rule-container');
+            const originValidRuleContainer = card.querySelector('.origin-valid-rule-container');
 
-        if (!label || !bindingKey) {
-            return;
-        }
+            optionsDiv.style.display = 'none';
+            supplementDiv.style.display = 'none';
+            calculatedDiv.style.display = 'none';
 
-        const fieldType = div.querySelector('.update-field-type').value;
-
-        let inputType = 'input';
-        if (fieldType === 'select') {
-            inputType = 'select';
-        } else if (fieldType === 'radio') {
-            inputType = 'radio';
-        } else if (fieldType === 'supplement') {
-            inputType = 'supplement';
-        }
-
-        const item = {
-            label: label,
-            type: fieldType,
-            originDefaultValue: div.querySelector('.update-origin-default-value').value,
-            newDefaultValue: div.querySelector('.update-new-default-value').value,
-            bindingKey: bindingKey,
-            sortOrder: idx,
-            inputType: inputType,
-            connectedTable: getSelectedTables(div),
-            newValidRule: div.querySelector('.update-new-valid-rule').value,
-            originValidRule: div.querySelector('.update-origin-valid-rule').value,
-        };
-
-        if (fieldType === 'select' || fieldType === 'radio' || fieldType === 'supplement') {
-            const optionsText = div.querySelector('.update-options').value.trim();
-            if (optionsText) {
-                try {
-                    item.options = JSON.parse(optionsText);
-                } catch (e) {
-                    alert('选项配置JSON格式错误');
-                    throw e;
+            if (fieldType === 'supplement') {
+                supplementDiv.style.display = 'block';
+                if (newValidRuleContainer) {
+                    newValidRuleContainer.style.display = 'none';
                 }
+                if (originValidRuleContainer) {
+                    originValidRuleContainer.style.display = 'none';
+                }
+            } else if (fieldType === 'calculated') {
+                calculatedDiv.style.display = 'block';
+                if (newValidRuleContainer) {
+                    newValidRuleContainer.style.display = 'none';
+                }
+                if (originValidRuleContainer) {
+                    originValidRuleContainer.style.display = 'none';
+                }
+                
+                // 初始化计算字段的表达式配置
+                setTimeout(() => {
+                    initCalculatedExpressions(card, {});
+                    
+                    // 使用事件委托监听关联表复选框的变化
+                    const tablesContainer = card.querySelector('.connected-tables-container');
+                    if (tablesContainer) {
+                        // 移除旧的事件监听器（如果存在）
+                        const newContainer = tablesContainer.cloneNode(true);
+                        tablesContainer.parentNode.replaceChild(newContainer, tablesContainer);
+                        
+                        // 添加新的事件监听器
+                        newContainer.addEventListener('change', function(e) {
+                            if (e.target.classList.contains('connected-table-checkbox')) {
+                                updateCalculatedExpressionsUI(card);
+                            }
+                        });
+                    }
+                }, 50);
+            } else if (fieldType === 'radio') {
+                // 单选框类型：只显示新值验证规则，隐藏原值验证规则
+                if (newValidRuleContainer) {
+                    newValidRuleContainer.style.display = 'block';
+                }
+                if (originValidRuleContainer) {
+                    originValidRuleContainer.style.display = 'none';
+                }
+            } else {
+                // 其他类型：都显示
+                if (newValidRuleContainer) {
+                    newValidRuleContainer.style.display = 'block';
+                }
+                if (originValidRuleContainer) {
+                    originValidRuleContainer.style.display = 'block';
+                }
+            }
+
+            if (fieldType === 'select' || fieldType === 'radio') {
+                componentSelectorDiv.style.display = 'block';
+                originDefaultValueDiv.style.display = 'block';
+                newDefaultValueDiv.style.display = 'block';
+
+                const componentSelect = card.querySelector('.update-component-name');
+                if (componentSelect) {
+                    const currentValue = componentSelect.value;
+                    componentSelect.innerHTML = '<option value="">请选择配置项...</option>';
+
+                    const filteredComponents = componentList.filter(comp => comp.type === fieldType);
+                    filteredComponents.forEach(comp => {
+                        const option = document.createElement('option');
+                        option.value = comp.name;
+                        option.textContent = `${comp.name} (${comp.type === 'select' ? '下拉框' : '单选框'})`;
+                        if (comp.name === currentValue) {
+                            option.selected = true;
+                        }
+                        componentSelect.appendChild(option);
+                    });
+
+                    if (filteredComponents.length === 0) {
+                        componentSelect.innerHTML = '<option value="">暂无匹配的配置项</option>';
+                    }
+
+                    renderOriginAndNewValueControls(card, fieldType, componentSelect.value);
+                    handleComponentNameChange(componentSelect);
+                }
+            } else {
+                componentSelectorDiv.style.display = 'none';
+                originDefaultValueDiv.style.display = 'none';
+                newDefaultValueDiv.style.display = 'none';
             }
         }
 
-        if (fieldType === 'supplement') {
-            item.mainField = div.querySelector('.update-main-field').value.trim();
-            const subFieldsText = div.querySelector('.update-sub-fields').value.trim();
-            if (subFieldsText) {
-                try {
-                    item.subFields = JSON.parse(subFieldsText);
-                } catch (e) {
-                    alert('子字段配置JSON格式错误');
-                    throw e;
+        /**
+         * 初始化计算字段的表达式配置
+         */
+        function initCalculatedExpressions(card, data) {
+            const container = card.querySelector('[id^="calculatedExpressionsContainer_"]');
+            if (!container) return;
+
+            const connectedTables = data?.connectedTable || [];
+            const expressions = data?.expressions || {};
+
+            renderCalculatedExpressions(container, connectedTables, expressions);
+        }
+
+        /**
+         * 渲染计算字段表达式配置UI
+         */
+        function renderCalculatedExpressions(container, tables, expressions) {
+            if (!tables || tables.length === 0) {
+                container.innerHTML = '<div class="text-muted small">请先在上方“关联表”中选择表</div>';
+                return;
+            }
+
+            let html = '';
+            tables.forEach((tableName, idx) => {
+                const expression = expressions[tableName] || '';
+
+                html += `
+                    <div class="mb-3 pb-3 ${idx < tables.length - 1 ? 'border-bottom' : ''}" data-table="${tableName}">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-primary me-2">表: ${tableName}</span>
+                        </div>
+                        
+                        <div>
+                            <label class="form-label small">计算表达式 <span class="text-danger">*</span></label>
+                            <textarea class="form-control form-control-sm calc-expression" 
+                                      rows="2" 
+                                      placeholder="例如: BPO_PRICE * qty"
+                                      oninput="validateCalcExpression(this)">${expression}</textarea>
+                        </div>
+                        
+                        <div class="mt-2 expression-validation" style="display: none;">
+                            <small class="validation-status"></small>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        /**
+         * 更新计算字段表达式UI（当关联表变化时）
+         */
+        function updateCalculatedExpressionsUI(card) {
+            const container = card.querySelector('[id^="calculatedExpressionsContainer_"]');
+            if (!container) return;
+
+            // 获取当前选择的表
+            const selectedTables = getSelectedTables(card);
+            
+            // 保存现有的表达式数据
+            const currentExpressions = getCurrentExpressions(card);
+            
+            // 过滤掉已删除表的表达式，只保留仍在选中表中的表达式
+            const filteredExpressions = {};
+            selectedTables.forEach(tableName => {
+                if (currentExpressions[tableName]) {
+                    filteredExpressions[tableName] = currentExpressions[tableName];
                 }
+            });
+            
+            // 重新渲染
+            renderCalculatedExpressions(container, selectedTables, filteredExpressions);
+        }
+
+        /**
+         * 获取当前的表达式配置
+         */
+        function getCurrentExpressions(card) {
+            const expressions = {};
+            const tableDivs = card.querySelectorAll('[id^="calculatedExpressionsContainer_"] [data-table]');
+            
+            tableDivs.forEach(div => {
+                const tableName = div.dataset.table;
+                const expr = div.querySelector('.calc-expression')?.value.trim() || '';
+                
+                if (expr) {
+                    expressions[tableName] = expr;
+                }
+            });
+            
+            return expressions;
+        }
+
+        /**
+         * 验证计算表达式
+         */
+        function validateCalcExpression(textarea) {
+            const expression = textarea.value.trim();
+            const validationDiv = textarea.closest('.mb-3').querySelector('.expression-validation');
+            const statusSpan = validationDiv.querySelector('.validation-status');
+            const card = textarea.closest('.field-card');
+
+            if (!expression) {
+                validationDiv.style.display = 'none';
+                return;
+            }
+
+            validationDiv.style.display = 'block';
+
+            // 基本语法检查 - 支持完整的SQL语法和 ${variable} 占位符
+            // 允许: 字母、数字、下划线、空格、运算符、括号、点号、逗号、引号、等号、比较运算符、${} 占位符等
+            // 支持以括号、SELECT、CASE、$ 开头
+            const hasBasicSyntax = /^[A-Za-z_\(\$][A-Za-z0-9_\s\+\-\*\/\(\)\.\,\'\"\=\<\>\!\&\|\:\;\$\{\}]*$/.test(expression) || 
+                                   expression.toUpperCase().startsWith('SELECT') ||
+                                   expression.toUpperCase().startsWith('CASE');
+
+            if (!hasBasicSyntax) {
+                statusSpan.innerHTML = '<i class="bi bi-exclamation-triangle text-warning"></i> 请检查表达式语法';
+                statusSpan.className = 'validation-status text-warning';
+                return;
+            }
+
+            // 提取所有 ${variable} 模式的变量
+            const variables = [...expression.matchAll(/\$\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}/g)].map(m => m[1]);
+            
+            if (variables.length === 0) {
+                statusSpan.innerHTML = '<i class="bi bi-check-circle text-success"></i> 表达式格式正确（无变量）';
+                statusSpan.className = 'validation-status text-success';
+                return;
+            }
+
+            // 获取所有可用的字段（查询字段 + 更新字段，排除计算字段）
+            const availableFields = new Set();
+            
+            // 添加查询字段
+            document.querySelectorAll('#queryItemsContainer .field-card').forEach(queryCard => {
+                const bindingKey = queryCard.querySelector('.query-binding-key')?.value?.trim();
+                if (bindingKey) {
+                    availableFields.add(bindingKey.toUpperCase());
+                }
+            });
+            
+            // 添加更新字段（排除计算字段）
+            document.querySelectorAll('#updateItemsContainer .field-card').forEach(updateCard => {
+                const fieldType = updateCard.querySelector('.update-field-type')?.value;
+                const bindingKey = updateCard.querySelector('.update-binding-key')?.value?.trim();
+                
+                // 排除计算字段本身
+                if (bindingKey && fieldType !== 'calculated') {
+                    availableFields.add(bindingKey.toUpperCase());
+                }
+            });
+
+            // 检查每个变量是否存在
+            const invalidVars = variables.filter(varName => !availableFields.has(varName.toUpperCase()));
+            
+            if (invalidVars.length > 0) {
+                statusSpan.innerHTML = `<i class="bi bi-exclamation-triangle text-danger"></i> 以下变量不存在：${invalidVars.join(', ')}`;
+                statusSpan.className = 'validation-status text-danger';
+            } else {
+                statusSpan.innerHTML = `<i class="bi bi-check-circle text-success"></i> 表达式格式正确（${variables.length}个变量）`;
+                statusSpan.className = 'validation-status text-success';
             }
         }
 
-        updateItems.push(item);
-    });
 
-    if (queryItems.length === 0 && updateItems.length === 0) {
-        alert('至少需要配置一个查询字段或更新字段');
-        return;
-    }
+        function renderOriginAndNewValueControls(card, fieldType, componentName) {
+            const originContainer = card.querySelector('.origin-default-value-container');
+            const newContainer = card.querySelector('.new-default-value-container');
 
-    const parentMenuId = await getOrCreateParentMenuId();
+            if (!originContainer || !newContainer) {
+                return;
+            }
 
-    const configData = {
-        formId: currentEditingFormId,
-        formName: formName,
-        tableNameList: tableNameList,
-        parentMenuId: parentMenuId,
-        queryItems: queryItems,
-        updateItems: updateItems,
-    };
+            const currentOriginValue = card.querySelector('.update-origin-default-value')?.value || '';
+            const currentNewValue = card.querySelector('.update-new-default-value')?.value || '';
 
-    fetch('/api/form-config/save/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(configData),
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('保存成功');
-            const modal = bootstrap.Modal.getInstance(document.getElementById('configModal'));
+            if (fieldType === 'radio') {
+                originContainer.innerHTML = `
+            <label class="form-label">原值默认值</label>
+            <input type="text" class="form-control update-origin-default-value"
+                   value="${currentOriginValue}"
+                   readonly disabled
+                   placeholder="将根据新值自动取反"
+                   style="background-color: #e9ecef; cursor: not-allowed;">
+            <small class="text-muted">原值将自动与新值相反（不可编辑）</small>
+        `;
+
+                newContainer.innerHTML = `
+            <label class="form-label">新值默认值</label>
+            <div class="new-default-value-wrapper">
+                ${generateComponentOptionsSelect(componentName, currentNewValue, 'update-new-default-value')}
+            </div>
+        `;
+
+                setTimeout(() => {
+                    const component = componentList.find(c => c.name === componentName);
+                    const newSelect = newContainer.querySelector('.update-new-default-value');
+                    if (newSelect && component) {
+                        newSelect.addEventListener('change', function () {
+                            handleRadioNewValueChange(card, component);
+                        });
+
+                        if (newSelect.value) {
+                            handleRadioNewValueChange(card, component);
+                        }
+                    }
+                }, 0);
+
+            } else if (fieldType === 'select') {
+                originContainer.innerHTML = `
+            <label class="form-label">原值默认值</label>
+            <div class="origin-default-value-wrapper">
+                ${generateComponentOptionsSelect(componentName, currentOriginValue, 'update-origin-default-value')}
+            </div>
+        `;
+
+                newContainer.innerHTML = `
+            <label class="form-label">新值默认值</label>
+            <div class="new-default-value-wrapper">
+                ${generateComponentOptionsSelect(componentName, currentNewValue, 'update-new-default-value')}
+            </div>
+        `;
+            }
+        }
+
+        function openSubFieldsModal(btn) {
+            currentEditingCard = btn.closest('.field-card');
+
+            const subFieldsTextarea = currentEditingCard.querySelector('.update-sub-fields');
+            let subFields = [];
+            if (subFieldsTextarea && subFieldsTextarea.value.trim()) {
+                try {
+                    subFields = JSON.parse(subFieldsTextarea.value);
+                } catch (e) {
+                    console.error('解析子字段失败:', e);
+                }
+            }
+
+            document.getElementById('subFieldsContainer').innerHTML = '';
+            subFieldCount = 0;
+
+            if (subFields.length > 0) {
+                subFields.forEach(sf => {
+                    addSubField(sf);
+                });
+            } else {
+                addSubField();
+            }
+
+            initSubFieldsSortable();
+
+            const modal = new bootstrap.Modal(document.getElementById('subFieldsModal'));
+            modal.show();
+        }
+
+
+        function initSubFieldsSortable() {
+            const container = document.getElementById('subFieldsContainer');
+            if (container) {
+                if (subFieldsSortable) {
+                    subFieldsSortable.destroy();
+                }
+                subFieldsSortable = new Sortable(container, {
+                    animation: 150,
+                    handle: '.drag-handle',
+                    ghostClass: 'sortable-ghost',
+                    chosenClass: 'sortable-chosen',
+                    dragClass: 'sortable-drag',
+                    onEnd: function (evt) {
+                        updateSubFieldSortOrder();
+                    }
+                });
+            }
+        }
+
+        function updateSubFieldSortOrder() {
+            const cards = document.querySelectorAll('#subFieldsContainer .sub-field-card');
+            cards.forEach((card, index) => {
+                const sortOrderInput = card.querySelector('.sub-field-sort-order');
+                if (sortOrderInput) {
+                    sortOrderInput.value = index;
+                }
+
+                const titleElement = card.querySelector('.sub-field-sequence-number');
+                if (titleElement) {
+                    titleElement.textContent = `#${index + 1}`;
+                }
+            });
+        }
+
+        function addSubField(data = null) {
+            subFieldCount++;
+            const index = subFieldCount;
+            const sortOrder = data?.sortOrder !== undefined ? data.sortOrder : index - 1;
+
+            const container = document.getElementById('subFieldsContainer');
+            const div = document.createElement('div');
+            div.className = 'card mb-2 border-0 shadow-sm sub-field-card';
+            div.dataset.sortOrder = sortOrder;
+            div.style.background = 'rgba(255,255,255,0.9);';
+
+            let mainTableName = '';
+            if (currentEditingCard) {
+                const mainTableSelect = currentEditingCard.querySelector('.update-main-table');
+                if (mainTableSelect && mainTableSelect.value) {
+                    mainTableName = mainTableSelect.value;
+                }
+            }
+
+            div.innerHTML = `
+                <div class="card-header d-flex align-items-center py-2" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+                    <i class="bi bi-grip-vertical drag-handle me-2" style="cursor: move;" title="拖动排序"></i>
+                    <span class="badge bg-light text-dark me-2 sub-field-sequence-number" style="min-width: 40px;">#${sortOrder + 1}</span>
+                    <h6 class="mb-0 flex-grow-1">子字段配置</h6>
+                    <div class="d-flex gap-1">
+                        <button type="button" class="btn btn-sm btn-outline-light" onclick="moveSubFieldUp(this)" title="上移">
+                            <i class="bi bi-arrow-up"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-light" onclick="moveSubFieldDown(this)" title="下移">
+                            <i class="bi bi-arrow-down"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-light" onclick="removeSubField(this)">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body py-3">
+                    <input type="hidden" class="sub-field-sort-order" value="${sortOrder}">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-primary">显示标签 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm sub-field-label" value="${data?.label || ''}" placeholder="例如: 区号">
+                            <small class="text-muted" style="font-size: 10px;">用户看到的名称</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-primary">自定义字段名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm sub-field-binding-key" value="${data?.bindingKey || ''}" placeholder="例如: area_code">
+                            <small class="text-muted" style="font-size: 10px;">你定义的字段标识</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-primary">宽度（像素）</label>
+                            <input type="number" class="form-control form-control-sm sub-field-width" value="${data?.width || 100}" placeholder="100" min="50" max="500">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold text-success">数据库映射字段 <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm sub-field-db-field" data-saved-value="${data?.dbField || ''}">
+                                <option value="">请先在主字段中选择表</option>
+                            </select>
+                            <small class="text-muted" style="font-size: 10px;">选择数据库中实际存在的字段进行映射</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(div);
+
+            if (mainTableName) {
+                setTimeout(() => {
+                    loadDbFieldsForSubField(div, mainTableName, data?.dbField);
+                }, 100);
+            }
+        }
+
+
+        function loadDbFieldsForSubField(card, tableName, savedField = null) {
+            const dbFieldSelect = card.querySelector('.sub-field-db-field');
+
+            if (!tableName) {
+                dbFieldSelect.innerHTML = '<option value="">请先在主字段中选择表</option>';
+                return;
+            }
+
+            dbFieldSelect.innerHTML = '<option value="">加载中...</option>';
+
+            fetch(`/api/database/table-fields/?table_name=${encodeURIComponent(tableName)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const fields = data.data.fields;
+                        const fieldOptions = fields.map(f =>
+                            `<option value="${f.name}">${f.name}</option>`
+                        ).join('');
+
+                        dbFieldSelect.innerHTML = '<option value="">请选择数据库字段</option>' + fieldOptions;
+
+                        if (savedField) {
+                            dbFieldSelect.value = savedField;
+                        } else {
+                            const savedValue = dbFieldSelect.dataset.savedValue;
+                            if (savedValue) {
+                                dbFieldSelect.value = savedValue;
+                                delete dbFieldSelect.dataset.savedValue;
+                            }
+                        }
+                    } else {
+                        dbFieldSelect.innerHTML = '<option value="">加载失败</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('加载字段失败:', error);
+                    dbFieldSelect.innerHTML = '<option value="">加载失败</option>';
+                });
+        }
+
+
+        function moveSubFieldUp(btn) {
+            const card = btn.closest('.sub-field-card');
+            if (card && card.previousElementSibling) {
+                card.parentNode.insertBefore(card, card.previousElementSibling);
+                updateSubFieldSortOrder();
+            }
+        }
+
+        function moveSubFieldDown(btn) {
+            const card = btn.closest('.sub-field-card');
+            if (card && card.nextElementSibling) {
+                card.parentNode.insertBefore(card.nextElementSibling, card);
+                updateSubFieldSortOrder();
+            }
+        }
+
+        function removeSubField(btn) {
+            const card = btn.closest('.sub-field-card');
+            if (card) {
+                card.remove();
+                updateSubFieldSortOrder();
+            }
+        }
+
+        function saveSubFieldsConfig() {
+            const subFields = [];
+            document.querySelectorAll('#subFieldsContainer .sub-field-card').forEach((card, idx) => {
+                const label = card.querySelector('.sub-field-label').value.trim();
+                const bindingKey = card.querySelector('.sub-field-binding-key').value.trim();
+                const width = parseInt(card.querySelector('.sub-field-width').value) || 100;
+                const dbField = card.querySelector('.sub-field-db-field').value.trim();
+
+                if (!label || !bindingKey || !dbField) {
+                    return;
+                }
+
+                subFields.push({
+                    label: label,
+                    bindingKey: bindingKey,
+                    width: width,
+                    dbField: dbField,
+                    sortOrder: idx
+                });
+            });
+
+            if (subFields.length === 0) {
+                alert('至少需要配置一个有效的子字段（显示标签、自定义字段名、数据库映射字段均为必填）');
+                return;
+            }
+
+            if (currentEditingCard) {
+                const subFieldsTextarea = currentEditingCard.querySelector('.update-sub-fields');
+                if (subFieldsTextarea) {
+                    subFieldsTextarea.value = JSON.stringify(subFields, null, 2);
+                }
+
+                const previewDiv = currentEditingCard.querySelector('.sub-fields-preview');
+                if (previewDiv) {
+                    if (subFields.length > 0) {
+                        previewDiv.style.display = 'block';
+                        previewDiv.innerHTML = `
+                            <small class="text-muted d-block mb-2">子字段预览：</small>
+                            ${subFields.map((sf, idx) => `
+                                <span class="badge bg-info me-1 mb-1" title="自定义字段: ${sf.bindingKey} | 数据库字段: ${sf.dbField}">${idx + 1}. ${sf.label}</span>
+                            `).join('')}
+                        `;
+                    } else {
+                        previewDiv.style.display = 'none';
+                    }
+                }
+
+                const countSpan = currentEditingCard.querySelector('.sub-fields-count');
+                if (countSpan) {
+                    countSpan.textContent = subFields.length + ' 个子字段';
+                }
+            }
+
+            const modal = bootstrap.Modal.getInstance(document.getElementById('subFieldsModal'));
             modal.hide();
-            loadFormList();
-        } else {
-            alert('保存失败：' + data.message);
+
+            alert('子字段配置已保存');
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('保存失败');
-    });
-}
-</script>
 
-<style>
-.sortable-ghost {
-    opacity: 0.4;
-    background-color: #f0f0f0;
-}
+        function handleMainTableChange(selectElement) {
+            const card = selectElement.closest('.field-card');
+            const tableName = selectElement.value;
+            const mainFieldSelect = card.querySelector('.update-main-field');
 
-.sortable-chosen {
-    background-color: #e3f2fd;
-}
+            if (!mainFieldSelect) {
+                return;
+            }
 
-.sortable-drag {
-    opacity: 0.8;
-}
+            if (!tableName) {
+                mainFieldSelect.innerHTML = '<option value="">请先选择表</option>';
+                mainFieldSelect.disabled = true;
+                return;
+            }
 
-.field-card {
-    transition: all 0.2s;
-}
+            mainFieldSelect.innerHTML = '<option value="">加载中...</option>';
+            mainFieldSelect.disabled = false;
 
-.field-card:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
+            fetch(`/api/database/table-fields/?table_name=${encodeURIComponent(tableName)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const fields = data.data.fields;
+                        const fieldOptions = fields.map(f =>
+                            `<option value="${f.name}">${f.name}</option>`
+                        ).join('');
 
-.drag-handle {
-    cursor: grab;
-}
+                        mainFieldSelect.innerHTML = '<option value="">请选择字段</option>' + fieldOptions;
 
-.drag-handle:active {
-    cursor: grabbing;
-}
+                        const savedMainField = card.dataset.savedMainField;
+                        if (savedMainField) {
+                            mainFieldSelect.value = savedMainField;
+                            delete card.dataset.savedMainField;
+                        }
+                    } else {
+                        mainFieldSelect.innerHTML = '<option value="">加载失败</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('加载字段失败:', error);
+                    mainFieldSelect.innerHTML = '<option value="">加载失败</option>';
+                });
+        }
 
-.connected-tables-container {
-    max-height: 150px;
-    overflow-y: auto;
-}
-</style>
+
+        async function saveFormConfig() {
+            const formName = document.getElementById('formName').value.trim();
+
+            if (!formName) {
+                alert('表单名称不能为空');
+                return;
+            }
+
+            if (tableNameList.length === 0) {
+                alert('至少需要配置一个表名');
+                return;
+            }
+
+            // ==================== 第一步：收集并校验查询字段 ====================
+            const queryItems = [];
+            const queryCards = document.querySelectorAll('#queryItemsContainer .field-card');
+            
+            // 先检查是否有空行或部分填写的行
+            for (let i = 0; i < queryCards.length; i++) {
+                const div = queryCards[i];
+                const label = div.querySelector('.query-label').value.trim();
+                const bindingKey = div.querySelector('.query-binding-key').value.trim();
+                
+                // 如果两个都为空，说明是新增的空行，需要提示用户删除或填写
+                if (!label && !bindingKey) {
+                    alert(`查询字段第${i + 1}行为空，请填写字段信息或删除该行`);
+                    return;
+                }
+                
+                // 如果只有一个字段有值，说明用户开始填写了但未完成
+                if ((label && !bindingKey) || (!label && bindingKey)) {
+                    alert(`查询字段第${i + 1}行信息不完整，请填写完整的字段中文名和英文名`);
+                    return;
+                }
+            }
+            
+            // 再收集有效字段
+            for (let i = 0; i < queryCards.length; i++) {
+                const div = queryCards[i];
+                const label = div.querySelector('.query-label').value.trim();
+                const bindingKey = div.querySelector('.query-binding-key').value.trim();
+
+                // 如果中文名和英文名都为空，说明是完全空的行，跳过
+                if (!label && !bindingKey) {
+                    continue;
+                }
+
+                // 如果只有一个为空，说明用户开始填写了但未完成，需要提示
+                if (label && !bindingKey) {
+                    alert(`查询字段“${label}”的字段英文名不能为空`);
+                    return;
+                }
+                if (!label && bindingKey) {
+                    alert(`查询字段第${i + 1}行的字段中文名不能为空（英文名：${bindingKey}）`);
+                    return;
+                }
+
+                queryItems.push({
+                    label: label,
+                    type: 'text',
+                    defaultValue: div.querySelector('.query-default-value').value,
+                    bindingKey: bindingKey,
+                    sortOrder: i,
+                    connectedTable: getSelectedTables(div),
+                    ValidRule: div.querySelector('.query-valid-rule').value,
+                });
+                
+                // 校验查询字段必须至少关联一个表
+                const lastItem = queryItems[queryItems.length - 1];
+                if (!lastItem.connectedTable || lastItem.connectedTable.length === 0) {
+                    alert(`查询字段“${label}”必须至少关联一个表`);
+                    return;
+                }
+            }
+
+            // ==================== 第二步：收集并校验更新字段 ====================
+            const updateItems = [];
+            const updateCards = document.querySelectorAll('#updateItemsContainer .field-card');
+            
+            // 先检查是否有空行或部分填写的行
+            for (let i = 0; i < updateCards.length; i++) {
+                const div = updateCards[i];
+                const label = div.querySelector('.update-label').value.trim();
+                const bindingKey = div.querySelector('.update-binding-key').value.trim();
+                
+                // 如果两个都为空，说明是新增的空行，需要提示用户删除或填写
+                if (!label && !bindingKey) {
+                    alert(`更新字段第${i + 1}行为空，请填写字段信息或删除该行`);
+                    return;
+                }
+                
+                // 如果只有一个字段有值，说明用户开始填写了但未完成
+                if ((label && !bindingKey) || (!label && bindingKey)) {
+                    alert(`更新字段第${i + 1}行信息不完整，请填写完整的字段中文名和英文名`);
+                    return;
+                }
+            }
+            
+            // 再收集有效字段
+            for (let i = 0; i < updateCards.length; i++) {
+                const div = updateCards[i];
+                const label = div.querySelector('.update-label').value.trim();
+                const bindingKey = div.querySelector('.update-binding-key').value.trim();
+
+                // 如果中文名和英文名都为空，跳过（理论上不会到这里，因为第一阶段已经检查过了）
+                if (!label && !bindingKey) {
+                    continue;
+                }
+
+                // 如果只有一个为空，说明用户开始填写了但未完成，需要提示
+                if (label && !bindingKey) {
+                    alert(`更新字段“${label}”的字段英文名不能为空`);
+                    return;
+                }
+                if (!label && bindingKey) {
+                    alert(`更新字段第${i + 1}行的字段中文名不能为空（英文名：${bindingKey}）`);
+                    return;
+                }
+
+                const fieldType = div.querySelector('.update-field-type').value;
+
+                let inputType = 'input';
+                if (fieldType === 'select') {
+                    inputType = 'select';
+                } else if (fieldType === 'radio') {
+                    inputType = 'radio';
+                } else if (fieldType === 'supplement') {
+                    inputType = 'supplement';
+                } else if (fieldType === 'calculated') {
+                    inputType = 'calculated';
+                }
+
+                const item = {
+                    label: label,
+                    type: fieldType,
+                    bindingKey: bindingKey,
+                    sortOrder: i,
+                    inputType: inputType,
+                    connectedTable: getSelectedTables(div),
+                    newValidRule: div.querySelector('.update-new-valid-rule').value,
+                    originValidRule: div.querySelector('.update-origin-valid-rule').value,
+                };
+
+                // 校验所有更新字段必须至少关联一个表
+                if (!item.connectedTable || item.connectedTable.length === 0) {
+                    alert(`字段“${label}”必须至少关联一个表`);
+                    return;
+                }
+
+                // 校验单选框和下拉框必须引用配置项
+                if (fieldType === 'select' || fieldType === 'radio') {
+                    const componentName = div.querySelector('.update-component-name')?.value || '';
+                    
+                    if (!componentName) {
+                        alert(`字段“${label}”是${fieldType === 'select' ? '下拉框' : '单选框'}类型，必须引用配置项`);
+                        return;
+                    }
+                    
+                    item.componentName = componentName;
+
+                    const originDefaultElement = div.querySelector('.update-origin-default-value');
+                    item.originDefaultValue = originDefaultElement ? originDefaultElement.value : '';
+
+                    const newDefaultElement = div.querySelector('.update-new-default-value');
+                    item.newDefaultValue = newDefaultElement ? newDefaultElement.value : '';
+                } else {
+                    item.originDefaultValue = div.querySelector('.update-origin-default-value')?.value || '';
+                    item.newDefaultValue = div.querySelector('.update-new-default-value')?.value || '';
+                }
+
+                // 校验补充框
+                if (fieldType === 'supplement') {
+                    item.mainTable = div.querySelector('.update-main-table').value.trim();
+                    item.mainField = div.querySelector('.update-main-field').value.trim();
+
+                    if (!item.mainTable || !item.mainField) {
+                        alert(`补充框“${label}”必须选择数据库表和主字段名`);
+                        return;
+                    }
+
+                    const subFieldsText = div.querySelector('.update-sub-fields').value.trim();
+                    if (subFieldsText) {
+                        try {
+                            item.subFields = JSON.parse(subFieldsText);
+                        } catch (e) {
+                            alert('子字段配置JSON格式错误');
+                            return;
+                        }
+                    }
+
+                    if (!item.subFields || item.subFields.length === 0) {
+                        alert(`补充框“${label}”必须至少配置一个子字段`);
+                        return;
+                    }
+                }
+
+                // 校验计算字段
+                if (fieldType === 'calculated') {
+                    const connectedTables = getSelectedTables(div);
+
+                    if (!connectedTables || connectedTables.length === 0) {
+                        alert(`计算字段“${label}”必须至少关联一个表`);
+                        return;
+                    }
+
+                    // 收集每个表的表达式配置
+                    const expressions = {};
+                    const tableDivs = div.querySelectorAll('[id^="calculatedExpressionsContainer_"] [data-table]');
+
+                    let hasEmptyExpression = false;
+                    for (let j = 0; j < tableDivs.length; j++) {
+                        const tableDiv = tableDivs[j];
+                        const tableName = tableDiv.dataset.table;
+                        const expr = tableDiv.querySelector('.calc-expression')?.value.trim() || '';
+
+                        if (!expr) {
+                            hasEmptyExpression = true;
+                        }
+
+                        expressions[tableName] = expr;
+                    }
+
+                    if (hasEmptyExpression) {
+                        alert(`计算字段“${label}”的某些表未配置表达式`);
+                        return;
+                    }
+
+                    item.expressions = expressions;
+                }
+
+                updateItems.push(item);
+            }
+
+            if (queryItems.length === 0 && updateItems.length === 0) {
+                alert('至少需要配置一个查询字段或更新字段');
+                return;
+            }
+            
+            // 校验必须选择至少一个数据库配置
+            if (!selectedDatabaseIpIds || selectedDatabaseIpIds.length === 0) {
+                alert('必须选择至少一个数据库配置');
+                return;
+            }
+
+            // ==================== 第三步：发送保存请求 ====================
+            try {
+                const parentMenuId = await getOrCreateParentMenuId();
+
+                const configData = {
+                    formId: currentEditingFormId,
+                    formName: formName,
+                    tableNameList: tableNameList,
+                    parentMenuId: parentMenuId,
+                    queryItems: queryItems,
+                    updateItems: updateItems,
+                    databaseIpIds: selectedDatabaseIpIds,  // 添加数据库IP配置ID列表
+                };
+
+                const response = await fetch('/api/form-config/save/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(configData),
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // 使用 Toast 提示
+                    if (window.showSuccessToast) {
+                        window.showSuccessToast('保存成功');
+                    } else {
+                        alert('保存成功');
+                    }
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('configModal'));
+                    modal.hide();
+                    
+                    // 延迟重新加载表单列表，让模态框先关闭
+                    setTimeout(() => {
+                        loadFormList();  // 重新加载表单列表（带分页和搜索）
+                        // 重置编辑状态
+                        currentEditingFormId = null;
+                        document.getElementById('editorTitle').textContent = '新增表单配置';
+                        document.getElementById('formName').value = '';
+                        document.getElementById('parentMenuInput').value = '';
+                        tableNameList = [];
+                        renderTableTags();
+                        document.getElementById('queryItemsContainer').innerHTML = '';
+                        queryItemCount = 0;
+                        document.getElementById('updateItemsContainer').innerHTML = '';
+                        updateItemCount = 0;
+                    }, 300);
+                } else {
+                    alert('保存失败：' + data.message);
+                }
+            } catch (error) {
+                console.error('保存配置错误:', error);
+                alert('保存失败：' + error.message);
+            }
+        }
+
+        // ==================== 折叠功能 ====================
+
+              function toggleCardCollapse(btn) {
+            const card = btn.closest('.field-card');
+            const cardBody = card.querySelector('.card-body');
+            const icon = btn.querySelector('i');
+            const summary = card.querySelector('.field-summary');
+
+            if (cardBody.style.display === 'none') {
+                // 展开
+                cardBody.style.display = '';
+                icon.className = 'bi bi-chevron-up';
+                btn.title = '收起';
+                if (summary) {
+                    summary.style.display = 'none';
+                }
+            } else {
+                // 折叠
+                cardBody.style.display = 'none';
+                icon.className = 'bi bi-chevron-down';
+                btn.title = '展开';
+                if (summary) {
+                    summary.style.display = 'inline';
+                }
+            }
+        }
+
+
+             /**
+         * 全部折叠
+         */
+        function collapseAll(containerId) {
+            const container = document.getElementById(containerId);
+            const cards = container.querySelectorAll('.field-card');
+            cards.forEach(card => {
+                const cardBody = card.querySelector('.card-body');
+                const toggleBtn = card.querySelector('.toggle-collapse-btn i');
+                const summary = card.querySelector('.field-summary');
+                if (cardBody && toggleBtn) {
+                    cardBody.style.display = 'none';
+                    toggleBtn.className = 'bi bi-chevron-down';
+                    if (summary) {
+                        summary.style.display = 'inline';
+                    }
+                }
+            });
+        }
+
+        /**
+         * 全部展开
+         */
+        function expandAll(containerId) {
+            const container = document.getElementById(containerId);
+            const cards = container.querySelectorAll('.field-card');
+            cards.forEach(card => {
+                const cardBody = card.querySelector('.card-body');
+                const toggleBtn = card.querySelector('.toggle-collapse-btn i');
+                const summary = card.querySelector('.field-summary');
+                if (cardBody && toggleBtn) {
+                    cardBody.style.display = '';
+                    toggleBtn.className = 'bi bi-chevron-up';
+                    if (summary) {
+                        summary.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+
+        // ==================== 搜索功能 ====================
+
+        /**
+         * 过滤查询字段
+         */
+        function filterQueryItems() {
+            const searchText = document.getElementById('querySearchInput').value.toLowerCase().trim();
+            const container = document.getElementById('queryItemsContainer');
+            const allCards = Array.from(container.querySelectorAll('.field-card'));
+
+            queryFilteredCards = allCards.filter(card => {
+                const label = card.querySelector('.query-label')?.value?.toLowerCase() || '';
+                const bindingKey = card.querySelector('.query-binding-key')?.value?.toLowerCase() || '';
+                return label.includes(searchText) || bindingKey.includes(searchText);
+            });
+
+            queryCurrentPage = 1;
+            renderQueryPage();
+        }
+
+        /**
+         * 清除查询字段搜索
+         */
+        function clearQuerySearch() {
+            document.getElementById('querySearchInput').value = '';
+            filterQueryItems();
+        }
+
+        /**
+         * 过滤更新字段
+         */
+        function filterUpdateItems() {
+            const searchText = document.getElementById('updateSearchInput').value.toLowerCase().trim();
+            const container = document.getElementById('updateItemsContainer');
+            const allCards = Array.from(container.querySelectorAll('.field-card'));
+
+            updateFilteredCards = allCards.filter(card => {
+                const label = card.querySelector('.update-label')?.value?.toLowerCase() || '';
+                const bindingKey = card.querySelector('.update-binding-key')?.value?.toLowerCase() || '';
+                return label.includes(searchText) || bindingKey.includes(searchText);
+            });
+
+            updateCurrentPage = 1;
+            renderUpdatePage();
+        }
+
+        /**
+         * 清除更新字段搜索
+         */
+        function clearUpdateSearch() {
+            document.getElementById('updateSearchInput').value = '';
+            filterUpdateItems();
+        }
+
+        // ==================== 分页功能 ====================
+
+        /**
+         * 渲染查询字段分页
+         */
+        function renderQueryPage() {
+            const container = document.getElementById('queryItemsContainer');
+            const totalPages = Math.ceil(queryFilteredCards.length / queryPageSize) || 1;
+
+            // 确保当前页不超出范围
+            if (queryCurrentPage > totalPages) {
+                queryCurrentPage = totalPages;
+            }
+
+            // 隐藏所有卡片
+            const allCards = container.querySelectorAll('.field-card');
+            allCards.forEach(card => card.style.display = 'none');
+
+            // 显示当前页的卡片
+            const start = (queryCurrentPage - 1) * queryPageSize;
+            const end = start + queryPageSize;
+            queryFilteredCards.slice(start, end).forEach(card => {
+                card.style.display = '';
+            });
+
+            // 更新分页信息
+            document.getElementById('queryPageInfo').textContent =
+                `共 ${queryFilteredCards.length} 条，第 ${queryCurrentPage}/${totalPages} 页`;
+
+            // 渲染分页按钮
+            renderQueryPagination(totalPages);
+        }
+
+        /**
+         * 渲染查询字段分页按钮
+         */
+        function renderQueryPagination(totalPages) {
+            const pagination = document.querySelector('#queryPagination ul');
+            if (!pagination) return;
+
+            let html = '';
+
+            // 上一页
+            html += `<li class="page-item ${queryCurrentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changeQueryPage(${queryCurrentPage - 1}); return false;">上一页</a>
+            </li>`;
+
+            // 页码
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= queryCurrentPage - 2 && i <= queryCurrentPage + 2)) {
+                    html += `<li class="page-item ${i === queryCurrentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changeQueryPage(${i}); return false;">${i}</a>
+                    </li>`;
+                } else if (i === queryCurrentPage - 3 || i === queryCurrentPage + 3) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+
+            // 下一页
+            html += `<li class="page-item ${queryCurrentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changeQueryPage(${queryCurrentPage + 1}); return false;">下一页</a>
+            </li>`;
+
+            pagination.innerHTML = html;
+        }
+
+        /**
+         * 切换查询字段页码
+         */
+        function changeQueryPage(page) {
+            const totalPages = Math.ceil(queryFilteredCards.length / queryPageSize) || 1;
+            if (page < 1 || page > totalPages) return;
+
+            queryCurrentPage = page;
+            renderQueryPage();
+        }
+
+        /**
+         * 改变查询字段每页显示条数
+         */
+        function changeQueryPageSize() {
+            queryPageSize = parseInt(document.getElementById('queryPageSize').value);
+            queryCurrentPage = 1;
+            renderQueryPage();
+        }
+
+        /**
+         * 渲染更新字段分页
+         */
+        function renderUpdatePage() {
+            const container = document.getElementById('updateItemsContainer');
+            const totalPages = Math.ceil(updateFilteredCards.length / updatePageSize) || 1;
+
+            // 确保当前页不超出范围
+            if (updateCurrentPage > totalPages) {
+                updateCurrentPage = totalPages;
+            }
+
+            // 隐藏所有卡片
+            const allCards = container.querySelectorAll('.field-card');
+            allCards.forEach(card => card.style.display = 'none');
+
+            // 显示当前页的卡片
+            const start = (updateCurrentPage - 1) * updatePageSize;
+            const end = start + updatePageSize;
+            updateFilteredCards.slice(start, end).forEach(card => {
+                card.style.display = '';
+            });
+
+            // 更新分页信息
+            document.getElementById('updatePageInfo').textContent =
+                `共 ${updateFilteredCards.length} 条，第 ${updateCurrentPage}/${totalPages} 页`;
+
+            // 渲染分页按钮
+            renderUpdatePagination(totalPages);
+        }
+
+        /**
+         * 渲染更新字段分页按钮
+         */
+        function renderUpdatePagination(totalPages) {
+            const pagination = document.querySelector('#updatePagination ul');
+            if (!pagination) return;
+
+            let html = '';
+
+            // 上一页
+            html += `<li class="page-item ${updateCurrentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changeUpdatePage(${updateCurrentPage - 1}); return false;">上一页</a>
+            </li>`;
+
+            // 页码
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= updateCurrentPage - 2 && i <= updateCurrentPage + 2)) {
+                    html += `<li class="page-item ${i === updateCurrentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changeUpdatePage(${i}); return false;">${i}</a>
+                    </li>`;
+                } else if (i === updateCurrentPage - 3 || i === updateCurrentPage + 3) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+
+            // 下一页
+            html += `<li class="page-item ${updateCurrentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changeUpdatePage(${updateCurrentPage + 1}); return false;">下一页</a>
+            </li>`;
+
+            pagination.innerHTML = html;
+        }
+
+        /**
+         * 切换更新字段页码
+         */
+        function changeUpdatePage(page) {
+            const totalPages = Math.ceil(updateFilteredCards.length / updatePageSize) || 1;
+            if (page < 1 || page > totalPages) return;
+
+            updateCurrentPage = page;
+            renderUpdatePage();
+        }
+
+        /**
+         * 改变更新字段每页显示条数
+         */
+        function changeUpdatePageSize() {
+            updatePageSize = parseInt(document.getElementById('updatePageSize').value);
+            updateCurrentPage = 1;
+            renderUpdatePage();
+        }
+
+                // ==================== 折叠功能 ====================
+
+        /**
+         * 更新字段摘要显示
+         */
+        function updateFieldSummary(inputElement) {
+            const card = inputElement.closest('.field-card');
+            const labelInput = card.querySelector('.query-label, .update-label');
+            const bindingKeyInput = card.querySelector('.query-binding-key, .update-binding-key');
+            const summary = card.querySelector('.field-summary');
+
+            if (!summary) return;
+
+            const label = labelInput ? labelInput.value.trim() : '';
+            const bindingKey = bindingKeyInput ? bindingKeyInput.value.trim() : '';
+
+            if (label || bindingKey) {
+                let summaryText = label;
+                if (bindingKey) {
+                    summaryText += summaryText ? ` (${bindingKey})` : bindingKey;
+                }
+                summary.textContent = summaryText;
+            } else {
+                summary.textContent = '';
+            }
+        }
+
+
+    </script>
+
+    <script>
+        // ==================== 数据库IP配置相关函数 ====================
+        
+        /**
+         * 加载数据库IP配置列表
+         */
+        function loadDatabaseIpConfigs() {
+            fetch('/api/database-ip-configs/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        allDatabaseIpConfigs = data.data;
+                    } else {
+                        console.error('加载数据库IP配置失败:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('请求失败:', error);
+                });
+        }
+        
+        /**
+         * 切换数据库IP选择状态
+         */
+        function toggleDatabaseIpSelection(id, event) {
+            // 如果点击的是checkbox本身，不阻止事件
+            if (event.target.type !== 'checkbox') {
+                const checkbox = document.getElementById(`dbIpCheck_${id}`);
+                checkbox.checked = !checkbox.checked;
+            }
+            
+            const checkbox = document.getElementById(`dbIpCheck_${id}`);
+            
+            if (checkbox.checked) {
+                if (!selectedDatabaseIpIds.includes(id)) {
+                    selectedDatabaseIpIds.push(id);
+                }
+            } else {
+                selectedDatabaseIpIds = selectedDatabaseIpIds.filter(ipId => ipId !== id);
+            }
+        }
+
+        /**
+         * 渲染数据库IP选择列表
+         */
+        function renderDatabaseIpList(configs) {
+            const container = document.getElementById('databaseIpListContainer');
+            
+            if (!configs || configs.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted py-4">暂无数据库配置</div>';
+                return;
+            }
+            
+            container.innerHTML = configs.map(config => `
+                <div class="form-check mb-2 p-3 border rounded" style="cursor: pointer;" onclick="toggleDatabaseIpSelection(${config.id}, event)">
+                    <input class="form-check-input" type="checkbox" value="${config.id}" style="margin-left: 0px" id="dbIpCheck_${config.id}"
+                           ${selectedDatabaseIpIds.includes(config.id) ? 'checked' : ''}>
+                    <label class="form-check-label w-100" for="dbIpCheck_${config.id}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${config.name}</strong>
+                                <br>
+                                <small class="text-muted">IP: ${config.ip_address} | 库名: ${config.database_name}</small>
+                            </div>
+                            ${config.is_active ? 
+                                '<span class="badge bg-success">启用</span>' : 
+                                '<span class="badge bg-secondary">禁用</span>'}
+                        </div>
+                    </label>
+                </div>
+            `).join('');
+        }
+        
+
+        /**
+         * 过滤数据库IP列表
+         */
+        function filterDatabaseIps() {
+            const searchTerm = document.getElementById('databaseIpSearchInput').value.trim().toLowerCase();
+            
+            if (!searchTerm) {
+                renderDatabaseIpList(allDatabaseIpConfigs);
+            } else {
+                const filtered = allDatabaseIpConfigs.filter(config =>
+                    config.name.toLowerCase().includes(searchTerm) ||
+                    config.ip_address.toLowerCase().includes(searchTerm) ||
+                    config.database_name.toLowerCase().includes(searchTerm)
+                );
+                renderDatabaseIpList(filtered);
+            }
+        }
+        
+        /**
+         * 清除数据库IP搜索
+         */
+        function clearDatabaseIpSearch() {
+            document.getElementById('databaseIpSearchInput').value = '';
+            renderDatabaseIpList(allDatabaseIpConfigs);
+        }
+    </script>
+
+    <style>
+        .sortable-ghost {
+            opacity: 0.4;
+            background-color: #f0f0f0;
+        }
+
+        .sortable-chosen {
+            background-color: #e3f2fd;
+        }
+
+        .sortable-drag {
+            opacity: 0.8;
+        }
+
+        .field-card {
+            transition: all 0.2s;
+        }
+
+        .field-card:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .drag-handle {
+            cursor: grab;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .connected-tables-container {
+            max-height: 150px;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        
+        .table-checkbox-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .table-checkbox-item {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        
+        .table-checkbox-item:hover {
+            background-color: #f8f9fa;
+            border-color: #adb5bd;
+        }
+        
+        .table-checkbox-item input[type="checkbox"] {
+            margin: 0;
+            margin-right: 6px;
+            cursor: pointer;
+        }
+        
+        .checkbox-label-text {
+            font-size: 13px;
+            color: #495057;
+            user-select: none;
+        }
+        
+        .table-checkbox-item input[type="checkbox"]:checked + .checkbox-label-text {
+            color: #0d6efd;
+            font-weight: 500;
+        }
+    </style>
 {% endblock %}

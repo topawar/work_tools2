@@ -6,34 +6,241 @@
 <div class="container-fluid p-0">
     <h4 class="mb-4">欢迎使用 Work Tools</h4>
     
-    <div class="row g-4">
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">快速开始</h5>
-                    <p class="card-text text-muted">这是一个基于 Django + Bootstrap 的管理工具模板。</p>
-                    <ul class="list-unstyled">
-                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>侧边栏导航</li>
-                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>模糊搜索</li>
-                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>页面高亮</li>
-                        <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>响应式布局</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">功能特性</h5>
-                    <p class="card-text text-muted">侧边栏支持拼音搜索，方便快速定位页面。</p>
-                    <div class="d-flex flex-wrap gap-2">
-                        <span class="badge bg-primary">Django 6.0</span>
-                        <span class="badge bg-info">Bootstrap 5</span>
-                        <span class="badge bg-success">Python 3</span>
+    <!-- 表单合并入口 -->
+    <div class="card border-primary shadow-sm mb-4" style="border-left: 4px solid #0d6efd !important;">
+        <div class="card-body py-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-files text-primary fs-4 me-3"></i>
+                    <div>
+                        <h6 class="mb-1 fw-bold">表单合并</h6>
+                        <small class="text-muted">批量导入多个表单数据，自动生成 SQL 语句</small>
                     </div>
                 </div>
+                <a href="/form_merge/" class="btn btn-primary btn-sm">
+                    <i class="bi bi-arrow-right-circle me-1"></i>进入
+                </a>
             </div>
         </div>
     </div>
+    
+    <!-- 动态表单模块 -->
+    <h6 class="mb-3 text-muted"><i class="bi bi-grid-3x3-gap me-2"></i>动态表单</h6>
+    
+    <!-- 搜索框 -->
+    <div class="mb-3">
+        <div class="input-group input-group-sm" style="max-width: 400px;">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control" id="formSearchInput" placeholder="搜索表单名称..." oninput="filterForms()">
+            <button class="btn btn-outline-secondary" type="button" onclick="clearFormSearch()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div id="dynamicFormsContainer">
+        <div class="text-center text-muted py-5">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            加载中...
+        </div>
+    </div>
+    
+    <!-- 系统设置 -->
+    <hr class="my-4">
+    <h6 class="mb-3 text-muted"><i class="bi bi-gear me-2"></i>系统设置</h6>
+    <div class="row g-2">
+        <div class="col-lg-3 col-md-4 col-sm-6">
+            <a href="/table_config/" class="text-decoration-none">
+                <div class="card border-0 shadow-sm setting-card">
+                    <div class="card-body py-3 text-center">
+                        <i class="bi bi-table text-info fs-5 mb-1 d-block"></i>
+                        <small class="d-block">表单配置</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-lg-3 col-md-4 col-sm-6">
+            <a href="/component_config/" class="text-decoration-none">
+                <div class="card border-0 shadow-sm setting-card">
+                    <div class="card-body py-3 text-center">
+                        <i class="bi bi-puzzle text-success fs-5 mb-1 d-block"></i>
+                        <small class="d-block">组件配置</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-lg-3 col-md-4 col-sm-6">
+            <a href="/database_config/" class="text-decoration-none">
+                <div class="card border-0 shadow-sm setting-card">
+                    <div class="card-body py-3 text-center">
+                        <i class="bi bi-database text-warning fs-5 mb-1 d-block"></i>
+                        <small class="d-block">数据库管理</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-lg-3 col-md-4 col-sm-6">
+            <a href="/file_path_config/" class="text-decoration-none">
+                <div class="card border-0 shadow-sm setting-card">
+                    <div class="card-body py-3 text-center">
+                        <i class="bi bi-folder text-danger fs-5 mb-1 d-block"></i>
+                        <small class="d-block">路径配置</small>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
 </div>
+
+<style>
+.setting-card {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.setting-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+}
+.form-link {
+    display: block;
+    padding: 6px 12px;
+    color: #495057;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-size: 13px;
+}
+.form-link:hover {
+    background-color: #f8f9fa;
+    color: #0d6efd;
+    text-decoration: none;
+}
+.module-section {
+    margin-bottom: 20px;
+}
+.module-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 8px;
+    padding-left: 4px;
+    border-left: 3px solid #0d6efd;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadDynamicForms();
+});
+
+let allFormsData = []; // 保存所有表单数据用于搜索
+
+function loadDynamicForms() {
+    fetch('/api/form-configs/')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('dynamicFormsContainer');
+            
+            if (!data.success || !data.data || data.data.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-inbox fs-1"></i>
+                        <p class="mt-2 mb-0">暂无动态表单</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 保存所有表单数据
+            allFormsData = data.data;
+            
+            // 渲染表单
+            renderForms(allFormsData);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('dynamicFormsContainer').innerHTML = `
+                <div class="text-center text-danger py-5">
+                    <i class="bi bi-exclamation-triangle fs-1"></i>
+                    <p class="mt-2 mb-0">加载失败</p>
+                </div>
+            `;
+        });
+}
+
+function renderForms(forms) {
+    const container = document.getElementById('dynamicFormsContainer');
+    
+    if (forms.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-search fs-1"></i>
+                <p class="mt-2 mb-0">未找到匹配的表单</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // 按模块分组表单
+    const moduleGroups = {};
+    forms.forEach(form => {
+        const moduleName = form.parent_menu_name || '未分类';
+        
+        if (!moduleGroups[moduleName]) {
+            moduleGroups[moduleName] = [];
+        }
+        moduleGroups[moduleName].push(form);
+    });
+    
+    // 渲染分组后的表单
+    let html = '';
+    for (const moduleName in moduleGroups) {
+        const forms = moduleGroups[moduleName];
+        html += `
+            <div class="module-section">
+                <div class="module-title">${moduleName}</div>
+                <div class="row g-2">
+        `;
+        
+        forms.forEach(form => {
+            html += `
+                <div class="col-lg-2 col-md-3 col-sm-4 col-6" data-form-name="${form.form_name.toLowerCase()}">
+                    <a href="/dynamic/${form.id}" class="form-link">
+                        <i class="bi bi-file-earmark-text me-1"></i>${form.form_name}
+                    </a>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+}
+
+function filterForms() {
+    const searchText = document.getElementById('formSearchInput').value.trim().toLowerCase();
+    
+    if (!searchText) {
+        // 没有搜索文本，显示所有表单
+        renderForms(allFormsData);
+        return;
+    }
+    
+    // 过滤表单
+    const filtered = allFormsData.filter(form => {
+        return form.form_name.toLowerCase().includes(searchText);
+    });
+    
+    renderForms(filtered);
+}
+
+function clearFormSearch() {
+    document.getElementById('formSearchInput').value = '';
+    renderForms(allFormsData);
+}
+</script>
 {% endblock %}

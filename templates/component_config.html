@@ -11,7 +11,25 @@
         </div>
     </div>
 
-    <!-- 配置项列表 -->
+    <!-- Tab 导航 -->
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#componentTab"
+                    type="button">
+                表单配置项
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#databaseIpTab" type="button">
+                数据库IP配置
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab 内容 -->
+    <div class="tab-content">
+        <!-- 表单配置项 Tab -->
+        <div class="tab-pane fade show active" id="componentTab">
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <span>配置项列表</span>
@@ -20,6 +38,22 @@
             </button>
         </div>
         <div class="card-body">
+            <!-- 搜索栏 -->
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" id="searchInput" placeholder="搜索配置项名称..." onkeyup="handleSearch()">
+                        <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6 text-end">
+                    <small class="text-muted" id="searchResultInfo"></small>
+                </div>
+            </div>
+
             <table class="table table-hover">
                 <thead>
                     <tr>
@@ -37,9 +71,93 @@
                     </tr>
                 </tbody>
             </table>
+
+            <!-- 分页控制 -->
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div class="d-flex align-items-center">
+                    <small class="text-muted me-2">每页显示：</small>
+                    <select class="form-select form-select-sm" id="pageSizeSelect" style="width: 80px;" onchange="changePageSize(this.value)">
+                        <option value="5" selected>5条</option>
+                        <option value="10">10条</option>
+                        <option value="20">20条</option>
+                        <option value="50">50条</option>
+                    </select>
+                </div>
+                <nav aria-label="配置项分页" class="mb-0">
+                    <ul class="pagination mb-0" id="paginationContainer">
+                    </ul>
+                </nav>
+            </div>
+            <div class="text-center text-muted small mt-1" id="paginationInfo"></div>
         </div>
     </div>
 </div>
+
+        <!-- 数据库IP配置 Tab -->
+        <div class="tab-pane fade" id="databaseIpTab">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>数据库IP配置列表</span>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="showAddDatabaseIpModal()">
+                        <i class="bi bi-plus-lg"></i> 新增配置
+                    </button>
+                </div>
+                <div class="card-body">
+                    <!-- 搜索栏 -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control" id="dbIpSearchInput" placeholder="搜索配置名称或IP地址..." onkeyup="handleDbIpSearch()">
+                                <button class="btn btn-outline-secondary" type="button" onclick="clearDbIpSearch()">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <small class="text-muted" id="dbIpSearchResultInfo"></small>
+                        </div>
+                    </div>
+
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>配置名称</th>
+                                <th>IP地址</th>
+                                <th>数据库名</th>
+                                <th>状态</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="databaseIpListBody">
+                            <tr>
+                                <td colspan="6" class="text-center">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- 分页控制 -->
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div class="d-flex align-items-center">
+                            <small class="text-muted me-2">每页显示：</small>
+                            <select class="form-select form-select-sm" id="dbIpPageSizeSelect" style="width: 80px;" onchange="changeDbIpPageSize(this.value)">
+                                <option value="5" selected>5条</option>
+                                <option value="10">10条</option>
+                                <option value="20">20条</option>
+                                <option value="50">50条</option>
+                            </select>
+                        </div>
+                        <nav aria-label="数据库IP配置分页" class="mb-0">
+                            <ul class="pagination mb-0" id="dbIpPaginationContainer">
+                            </ul>
+                        </nav>
+                    </div>
+                    <div class="text-center text-muted small mt-1" id="dbIpPaginationInfo"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
 <!-- 配置项编辑模态框 -->
 <div class="modal fade" id="componentModal" tabindex="-1" aria-labelledby="componentModalLabel" aria-hidden="true">
@@ -72,28 +190,154 @@
                 <div class="mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="mb-0">选项配置</h6>
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="addOptionBtn" onclick="addOption()">
-                            <i class="bi bi-plus-lg"></i> 添加选项
-                        </button>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-outline-success me-1" onclick="showImportOptionsModal()">
+                                <i class="bi bi-upload"></i> 批量导入
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="addOptionBtn" onclick="addOption()">
+                                <i class="bi bi-plus-lg"></i> 添加选项
+                            </button>
+                        </div>
                     </div>
                     <small class="text-muted d-block mb-3" id="optionsHint">至少需要配置一个选项，可通过拖动或点击箭头调整顺序</small>
 
-                    <div id="optionsContainer" class="sortable-container">
-                        <!-- 动态生成选项卡片 -->
+                    <!-- 选项搜索 -->
+                    <div class="row mb-2">
+                        <div class="col-md-8">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control" id="optionSearchInput" placeholder="搜索选项值或文本..." onkeyup="handleOptionSearch()">
+                                <button class="btn btn-outline-secondary" type="button" onclick="clearOptionSearch()">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <small class="text-muted" id="optionSearchResultInfo"></small>
+                        </div>
                     </div>
-                </div>
 
-                <!-- 预览区域 -->
-                <div class="mb-3">
-                    <h6>预览效果</h6>
-                    <div class="border rounded p-3 bg-light" id="previewContainer">
-                        <p class="text-muted mb-0">请添加选项后查看预览</p>
+                    <div id="optionsContainer" class="sortable-container">
                     </div>
+
+                    <!-- 选项分页控制 -->
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div class="d-flex align-items-center">
+                            <small class="text-muted me-2">每页显示：</small>
+                            <select class="form-select form-select-sm" id="optionPageSizeSelect" style="width: 80px;" onchange="changeOptionPageSize(this.value)">
+                                <option value="5" selected>5条</option>
+                                <option value="10">10条</option>
+                                <option value="20">20条</option>
+                                <option value="50">50条</option>
+                                <option value="100">100条</option>
+                            </select>
+                        </div>
+                        <nav aria-label="选项分页" class="mb-0">
+                            <ul class="pagination pagination-sm mb-0" id="optionPaginationContainer">
+                            </ul>
+                        </nav>
+                    </div>
+                    <div class="text-center text-muted small mt-1" id="optionPaginationInfo"></div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                 <button type="button" class="btn btn-success" onclick="saveComponent()">
+                    <i class="bi bi-save"></i> 保存配置
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量导入选项模态框 -->
+<div class="modal fade" id="importOptionsModal" tabindex="-1" aria-labelledby="importOptionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importOptionsModalLabel">批量导入选项</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">选择Excel文件 <span class="text-danger">*</span></label>
+                    <input type="file" class="form-control" id="importOptionsFile" accept=".xlsx,.xls">
+                    <small class="text-muted">支持 .xlsx 和 .xls 格式</small>
+                </div>
+                <div class="alert alert-info">
+                    <h6 class="alert-heading">文件格式要求：</h6>
+                    <ul class="mb-0">
+                        <li>必须包含"代码项编号"列（作为选项值）</li>
+                        <li>必须包含"代码项中文名称"列（作为选项显示文本）</li>
+                        <li>第一行为表头，从第二行开始为数据</li>
+                        <li>会自动跳过空行和重复项</li>
+                    </ul>
+                </div>
+                <div id="importPreviewArea" style="display: none;">
+                    <hr>
+                    <h6>预览（前10条）</h6>
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>序号</th>
+                                    <th>值（value）</th>
+                                    <th>显示文本（label）</th>
+                                </tr>
+                            </thead>
+                            <tbody id="importPreviewBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-muted small" id="importPreviewInfo"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirmImportBtn" onclick="confirmImportOptions()" disabled>
+                    <i class="bi bi-check-lg"></i> 确认导入
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 数据库IP配置编辑模态框 -->
+<div class="modal fade" id="databaseIpModal" tabindex="-1" aria-labelledby="databaseIpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dbIpEditorTitle">新增数据库IP配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 基本信息 -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label class="form-label">配置名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="dbIpConfigName" placeholder="例如: 生产环境数据库">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">IP地址 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="dbIpAddress" placeholder="例如: 192.168.1.100">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">数据库名 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="dbIpDatabaseName" placeholder="例如: my_database">
+                    </div>
+                </div>
+
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="dbIpIsActive" checked>
+                    <label class="form-check-label" for="dbIpIsActive">启用此配置</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success" onclick="saveDatabaseIpConfig()">
                     <i class="bi bi-save"></i> 保存配置
                 </button>
             </div>
@@ -109,11 +353,195 @@ let currentEditingId = null;
 let optionCount = 0;
 let optionsSortable = null;
 
-// 页面加载时获取配置项列表
+// 配置项列表相关变量
+let allComponents = [];
+let filteredComponents = [];
+let currentPage = 1;
+let pageSize = 5;
+
+// 选项相关变量
+let allOptions = [];
+let filteredOptions = [];
+let currentOptionPage = 1;
+let optionPageSize = 5;
+
+// 批量导入相关变量
+let pendingImportOptions = [];
+
 document.addEventListener('DOMContentLoaded', function() {
     loadComponentList();
     initSortable();
 });
+
+/**
+ * 显示批量导入选项模态框
+ */
+function showImportOptionsModal() {
+    // 重置模态框
+    document.getElementById('importOptionsFile').value = '';
+    document.getElementById('importPreviewArea').style.display = 'none';
+    document.getElementById('confirmImportBtn').disabled = true;
+    pendingImportOptions = [];
+
+    // 显示模态框
+    const modal = new bootstrap.Modal(document.getElementById('importOptionsModal'));
+    modal.show();
+
+    // 绑定文件选择事件
+    const fileInput = document.getElementById('importOptionsFile');
+    fileInput.onchange = handleImportFileSelect;
+}
+
+/**
+ * 处理导入文件选择
+ */
+function handleImportFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        return;
+    }
+
+    // 检查文件类型
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+        alert('请选择Excel文件（.xlsx 或 .xls 格式）');
+        event.target.value = '';
+        return;
+    }
+
+    // 显示加载提示
+    const confirmBtn = document.getElementById('confirmImportBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 解析中...';
+
+    // 上传文件到后端解析
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fetch('/api/components/import-options/', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            pendingImportOptions = data.data;
+            showImportPreview();
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="bi bi-check-lg"></i> 确认导入';
+        } else {
+            alert('解析失败：' + data.error);
+            event.target.value = '';
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="bi bi-check-lg"></i> 确认导入';
+        }
+    })
+    .catch(error => {
+        console.error('请求失败:', error);
+        alert('网络请求失败');
+        event.target.value = '';
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="bi bi-check-lg"></i> 确认导入';
+    });
+}
+
+/**
+ * 显示导入预览
+ */
+function showImportPreview() {
+    const previewArea = document.getElementById('importPreviewArea');
+    const previewBody = document.getElementById('importPreviewBody');
+    const previewInfo = document.getElementById('importPreviewInfo');
+
+    if (pendingImportOptions.length === 0) {
+        previewArea.style.display = 'none';
+        return;
+    }
+
+    // 显示预览区域
+    previewArea.style.display = 'block';
+
+    // 显示前10条
+    const previewData = pendingImportOptions.slice(0, 10);
+    previewBody.innerHTML = previewData.map((opt, idx) => `
+        <tr>
+            <td>${idx + 1}</td>
+            <td><code>${opt.value}</code></td>
+            <td>${opt.label}</td>
+        </tr>
+    `).join('');
+
+    // 显示统计信息
+    previewInfo.textContent = `共 ${pendingImportOptions.length} 条选项` +
+        (pendingImportOptions.length > 10 ? `，已显示前10条` : '');
+}
+
+/**
+ * 确认导入选项
+ */
+function confirmImportOptions() {
+    if (pendingImportOptions.length === 0) {
+        alert('没有可导入的选项');
+        return;
+    }
+
+    // 检查单选框限制
+    const componentType = document.getElementById('componentType').value;
+    if (componentType === 'radio' && pendingImportOptions.length !== 2) {
+        if (!confirm(`单选框必须有且仅有2个选项，当前文件包含 ${pendingImportOptions.length} 个选项。\n\n是否只导入前2个选项？`)) {
+            return;
+        }
+        // 只保留前2个
+        pendingImportOptions = pendingImportOptions.slice(0, 2);
+    }
+
+    // 获取当前已有的选项值集合（用于检测重复）
+    const existingValues = new Set();
+    document.querySelectorAll('#optionsContainer .option-card').forEach(card => {
+        const value = card.querySelector('.option-value').value.trim();
+        if (value) {
+            existingValues.add(value);
+        }
+    });
+
+    // 过滤掉重复的选项
+    const newOptions = [];
+    let duplicateCount = 0;
+    pendingImportOptions.forEach(option => {
+        if (existingValues.has(option.value)) {
+            duplicateCount++;
+        } else {
+            newOptions.push(option);
+            existingValues.add(option.value);
+        }
+    });
+
+    // 如果有重复项，提示用户
+    if (duplicateCount > 0) {
+        alert(`成功解析 ${pendingImportOptions.length} 个选项，其中 ${duplicateCount} 个与现有选项重复已跳过，实际导入 ${newOptions.length} 个选项`);
+    }
+
+    // 将不重复的选项添加到DOM
+    newOptions.forEach(option => {
+        addOptionToDOM(option);
+    });
+
+    // 更新按钮状态
+    handleTypeChange();
+
+    // 跳转到最后一页显示新添加的选项
+    const container = document.getElementById('optionsContainer');
+    const allCards = Array.from(container.querySelectorAll('.option-card'));
+    const totalPages = Math.ceil(allCards.length / optionPageSize);
+    currentOptionPage = totalPages;
+    renderOptionsWithPagination();
+
+    // 关闭模态框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('importOptionsModal'));
+    modal.hide();
+
+    // 重置
+    pendingImportOptions = [];
+}
 
 /**
  * 初始化拖拽排序
@@ -129,7 +557,7 @@ function initSortable() {
             dragClass: 'sortable-drag',
             onEnd: function(evt) {
                 updateOptionNumbers();
-                updatePreview();
+                updateAllOptionsFromDOM();
             }
         });
     }
@@ -139,42 +567,53 @@ function initSortable() {
  * 加载配置项列表
  */
 function loadComponentList() {
-    // TODO: 调用后端 API
-    setTimeout(() => {
-        const mockData = [
-            {
-                id: 1,
-                name: '订单状态',
-                type: 'select',
-                option_count: 5,
-                usage_count: 12,
-                created_at: '2024-01-15 10:30:00'
-            },
-            {
-                id: 2,
-                name: '是否启用',
-                type: 'radio',
-                option_count: 2,
-                usage_count: 8,
-                created_at: '2024-01-16 14:20:00'
+    const searchTerm = document.getElementById('searchInput').value.trim();
+
+    fetch(`/api/components/?page=${currentPage}&page_size=${pageSize}&search=${encodeURIComponent(searchTerm)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                allComponents = data.data;
+                filteredComponents = [...allComponents];
+                renderComponentList();
+
+                // 更新分页信息
+                if (searchTerm) {
+                    document.getElementById('searchResultInfo').textContent = `找到 ${data.total} 条结果`;
+                } else {
+                    document.getElementById('searchResultInfo').textContent = '';
+                }
+            } else {
+                console.error('加载失败:', data.error);
+                alert('加载配置项列表失败');
             }
-        ];
-        renderComponentList(mockData);
-    }, 500);
+        })
+        .catch(error => {
+            console.error('请求失败:', error);
+            alert('网络请求失败');
+        });
 }
 
 /**
- * 渲染配置项列表
+ * 渲染配置项列表（带分页）
  */
-function renderComponentList(components) {
+function renderComponentList() {
     const tbody = document.getElementById('componentListBody');
 
-    if (components.length === 0) {
+    if (filteredComponents.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center">暂无数据</td></tr>';
+        document.getElementById('paginationContainer').innerHTML = '';
+        document.getElementById('paginationInfo').textContent = '';
         return;
     }
 
-    tbody.innerHTML = components.map(component => `
+    // 计算分页
+    const totalPages = Math.ceil(filteredComponents.length / pageSize);
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, filteredComponents.length);
+    const pageData = filteredComponents.slice(startIndex, endIndex);
+
+    tbody.innerHTML = pageData.map(component => `
         <tr>
             <td><strong>${component.name}</strong></td>
             <td>
@@ -198,6 +637,105 @@ function renderComponentList(components) {
             </td>
         </tr>
     `).join('');
+
+    // 渲染分页控件
+    renderPagination(totalPages);
+
+    // 更新分页信息
+    document.getElementById('paginationInfo').textContent =
+        `显示 ${startIndex + 1}-${endIndex} 条，共 ${filteredComponents.length} 条`;
+}
+
+/**
+ * 渲染分页控件
+ */
+function renderPagination(totalPages) {
+    const paginationContainer = document.getElementById('paginationContainer');
+
+    if (totalPages <= 1) {
+        paginationContainer.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+
+    // 上一页
+    html += `
+        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
+    `;
+
+    // 页码
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+            html += `
+                <li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
+                </li>
+            `;
+        } else if (i === currentPage - 2 || i === currentPage + 2) {
+            html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+    }
+
+    // 下一页
+    html += `
+        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+    `;
+
+    paginationContainer.innerHTML = html;
+}
+
+/**
+ * 切换页码
+ */
+function changePage(page) {
+    const totalPages = Math.ceil(filteredComponents.length / pageSize);
+    if (page < 1 || page > totalPages) return;
+
+    currentPage = page;
+    renderComponentList();
+}
+
+/**
+ * 改变每页显示条数（配置项列表）
+ */
+function changePageSize(size) {
+    pageSize = parseInt(size);
+    currentPage = 1; // 重置到第一页
+    loadComponentList();
+}
+
+/**
+ * 改变每页显示条数（选项）
+ */
+function changeOptionPageSize(size) {
+    optionPageSize = parseInt(size);
+    currentOptionPage = 1; // 重置到第一页
+    renderOptionsWithPagination();
+}
+
+/**
+ * 处理搜索
+ */
+function handleSearch() {
+    currentPage = 1;
+    loadComponentList();
+}
+
+/**
+ * 清除搜索
+ */
+function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    handleSearch();
 }
 
 /**
@@ -209,9 +747,15 @@ function handleTypeChange() {
     const optionsHint = document.getElementById('optionsHint');
 
     if (componentType === 'radio') {
-        // 单选框：提示只能有2个选项，但不自动删除
-        addOptionBtn.disabled = true;
-        addOptionBtn.title = '单选框只能有2个选项';
+        // 单选框：检查当前选项数量
+        const currentOptions = document.querySelectorAll('#optionsContainer .option-card');
+        if (currentOptions.length >= 2) {
+            addOptionBtn.disabled = true;
+            addOptionBtn.title = '单选框只能有2个选项';
+        } else {
+            addOptionBtn.disabled = false;
+            addOptionBtn.title = '';
+        }
         optionsHint.textContent = '单选框固定为2个选项（例如：是/否、启用/禁用），请在保存前调整为2个选项';
     } else {
         // 下拉框：不限制
@@ -219,8 +763,6 @@ function handleTypeChange() {
         addOptionBtn.title = '';
         optionsHint.textContent = '至少需要配置一个选项，可通过拖动或点击箭头调整顺序';
     }
-
-    updatePreview();
 }
 
 /**
@@ -237,17 +779,28 @@ function showAddComponentModal() {
     // 清空选项
     document.getElementById('optionsContainer').innerHTML = '';
     optionCount = 0;
+    allOptions = [];
+    filteredOptions = [];
+    currentOptionPage = 1;
+    optionPageSize = 5;
+
+    // 重置搜索
+    document.getElementById('optionSearchInput').value = '';
+    document.getElementById('optionSearchResultInfo').textContent = '';
 
     // 重置按钮状态
     document.getElementById('addOptionBtn').disabled = false;
     document.getElementById('addOptionBtn').title = '';
     document.getElementById('optionsHint').textContent = '至少需要配置一个选项，可通过拖动或点击箭头调整顺序';
 
-    // 添加默认选项
+    // 重置每页显示条数选择器
+    document.getElementById('optionPageSizeSelect').value = '5';
+
+    // 添加默认选项（下拉框默认2个，单选框也是2个）
     addOption();
     addOption();
 
-    updatePreview();
+    renderOptionsWithPagination();
 }
 
 /**
@@ -257,70 +810,61 @@ function editComponent(id) {
     currentEditingId = id;
     document.getElementById('editorTitle').textContent = '编辑配置项';
 
-    // 模拟数据
-    document.getElementById('componentName').value = '订单状态';
-    document.getElementById('componentType').value = 'select';
+    // 从后端获取详情
+    fetch(`/api/components/${id}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const component = data.data;
+                document.getElementById('componentName').value = component.name;
+                document.getElementById('componentType').value = component.type;
 
-    // 重置按钮状态
-    document.getElementById('addOptionBtn').disabled = false;
-    document.getElementById('addOptionBtn').title = '';
-    document.getElementById('optionsHint').textContent = '至少需要配置一个选项，可通过拖动或点击箭头调整顺序';
+                // 重置按钮状态
+                handleTypeChange();
 
-    // 清空并重新加载选项
-    document.getElementById('optionsContainer').innerHTML = '';
-    optionCount = 0;
+                // 清空并重新加载选项
+                document.getElementById('optionsContainer').innerHTML = '';
+                optionCount = 0;
+                allOptions = component.options || [];
+                filteredOptions = [...allOptions];
+                currentOptionPage = 1;
+                optionPageSize = 5;
 
-    const mockOptions = [
-        {value: "active", label: "启用"},
-        {value: "inactive", label: "禁用"},
-        {value: "pending", label: "待审核"}
-    ];
+                // 重置搜索
+                document.getElementById('optionSearchInput').value = '';
+                document.getElementById('optionSearchResultInfo').textContent = '';
 
-    mockOptions.forEach(opt => addOption(opt));
+                // 重置每页显示条数选择器
+                document.getElementById('optionPageSizeSelect').value = '5';
 
-    updatePreview();
+                // 渲染所有选项到DOM（用于拖拽排序）
+                allOptions.forEach(opt => addOptionToDOM(opt));
+
+                // 渲染当前页的选项
+                renderOptionsWithPagination();
+            } else {
+                console.error('加载详情失败:', data.error);
+                alert('加载配置项详情失败');
+            }
+        })
+        .catch(error => {
+            console.error('请求失败:', error);
+            alert('网络请求失败');
+        });
 }
 
 /**
- * 删除配置项
+ * 添加选项到DOM（不触发渲染）
  */
-function deleteComponent(id) {
-    if (!confirm('确定要删除此配置项吗？删除后将无法在表单中使用。')) {
-        return;
-    }
-
-    // TODO: 调用后端 API
-    alert('删除功能待实现');
-}
-
-/**
- * 查看引用
- */
-function viewUsage(id) {
-    // TODO: 显示使用该配置项的表单列表
-    alert('查看引用功能待实现');
-}
-
-/**
- * 添加选项
- */
-function addOption(data = null) {
-    const componentType = document.getElementById('componentType').value;
-    const currentOptions = document.querySelectorAll('#optionsContainer .option-card');
-
-    // 单选框限制为2个选项
-    if (componentType === 'radio' && currentOptions.length >= 2) {
-        alert('单选框只能有2个选项');
-        return;
-    }
-
+function addOptionToDOM(data = null) {
     optionCount++;
     const index = optionCount;
 
-    const container = document.getElementById('optionsContainer');
     const div = document.createElement('div');
     div.className = 'card mb-2 border option-card';
     div.dataset.optionIndex = index;
+    div.dataset.value = data?.value || '';
+    div.dataset.label = data?.label || '';
 
     div.innerHTML = `
         <div class="card-body py-2 px-3">
@@ -331,11 +875,13 @@ function addOption(data = null) {
                     <div class="row g-2">
                         <div class="col-md-4">
                             <input type="text" class="form-control form-control-sm option-value"
-                                   placeholder="值（value）" value="${data?.value || ''}">
+                                   placeholder="值（value）" value="${data?.value || ''}"
+                                   oninput="updateOptionData(this)">
                         </div>
                         <div class="col-md-6">
                             <input type="text" class="form-control form-control-sm option-label"
-                                   placeholder="显示文本（label）" value="${data?.label || ''}">
+                                   placeholder="显示文本（label）" value="${data?.label || ''}"
+                                   oninput="updateOptionData(this)">
                         </div>
                         <div class="col-md-2 d-flex gap-1">
                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveOptionUp(this)" title="上移">
@@ -354,15 +900,128 @@ function addOption(data = null) {
         </div>
     `;
 
-    container.appendChild(div);
+    document.getElementById('optionsContainer').appendChild(div);
+}
 
-    // 绑定输入事件，实时更新预览
-    const inputs = div.querySelectorAll('input');
-    inputs.forEach(input => {
-        input.addEventListener('input', updatePreview);
+/**
+ * 更新选项数据
+ */
+function updateOptionData(input) {
+    const card = input.closest('.option-card');
+    if (card) {
+        const valueInput = card.querySelector('.option-value');
+        const labelInput = card.querySelector('.option-label');
+        card.dataset.value = valueInput.value;
+        card.dataset.label = labelInput.value;
+
+        // 同步更新allOptions
+        syncOptionsFromDOMWithoutFilter();
+    }
+}
+
+/**
+ * 从DOM同步选项数据（不过滤）
+ */
+function syncOptionsFromDOMWithoutFilter() {
+    allOptions = [];
+    document.querySelectorAll('#optionsContainer .option-card').forEach(card => {
+        const value = card.querySelector('.option-value').value.trim();
+        const label = card.querySelector('.option-label').value.trim();
+        if (value || label) {
+            allOptions.push({value, label});
+        }
     });
+}
 
-    updatePreview();
+/**
+ * 从DOM更新所有选项数据
+ */
+function updateAllOptionsFromDOM() {
+    syncOptionsFromDOMWithoutFilter();
+    renderOptionsWithPagination();
+}
+
+/**
+ * 删除配置项
+ */
+function deleteComponent(id) {
+    if (!confirm('确定要删除此配置项吗？删除后将无法在表单中使用。')) {
+        return;
+    }
+
+    fetch(`/api/components/delete/${id}/`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('删除成功');
+            loadComponentList();
+        } else {
+            alert('删除失败: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('请求失败:', error);
+        alert('网络请求失败');
+    });
+}
+
+/**
+ * 查看引用
+ */
+function viewUsage(id) {
+    fetch(`/api/components/${id}/usage/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const usage = data.data;
+                let message = `配置项 "${usage.component_name}" 被引用了 ${usage.usage_count} 次\n\n`;
+
+                if (usage.references && usage.references.length > 0) {
+                    message += '引用的表单：\n';
+                    usage.references.forEach((ref, idx) => {
+                        message += `${idx + 1}. ${ref.form_name} - ${ref.field_label}\n`;
+                    });
+                } else {
+                    message += '暂无引用记录';
+                }
+
+                alert(message);
+            } else {
+                alert('查看引用失败: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('请求失败:', error);
+            alert('网络请求失败');
+        });
+}
+
+/**
+ * 添加选项
+ */
+function addOption(data = null) {
+    const componentType = document.getElementById('componentType').value;
+    const currentOptions = document.querySelectorAll('#optionsContainer .option-card');
+
+    // 单选框限制为2个选项
+    if (componentType === 'radio' && currentOptions.length >= 2) {
+        alert('单选框只能有2个选项');
+        return;
+    }
+
+    addOptionToDOM(data);
+
+    // 更新按钮状态
+    handleTypeChange();
+
+    // 跳转到最后一页显示新添加的选项
+    const container = document.getElementById('optionsContainer');
+    const allCards = Array.from(container.querySelectorAll('.option-card'));
+    const totalPages = Math.ceil(allCards.length / optionPageSize);
+    currentOptionPage = totalPages;
+    renderOptionsWithPagination();
 }
 
 /**
@@ -373,7 +1032,8 @@ function moveOptionUp(btn) {
     if (card && card.previousElementSibling) {
         card.parentNode.insertBefore(card, card.previousElementSibling);
         updateOptionNumbers();
-        updatePreview();
+        syncOptionsFromDOMWithoutFilter();
+        renderOptionsWithPagination();
     }
 }
 
@@ -385,7 +1045,8 @@ function moveOptionDown(btn) {
     if (card && card.nextElementSibling) {
         card.parentNode.insertBefore(card.nextElementSibling, card);
         updateOptionNumbers();
-        updatePreview();
+        syncOptionsFromDOMWithoutFilter();
+        renderOptionsWithPagination();
     }
 }
 
@@ -410,51 +1071,234 @@ function removeOption(btn) {
     if (card) {
         card.remove();
         updateOptionNumbers();
-        updatePreview();
+        syncOptionsFromDOMWithoutFilter();
+
+        // 更新按钮状态
+        handleTypeChange();
+
+        renderOptionsWithPagination();
     }
 }
 
 /**
- * 更新预览
+ * 处理选项搜索
  */
-function updatePreview() {
-    const componentType = document.getElementById('componentType').value;
-    const options = getOptions();
+function handleOptionSearch() {
+    const searchTerm = document.getElementById('optionSearchInput').value.trim().toLowerCase();
 
-    const previewContainer = document.getElementById('previewContainer');
+    // 先同步DOM中的数据到allOptions
+    syncOptionsFromDOMWithoutFilter();
 
-    if (options.length === 0) {
-        previewContainer.innerHTML = '<p class="text-muted mb-0">请添加选项后查看预览</p>';
+    if (!searchTerm) {
+        filteredOptions = [...allOptions];
+    } else {
+        filteredOptions = allOptions.filter(opt =>
+            opt.value.toLowerCase().includes(searchTerm) ||
+            opt.label.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    currentOptionPage = 1;
+    renderOptionsWithSearch(searchTerm);
+
+    // 更新搜索结果信息
+    const infoElement = document.getElementById('optionSearchResultInfo');
+    if (searchTerm) {
+        infoElement.textContent = `找到 ${filteredOptions.length} 条结果`;
+    } else {
+        infoElement.textContent = '';
+    }
+}
+
+/**
+ * 根据搜索条件渲染选项
+ */
+function renderOptionsWithSearch(searchTerm) {
+    const container = document.getElementById('optionsContainer');
+    const allCards = Array.from(container.querySelectorAll('.option-card'));
+
+    if (allCards.length === 0) {
+        document.getElementById('optionPaginationContainer').innerHTML = '';
+        document.getElementById('optionPaginationInfo').textContent = '暂无选项';
+        return;
+    }
+
+    // 如果没有搜索条件，显示所有选项
+    if (!searchTerm) {
+        filteredOptions = [...allOptions];
+    }
+
+    // 计算分页
+    const totalPages = Math.ceil(filteredOptions.length / optionPageSize);
+
+    // 确保当前页码有效
+    if (currentOptionPage > totalPages) {
+        currentOptionPage = totalPages;
+    }
+    if (currentOptionPage < 1) {
+        currentOptionPage = 1;
+    }
+
+    const startIndex = (currentOptionPage - 1) * optionPageSize;
+    const endIndex = Math.min(startIndex + optionPageSize, filteredOptions.length);
+
+    // 创建过滤后的选项值集合，用于快速查找
+    const filteredValueSet = new Set();
+    filteredOptions.forEach(opt => {
+        filteredValueSet.add(`${opt.value}|${opt.label}`);
+    });
+
+    // 显示/隐藏卡片
+    allCards.forEach((card, index) => {
+        const value = card.querySelector('.option-value').value.trim();
+        const label = card.querySelector('.option-label').value.trim();
+        const key = `${value}|${label}`;
+
+        if (filteredValueSet.has(key)) {
+            // 该卡片在过滤结果中，检查是否在當前页
+            const filteredIndex = filteredOptions.findIndex(opt =>
+                opt.value === value && opt.label === label
+            );
+            if (filteredIndex >= startIndex && filteredIndex < endIndex) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        } else {
+            // 该卡片不在过滤结果中，隐藏
+            card.style.display = 'none';
+        }
+    });
+
+    // 渲染分页控件
+    renderOptionPagination(totalPages);
+
+    // 更新分页信息
+    document.getElementById('optionPaginationInfo').textContent =
+        `显示 ${startIndex + 1}-${endIndex} 条，共 ${filteredOptions.length} 条`;
+}
+
+/**
+ * 清除选项搜索
+ */
+function clearOptionSearch() {
+    document.getElementById('optionSearchInput').value = '';
+    handleOptionSearch();
+}
+
+/**
+ * 渲染选项（带分页）
+ */
+function renderOptionsWithPagination() {
+    const container = document.getElementById('optionsContainer');
+    const allCards = Array.from(container.querySelectorAll('.option-card'));
+
+    if (allCards.length === 0) {
+        document.getElementById('optionPaginationContainer').innerHTML = '';
+        document.getElementById('optionPaginationInfo').textContent = '暂无选项';
+        return;
+    }
+
+    // 同步DOM数据到allOptions
+    syncOptionsFromDOMWithoutFilter();
+
+    // 如果有搜索条件，使用搜索渲染
+    const searchTerm = document.getElementById('optionSearchInput').value.trim();
+    if (searchTerm) {
+        renderOptionsWithSearch(searchTerm);
+        return;
+    }
+
+    // 没有搜索条件，显示所有选项
+    filteredOptions = [...allOptions];
+
+    // 计算分页
+    const totalPages = Math.ceil(allCards.length / optionPageSize);
+    
+    // 确保当前页码有效
+    if (currentOptionPage > totalPages) {
+        currentOptionPage = totalPages;
+    }
+    if (currentOptionPage < 1) {
+        currentOptionPage = 1;
+    }
+    
+    const startIndex = (currentOptionPage - 1) * optionPageSize;
+    const endIndex = Math.min(startIndex + optionPageSize, allCards.length);
+
+    // 显示/隐藏卡片
+    allCards.forEach((card, index) => {
+        if (index >= startIndex && index < endIndex) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    // 渲染分页控件
+    renderOptionPagination(totalPages);
+
+    // 更新分页信息
+    document.getElementById('optionPaginationInfo').textContent =
+        `显示 ${startIndex + 1}-${endIndex} 条，共 ${allCards.length} 条`;
+}
+
+/**
+ * 渲染选项分页控件
+ */
+function renderOptionPagination(totalPages) {
+    const paginationContainer = document.getElementById('optionPaginationContainer');
+
+    if (totalPages <= 1) {
+        paginationContainer.innerHTML = '';
         return;
     }
 
     let html = '';
 
-    if (componentType === 'select') {
-        // 下拉框预览
-        html = '<select class="form-select" disabled>';
-        html += '<option value="">请选择...</option>';
-        options.forEach(opt => {
-            html += `<option value="${opt.value}">${opt.label}</option>`;
-        });
-        html += '</select>';
-    } else if (componentType === 'radio') {
-        // 单选框预览
-        html = '<div class="d-flex flex-wrap gap-3">';
-        options.forEach((opt, idx) => {
-            const id = `preview_radio_${idx}`;
+    // 上一页
+    html += `
+        <li class="page-item ${currentOptionPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changeOptionPage(${currentOptionPage - 1}); return false;">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
+    `;
+
+    // 页码
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentOptionPage - 1 && i <= currentOptionPage + 1)) {
             html += `
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="preview_radio"
-                           id="${id}" value="${opt.value}" disabled>
-                    <label class="form-check-label" for="${id}">${opt.label}</label>
-                </div>
+                <li class="page-item ${i === currentOptionPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="changeOptionPage(${i}); return false;">${i}</a>
+                </li>
             `;
-        });
-        html += '</div>';
+        } else if (i === currentOptionPage - 2 || i === currentOptionPage + 2) {
+            html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
     }
 
-    previewContainer.innerHTML = html;
+    // 下一页
+    html += `
+        <li class="page-item ${currentOptionPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changeOptionPage(${currentOptionPage + 1}); return false;">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+    `;
+
+    paginationContainer.innerHTML = html;
+}
+
+/**
+ * 切换选项页码
+ */
+function changeOptionPage(page) {
+    const totalPages = Math.ceil(filteredOptions.length / optionPageSize);
+    if (page < 1 || page > totalPages) return;
+
+    currentOptionPage = page;
+    renderOptionsWithPagination();
 }
 
 /**
@@ -511,11 +1355,359 @@ function saveComponent() {
         options: options
     };
 
-    console.log('保存的配置项数据结构:', JSON.stringify(componentData, null, 2));
-
-    // TODO: 调用后端 API
-    alert('保存功能待实现（前端验证已通过）\n\n数据结构示例：\n' + JSON.stringify(componentData, null, 2));
+    // 调用后端API保存
+    fetch('/api/components/save/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(componentData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || '保存成功');
+            // 关闭模态框
+            const modal = bootstrap.Modal.getInstance(document.getElementById('componentModal'));
+            modal.hide();
+            // 重新加载列表
+            loadComponentList();
+        } else {
+            alert('保存失败: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('请求失败:', error);
+        alert('网络请求失败');
+    });
 }
+
+// ==================== 数据库IP配置相关函数 ====================
+
+// 数据库IP配置列表相关变量
+let allDatabaseIpConfigs = [];
+let filteredDatabaseIpConfigs = [];
+let dbIpCurrentPage = 1;
+let dbIpPageSize = 5;
+let currentEditingDbIpId = null;
+
+/**
+ * 加载数据库IP配置列表
+ */
+function loadDatabaseIpConfigList() {
+    fetch('/api/database-ip-configs/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                allDatabaseIpConfigs = data.data;
+                filteredDatabaseIpConfigs = [...allDatabaseIpConfigs];
+                renderDatabaseIpConfigList();
+            } else {
+                console.error('加载失败:', data.message);
+                alert('加载数据库IP配置列表失败');
+            }
+        })
+        .catch(error => {
+            console.error('请求失败:', error);
+            alert('网络请求失败');
+        });
+}
+
+/**
+ * 渲染数据库IP配置列表（带分页）
+ */
+function renderDatabaseIpConfigList() {
+    const tbody = document.getElementById('databaseIpListBody');
+    
+    if (filteredDatabaseIpConfigs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center">暂无数据</td></tr>';
+        document.getElementById('dbIpPaginationContainer').innerHTML = '';
+        document.getElementById('dbIpPaginationInfo').textContent = '';
+        return;
+    }
+    
+    // 计算分页
+    const totalPages = Math.ceil(filteredDatabaseIpConfigs.length / dbIpPageSize);
+    const startIndex = (dbIpCurrentPage - 1) * dbIpPageSize;
+    const endIndex = Math.min(startIndex + dbIpPageSize, filteredDatabaseIpConfigs.length);
+    const pageData = filteredDatabaseIpConfigs.slice(startIndex, endIndex);
+    
+    tbody.innerHTML = pageData.map(config => `
+        <tr>
+            <td><strong>${config.name}</strong></td>
+            <td><code>${config.ip_address}</code></td>
+            <td>${config.database_name}</td>
+            <td>
+                ${config.is_active ? 
+                    '<span class="badge bg-success">启用</span>' : 
+                    '<span class="badge bg-secondary">禁用</span>'}
+            </td>
+            <td>${config.created_at}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="editDatabaseIpConfig(${config.id})" data-bs-toggle="modal" data-bs-target="#databaseIpModal">
+                    <i class="bi bi-pencil"></i> 编辑
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteDatabaseIpConfig(${config.id})">
+                    <i class="bi bi-trash"></i> 删除
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    // 渲染分页控件
+    renderDbIpPagination(totalPages);
+    
+    // 更新分页信息
+    document.getElementById('dbIpPaginationInfo').textContent =
+        `显示 ${startIndex + 1}-${endIndex} 条，共 ${filteredDatabaseIpConfigs.length} 条`;
+}
+
+/**
+ * 渲染数据库IP配置分页控件
+ */
+function renderDbIpPagination(totalPages) {
+    const paginationContainer = document.getElementById('dbIpPaginationContainer');
+    
+    if (totalPages <= 1) {
+        paginationContainer.innerHTML = '';
+        return;
+    }
+    
+    let html = '';
+    
+    // 上一页
+    html += `
+        <li class="page-item ${dbIpCurrentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changeDbIpPage(${dbIpCurrentPage - 1}); return false;">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
+    `;
+    
+    // 页码
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= dbIpCurrentPage - 1 && i <= dbIpCurrentPage + 1)) {
+            html += `
+                <li class="page-item ${i === dbIpCurrentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="changeDbIpPage(${i}); return false;">${i}</a>
+                </li>
+            `;
+        } else if (i === dbIpCurrentPage - 2 || i === dbIpCurrentPage + 2) {
+            html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+    }
+    
+    // 下一页
+    html += `
+        <li class="page-item ${dbIpCurrentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changeDbIpPage(${dbIpCurrentPage + 1}); return false;">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+    `;
+    
+    paginationContainer.innerHTML = html;
+}
+
+/**
+ * 切换数据库IP配置页码
+ */
+function changeDbIpPage(page) {
+    const totalPages = Math.ceil(filteredDatabaseIpConfigs.length / dbIpPageSize);
+    if (page < 1 || page > totalPages) return;
+    
+    dbIpCurrentPage = page;
+    renderDatabaseIpConfigList();
+}
+
+/**
+ * 改变每页显示条数（数据库IP配置）
+ */
+function changeDbIpPageSize(size) {
+    dbIpPageSize = parseInt(size);
+    dbIpCurrentPage = 1;
+    renderDatabaseIpConfigList();
+}
+
+/**
+ * 处理数据库IP配置搜索
+ */
+function handleDbIpSearch() {
+    const searchTerm = document.getElementById('dbIpSearchInput').value.trim().toLowerCase();
+    
+    if (!searchTerm) {
+        filteredDatabaseIpConfigs = [...allDatabaseIpConfigs];
+    } else {
+        filteredDatabaseIpConfigs = allDatabaseIpConfigs.filter(config =>
+            config.name.toLowerCase().includes(searchTerm) ||
+            config.ip_address.toLowerCase().includes(searchTerm) ||
+            config.database_name.toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    dbIpCurrentPage = 1;
+    renderDatabaseIpConfigList();
+    
+    // 更新搜索结果信息
+    const infoElement = document.getElementById('dbIpSearchResultInfo');
+    if (searchTerm) {
+        infoElement.textContent = `找到 ${filteredDatabaseIpConfigs.length} 条结果`;
+    } else {
+        infoElement.textContent = '';
+    }
+}
+
+/**
+ * 清除数据库IP配置搜索
+ */
+function clearDbIpSearch() {
+    document.getElementById('dbIpSearchInput').value = '';
+    handleDbIpSearch();
+}
+
+/**
+ * 显示新增数据库IP配置模态框
+ */
+function showAddDatabaseIpModal() {
+    currentEditingDbIpId = null;
+    document.getElementById('dbIpEditorTitle').textContent = '新增数据库IP配置';
+    
+    // 清空表单
+    document.getElementById('dbIpConfigName').value = '';
+    document.getElementById('dbIpAddress').value = '';
+    document.getElementById('dbIpDatabaseName').value = '';
+    document.getElementById('dbIpIsActive').checked = true;
+    
+    // 显示模态框
+    const modal = new bootstrap.Modal(document.getElementById('databaseIpModal'));
+    modal.show();
+}
+
+/**
+ * 编辑数据库IP配置
+ */
+function editDatabaseIpConfig(id) {
+    currentEditingDbIpId = id;
+    document.getElementById('dbIpEditorTitle').textContent = '编辑数据库IP配置';
+    
+    // 从后端获取详情
+    fetch(`/api/database-ip-config/${id}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const config = data.data;
+                document.getElementById('dbIpConfigName').value = config.name;
+                document.getElementById('dbIpAddress').value = config.ip_address;
+                document.getElementById('dbIpDatabaseName').value = config.database_name;
+                document.getElementById('dbIpIsActive').checked = config.is_active;
+                
+                // 显示模态框
+                const modal = new bootstrap.Modal(document.getElementById('databaseIpModal'));
+                modal.show();
+            } else {
+                console.error('加载详情失败:', data.message);
+                alert('加载数据库IP配置详情失败');
+            }
+        })
+        .catch(error => {
+            console.error('请求失败:', error);
+            alert('网络请求失败');
+        });
+}
+
+/**
+ * 保存数据库IP配置
+ */
+function saveDatabaseIpConfig() {
+    const name = document.getElementById('dbIpConfigName').value.trim();
+    const ip_address = document.getElementById('dbIpAddress').value.trim();
+    const database_name = document.getElementById('dbIpDatabaseName').value.trim();
+    const is_active = document.getElementById('dbIpIsActive').checked;
+    
+    // 验证必填字段
+    if (!name) {
+        alert('配置名称不能为空');
+        return;
+    }
+    
+    if (!ip_address) {
+        alert('IP地址不能为空');
+        return;
+    }
+    
+    if (!database_name) {
+        alert('数据库名不能为空');
+        return;
+    }
+    
+    // 构建数据
+    const configData = {
+        id: currentEditingDbIpId,
+        name: name,
+        ip_address: ip_address,
+        database_name: database_name,
+        is_active: is_active
+    };
+    
+    // 调用后端API保存
+    fetch('/api/database-ip-config/save/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(configData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || '保存成功');
+            // 关闭模态框
+            const modal = bootstrap.Modal.getInstance(document.getElementById('databaseIpModal'));
+            modal.hide();
+            // 重新加载列表
+            loadDatabaseIpConfigList();
+        } else {
+            alert('保存失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('请求失败:', error);
+        alert('网络请求失败');
+    });
+}
+
+/**
+ * 删除数据库IP配置
+ */
+function deleteDatabaseIpConfig(id) {
+    if (!confirm('确定要删除此数据库IP配置吗？')) {
+        return;
+    }
+    
+    fetch(`/api/database-ip-config/delete/${id}/`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('删除成功');
+            loadDatabaseIpConfigList();
+        } else {
+            alert('删除失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('请求失败:', error);
+        alert('网络请求失败');
+    });
+}
+
+// 页面加载时初始化数据库IP配置列表
+document.addEventListener('DOMContentLoaded', function() {
+    loadComponentList();
+    initSortable();
+    loadDatabaseIpConfigList();
+});
 </script>
 
 <style>

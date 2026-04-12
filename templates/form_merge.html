@@ -1,16 +1,813 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <title>表单合并生成</title>
-</head>
-<link rel="stylesheet" href="/static/css/bootstrap.css">
-<link rel="stylesheet" href="/static/js/bootstrap.js">
-<body>
 {% extends "base.html" %}
+
+{% block title %}表单合并工具{% endblock %}
+
 {% block main_content %}
-    <p>继承了 base.html 文件</p>
+    <div class="container-fluid p-0">
+        <h4 class="mb-4">表单合并工具</h4>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3 align-items-center">
+                    <div class="input-group mb-3" style="width: 1200px">
+                        <span class="input-group-text" required>onesLink</span>
+                        <input type="text" id="onesLink" class="form-control" placeholder="onesLink">
+                    </div>
+                </div>
+                <div class="row g-3 align-items-center">
+                    <div class="input-group mb-3" style="width: 500px">
+                        <span class="input-group-text">文件名</span>
+                        <input type="text" id="filePrefix" class="form-control" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('filePrefix', this)"
+                                title="点击编辑">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="row g-3 align-items-center">
+                    <div class="input-group mb-3" style="width: 500px">
+                        <span class="input-group-text">编号</span>
+                        <input type="text" id="dynamicNo" class="form-control" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('dynamicNo', this)"
+                                title="点击编辑">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="row g-3 align-items-center">
+                    <div class="input-group mb-3" style="width: 500px">
+                        <span class="input-group-text">操作备注</span>
+                        <input type="text" id="ops_remark" class="form-control" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('ops_remark', this)"
+                                title="点击编辑">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 表单选择区域 -->
+                <h5 class="mt-4 mb-3">选择要合并的表单</h5>
+                <div class="mb-3">
+                    <label class="form-label">请选择要合并的表单（至少选择一个）：</label>
+                    
+                    <!-- 已选中标签展示区 -->
+                    <div id="selectedTagsContainer" class="mb-3" style="display: none;">
+                        <small class="text-muted d-block mb-2">已选中：</small>
+                        <div id="selectedTags" class="d-flex flex-wrap gap-2">
+                            <!-- 动态生成选中标签 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 搜索框 -->
+                    <div class="input-group input-group-sm mb-3" style="max-width: 400px;">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" id="formSearchInput" 
+                               placeholder="搜索表单名称或拼音..." oninput="filterForms()">
+                        <button class="btn btn-outline-secondary" type="button" onclick="clearFormSearch()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- 表单选择网格 -->
+                    <div id="formSelectionContainer" class="border rounded p-3"
+                         style="max-height: 400px; overflow-y: auto;">
+                        <!-- 动态加载表单列表 -->
+                        <div class="text-muted">加载中...</div>
+                    </div>
+                </div>
+
+                <div class="row g-3 align-items-center mb-4">
+                    <div class="col-auto">
+                        <a href="javascript:void(0)" onclick="downloadTemplate()" class="btn btn-outline-primary"
+                           id="downloadTemplateBtn">
+                            <i class="bi bi-download"></i> 下载导入模板
+                        </a>
+                    </div>
+                    <div class="col-auto">
+                        <input type="file" id="batchImportFile" accept=".xlsx" style="display: none;"
+                               onchange="handleBatchImportFileSelect(this)">
+                        <button type="button" onclick="document.getElementById('batchImportFile').click()"
+                                class="btn btn-outline-success"
+                                id="batchImportBtn">
+                            <i class="bi bi-upload"></i> 选择文件
+                        </button>
+                    </div>
+                    <div class="col-auto">
+                        <span id="batchImportFileName" style="color: #666; margin-left: 10px;"></span>
+                    </div>
+                </div>
+
+                <!-- 提交结果显示区域 -->
+                <div id="submitResultArea" style="display: none; margin-bottom: 20px;">
+                    <div class="alert" id="resultAlert" role="alert">
+                        <h5 class="alert-heading" id="resultTitle"></h5>
+                        <p id="resultMessage"></p>
+                        <hr>
+                        <div id="resultActions"></div>
+                    </div>
+                </div>
+                <button onclick="submit()" class="layui-btn">提交</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <!-- 引入 Layui 样式 -->
+    <link rel="stylesheet" href="/static/layui/css/layui.css">
+
+    <!-- 引入 JS 库 -->
+    <script src="/static/js/axios.min.js"></script>
+    <script src="/static/layui/layui.js"></script>
+    
+    <style>
+        /* 表单选择卡片样式 */
+        .form-check-card {
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            background-color: #fff;
+            transition: all 0.2s;
+            cursor: pointer;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        
+        .form-check-card:hover {
+            background-color: #f8f9fa;
+            border-color: #adb5bd;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .form-check-card input[type="checkbox"] {
+            display: none;
+        }
+        
+        .form-check-card:has(input[type="checkbox"]:checked) {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .form-check-label {
+            cursor: pointer;
+            margin-bottom: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            width: 100%;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        /* 已选中标签样式 */
+        .selected-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            animation: tagSlideIn 0.3s ease;
+        }
+        
+        @keyframes tagSlideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .selected-tag .remove-tag {
+            margin-left: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        
+        .selected-tag .remove-tag:hover {
+            opacity: 1;
+        }
+    </style>
+    
+    <!-- 引入 pinyin 库 -->
+    <script src="https://unpkg.com/pinyin-pro@3.18.2/dist/index.js"></script>
+    <script>
+        /**
+         * 切换输入框的编辑状态
+         * @param {string} inputId - 输入框ID
+         * @param {HTMLElement} button - 按钮元素
+         */
+        window.toggleEdit = function (inputId, button) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+
+            const isReadonly = input.hasAttribute('readonly');
+
+            if (isReadonly) {
+                // 切换到编辑状态
+                input.removeAttribute('readonly');
+                input.focus();
+
+                // 更改按钮图标和提示
+                button.innerHTML = '<i class="bi bi-check-lg"></i>';
+                button.title = '完成编辑';
+                button.classList.remove('btn-outline-secondary');
+                button.classList.add('btn-success');
+
+                // 添加失去焦点事件，自动恢复只读
+                input.addEventListener('blur', function handler() {
+                    toggleEdit(inputId, button);
+                    input.removeEventListener('blur', handler);
+                }, {once: true});
+            } else {
+                // 切换到只读状态
+                input.setAttribute('readonly', 'readonly');
+
+                // 恢复按钮图标和提示
+                button.innerHTML = '<i class="bi bi-pencil-square"></i>';
+                button.title = '点击编辑';
+                button.classList.remove('btn-success');
+                button.classList.add('btn-outline-secondary');
+            }
+        };
+
+        /**
+         * 从ones链接中解析内容
+         * @param {string} url - ones链接
+         * @returns {Object} 解析结果 {taskId, taskName}
+         */
+        function parseOnesLink(url) {
+            if (!url || typeof url !== 'string') {
+                return null;
+            }
+
+            try {
+                // 匹配格式: #72480 框架协议导入-崔正华 https://...
+                // 或者从URL中提取任务信息
+
+                // 方法1: 尝试从URL路径中提取任务ID
+                // 例如: /task/QGTJmPVYqMYfCdRb
+                const taskMatch = url.match(/\/task\/([A-Za-z0-9]+)/);
+
+                // 方法2: 尝试从文本中提取 #编号 和 任务名称
+                // 例如: #72480 框架协议导入-崔正华
+                const hashMatch = url.match(/#(\d+)\s+([^\shttps]+)/);
+
+                if (hashMatch) {
+                    return {
+                        taskId: hashMatch[1],
+                        taskName: hashMatch[2]
+                    };
+                }
+
+                // 如果URL中包含任务信息，尝试从页面标题或其他地方获取
+                // 这里暂时返回null，需要用户手动输入或通过API获取
+                if (taskMatch) {
+                    console.log('从URL中提取到任务ID:', taskMatch[1]);
+                    // 注意：仅从URL无法获取任务名称，需要通过API查询
+                    return {
+                        taskId: taskMatch[1],
+                        taskName: null
+                    };
+                }
+
+                return null;
+            } catch (error) {
+                console.error('解析ones链接失败:', error);
+                return null;
+            }
+        }
+
+        /**
+         * 根据ones链接自动填充字段
+         */
+        function autoFillFromOnesLink() {
+            const onesLinkInput = document.getElementById('onesLink');
+            if (!onesLinkInput) return;
+
+            const url = onesLinkInput.value.trim();
+            if (!url) return;
+
+            const parsed = parseOnesLink(url);
+            if (!parsed) {
+                console.log('无法从链接中解析出任务信息');
+                return;
+            }
+            console.log('解析结果:', parsed);
+
+            // 填充编号
+            if (parsed.taskId) {
+                const dynamicNoInput = document.getElementById('dynamicNo');
+                if (dynamicNoInput) {
+                    dynamicNoInput.value = parsed.taskId;
+                    console.log('已填充编号:', parsed.taskId);
+
+                    // 清除该字段的错误样式
+                    clearFieldError(dynamicNoInput, 'error_dynamicNo');
+                }
+            }
+
+            // 填充操作备注
+            if (parsed.taskName) {
+                const fileNameInput = document.getElementById('filePrefix');
+                if (fileNameInput) {
+                    fileNameInput.value = parsed.taskName;
+                    console.log('已填充操作备注:', parsed.taskName);
+                    // 清除该字段的错误样式
+                    clearFieldError(fileNameInput, 'error_filePrefix');
+                }
+            }
+
+            // 填充操作备注
+            if (parsed.taskName) {
+                const opsRemarkInput = document.getElementById('ops_remark');
+                if (opsRemarkInput) {
+                    opsRemarkInput.value = parsed.taskId + ' ' + parsed.taskName;
+                    console.log('已填充操作备注:', parsed.taskId + ' ' + parsed.taskName);
+
+                    // 清除该字段的错误样式
+                    clearFieldError(opsRemarkInput, 'error_ops_remark');
+                }
+            }
+        }
+
+        // 存储选中的表单ID列表
+        let selectedFormIds = [];
+        let formList = [];
+        // 存储表单的拼音映射
+        let formPinyinMap = {};
+
+        /**
+         * 加载表单列表
+         */
+        function loadFormList() {
+            fetch('/api/form-configs/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        formList = data.data;
+                        // 生成拼音映射
+                        generateFormPinyin();
+                        renderFormSelection();
+                        updateSelectedTags();
+                    } else {
+                        document.getElementById('formSelectionContainer').innerHTML =
+                            '<div class="text-danger">加载失败：' + data.message + '</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('formSelectionContainer').innerHTML =
+                        '<div class="text-danger">加载失败，请检查网络连接</div>';
+                });
+        }
+
+        /**
+         * 生成表单的拼音映射
+         */
+        function generateFormPinyin() {
+            if (window.pinyinPro) {
+                formList.forEach(form => {
+                    // 生成完整拼音（不带声调）
+                    const fullPinyin = window.pinyinPro.pinyin(form.form_name, { toneType: 'none' }).replace(/\s+/g, '');
+                    // 生成首字母拼音
+                    const firstLetterPinyin = window.pinyinPro.pinyin(form.form_name, { 
+                        toneType: 'none',
+                        type: 'first'
+                    }).replace(/\s+/g, '');
+                    
+                    formPinyinMap[form.id] = {
+                        full: fullPinyin.toLowerCase(),
+                        first: firstLetterPinyin.toLowerCase()
+                    };
+                });
+                console.log('拼音映射生成成功:', formPinyinMap);
+            }
+        }
+
+        /**
+         * 渲染表单选择列表
+         */
+        function renderFormSelection(filteredForms = null) {
+            const container = document.getElementById('formSelectionContainer');
+            const formsToRender = filteredForms || formList;
+
+            if (formsToRender.length === 0) {
+                container.innerHTML = '<div class="text-muted">暂无可用表单</div>';
+                return;
+            }
+
+            let html = '<div class="row g-2">';
+            formsToRender.forEach(form => {
+                const isChecked = selectedFormIds.includes(form.id) ? 'checked' : '';
+                html += `
+                    <div class="col-md-2 col-sm-4 col-6">
+                        <div class="form-check form-check-card">
+                            <input class="form-check-input" type="checkbox" 
+                                   id="form_${form.id}" 
+                                   value="${form.id}"
+                                   ${isChecked}
+                                   onchange="toggleFormSelection(${form.id})">
+                            <label class="form-check-label" for="form_${form.id}" title="${form.form_name}">
+                                ${form.form_name}
+                            </label>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            container.innerHTML = html;
+        }
+
+        /**
+         * 过滤表单列表
+         */
+        window.filterForms = function() {
+            const searchText = document.getElementById('formSearchInput').value.trim().toLowerCase();
+            
+            if (!searchText) {
+                renderFormSelection();
+                return;
+            }
+            
+            const filtered = formList.filter(form => {
+                // 中文匹配
+                if (form.form_name.toLowerCase().includes(searchText)) {
+                    return true;
+                }
+                
+                // 拼音匹配
+                const pinyinData = formPinyinMap[form.id];
+                if (pinyinData) {
+                    if (pinyinData.full.includes(searchText) || pinyinData.first.includes(searchText)) {
+                        return true;
+                    }
+                }
+                
+                return false;
+            });
+            
+            renderFormSelection(filtered);
+        };
+
+        /**
+         * 清除搜索
+         */
+        window.clearFormSearch = function() {
+            document.getElementById('formSearchInput').value = '';
+            renderFormSelection();
+        };
+
+        /**
+         * 切换表单选择状态
+         */
+        window.toggleFormSelection = function (formId) {
+            const index = selectedFormIds.indexOf(formId);
+            if (index > -1) {
+                selectedFormIds.splice(index, 1);
+            } else {
+                selectedFormIds.push(formId);
+            }
+            console.log('已选择的表单:', selectedFormIds);
+            
+            // 更新选中标签
+            updateSelectedTags();
+            
+            // 重新渲染以保持搜索后的选中状态
+            filterForms();
+        };
+
+        /**
+         * 更新已选中标签展示
+         */
+        function updateSelectedTags() {
+            const container = document.getElementById('selectedTagsContainer');
+            const tagsDiv = document.getElementById('selectedTags');
+            
+            if (selectedFormIds.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            
+            let html = '';
+            selectedFormIds.forEach(formId => {
+                const form = formList.find(f => f.id === formId);
+                if (form) {
+                    html += `
+                        <span class="selected-tag">
+                            ${form.form_name}
+                            <span class="remove-tag" onclick="removeFormSelection(${formId})">&times;</span>
+                        </span>
+                    `;
+                }
+            });
+            
+            tagsDiv.innerHTML = html;
+        }
+
+        /**
+         * 移除表单选择
+         */
+        window.removeFormSelection = function(formId) {
+            const index = selectedFormIds.indexOf(formId);
+            if (index > -1) {
+                selectedFormIds.splice(index, 1);
+                
+                // 更新UI
+                updateSelectedTags();
+                filterForms();
+                
+                // 取消对应的复选框
+                const checkbox = document.getElementById(`form_${formId}`);
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+            }
+        };
+
+        /**
+         * 下载合并模板（多Sheet Excel）
+         */
+        window.downloadTemplate = function () {
+            if (selectedFormIds.length === 0) {
+                layui.layer.msg('请至少选择一个表单', {icon: 2});
+                return;
+            }
+
+            // 显示加载提示
+            const loadingIndex = layui.layer.load(2);
+
+            // 构建请求数据
+            const requestData = {
+                formIds: selectedFormIds,
+                filePrefix: document.getElementById('filePrefix').value || 'merge'
+            };
+
+            fetch('/api/form-merge/download-template/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData),
+            })
+                .then(response => {
+                    layui.layer.close(loadingIndex);
+
+                    if (!response.ok) {
+                        throw new Error('下载失败');
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    // 创建下载链接
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = requestData.filePrefix + '_合并模板.xlsx';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+
+                    layui.layer.msg('模板下载成功！', {icon: 1});
+                })
+                .catch(error => {
+                    layui.layer.close(loadingIndex);
+                    console.error('Error:', error);
+                    layui.layer.msg('下载失败：' + error.message, {icon: 2});
+                });
+        };
+
+        // 页面加载时获取表单列表
+        document.addEventListener('DOMContentLoaded', function () {
+            loadFormList();
+
+            const onesLinkInput = document.getElementById('onesLink');
+            if (onesLinkInput) {
+                onesLinkInput.addEventListener('input', autoFillFromOnesLink);
+                onesLinkInput.addEventListener('change', autoFillFromOnesLink);
+            }
+        });
+
+        /**
+         * 处理批量导入文件选择（仅显示文件名，不上传）
+         */
+        window.handleBatchImportFileSelect = function (input) {
+            const file = input.files[0];
+            if (!file) {
+                document.getElementById('batchImportFileName').textContent = '';
+                return;
+            }
+
+            // 验证文件格式
+            if (!file.name.endsWith('.xlsx')) {
+                layui.layer.msg('请选择 .xlsx 格式的 Excel 文件', {icon: 2});
+                input.value = '';
+                document.getElementById('batchImportFileName').textContent = '';
+                return;
+            }
+
+            // 显示文件名
+            document.getElementById('batchImportFileName').textContent = '已选择: ' + file.name;
+            layui.layer.msg('文件已选择，请点击"提交"按钮开始处理', {icon: 1});
+        };
+
+        /**
+         * 提交表单（执行批量导入）
+         */
+        window.submit = function () {
+            // 验证是否选择了表单
+            if (selectedFormIds.length === 0) {
+                layui.layer.msg('请至少选择一个表单', {icon: 2});
+                return;
+            }
+
+            // 验证公共字段
+            const onesLink = document.getElementById('onesLink').value.trim();
+            const filePrefix = document.getElementById('filePrefix').value.trim();
+            const dynamicNo = document.getElementById('dynamicNo').value.trim();
+            const opsRemark = document.getElementById('ops_remark').value.trim();
+
+            if (!onesLink || !filePrefix || !dynamicNo || !opsRemark) {
+                layui.layer.msg('请填写完整的公共字段（onesLink、文件名、编号、操作备注）', {icon: 2});
+                return;
+            }
+
+            // 验证是否选择了文件
+            const fileInput = document.getElementById('batchImportFile');
+            const file = fileInput.files[0];
+            if (!file) {
+                layui.layer.msg('请先选择要导入的Excel文件', {icon: 2});
+                return;
+            }
+
+            // 直接执行批量导入，不再需要二次确认
+            executeBatchImport(file);
+        };
+
+        /**
+         * 执行批量导入
+         */
+        function executeBatchImport(file) {
+            // 显示加载提示
+            const loadingIndex = layui.layer.load(2, {
+                shade: [0.5, '#000'],
+                content: '正在处理批量导入...'
+            });
+
+            // 构建FormData
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('formIds', JSON.stringify(selectedFormIds));
+
+            // 构建公共字段
+            const queryValues = {
+                'onesLink': {
+                    'value': document.getElementById('onesLink').value.trim()
+                },
+                'filePrefix': {
+                    'value': document.getElementById('filePrefix').value.trim()
+                },
+                'dynamicNo': {
+                    'value': document.getElementById('dynamicNo').value.trim()
+                },
+                'ops_remark': {
+                    'value': document.getElementById('ops_remark').value.trim()
+                }
+            };
+            formData.append('queryValues', JSON.stringify(queryValues));
+
+            // 发送请求
+            fetch('/api/form-merge/batch-import/', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    layui.layer.close(loadingIndex);
+
+                    console.log('批量导入返回数据:', data);  // 调试信息
+
+                    // 无论成功还是失败，都显示详细结果
+                    showBatchImportResult(data);
+                })
+
+                .catch(error => {
+                    layui.layer.close(loadingIndex);
+                    console.error('Error:', error);
+                    layui.layer.msg('网络错误：' + error.message, {icon: 2});
+                });
+        }
+
+               /**
+         * 显示批量导入结果
+         */
+        function showBatchImportResult(data) {
+            console.log('显示结果，数据:', data);  // 调试信息
+
+            const resultArea = document.getElementById('submitResultArea');
+            const alert = document.getElementById('resultAlert');
+            const title = document.getElementById('resultTitle');
+            const message = document.getElementById('resultMessage');
+            const actions = document.getElementById('resultActions');
+
+            // 根据成功/失败设置样式和标题
+            if (data.success) {
+                alert.className = 'alert alert-success';
+                title.textContent = '批量导入成功！';
+            } else {
+                alert.className = 'alert alert-warning';
+                title.textContent = '批量导入部分失败';
+            }
+
+            // 构建消息
+            let msg = '<strong>处理结果：</strong><br>';
+            msg += '总Sheet数: ' + (data.totalSheets || 0) + '<br>';
+            msg += '成功: ' + (data.successCount || 0) + ' 个Sheet<br>';
+            msg += '失败: ' + (data.failCount || 0) + ' 个Sheet<br>';
+
+            // 显示文件路径
+            if (data.sqlFilePath) {
+                msg += '<br><strong>SQL文件路径：</strong><br>';
+                msg += '<span style="color: #1890ff; font-family: monospace;">' + data.sqlFilePath + '</span><br>';
+            }
+            if (data.excelFilePath) {
+                msg += '<br><strong>Excel结果文件路径：</strong><br>';
+                msg += '<span style="color: #1890ff; font-family: monospace;">' + data.excelFilePath + '</span><br>';
+            }
+
+            if (data.failed_sheets && data.failed_sheets.length > 0) {
+                msg += '<br><span class="text-warning">失败详情：</span><br>';
+                data.failed_sheets.forEach(failed => {
+                    msg += '- <strong>' + failed.sheet + '</strong>: ' + failed.error + '<br>';
+                });
+            }
+
+            message.innerHTML = msg;
+
+            // 不显示下载按钮，只显示文件路径
+            actions.innerHTML = '';
+
+            // 显示结果区域
+            resultArea.style.display = 'block';
+
+            // 滚动到结果区域
+            resultArea.scrollIntoView({behavior: 'smooth'});
+
+            // 清空文件选择
+            document.getElementById('batchImportFile').value = '';
+            document.getElementById('batchImportFileName').textContent = '';
+
+            // 根据成功/失败显示不同的提示
+            if (data.success) {
+                layui.layer.msg('批量导入完成！', {icon: 1});
+            } else {
+                layui.layer.msg('批量导入部分失败，请查看下方详细信息', {icon: 0, time: 3000});
+            }
+        }
+
+
+        /**
+         * 清除指定字段的错误样式
+         * @param {HTMLElement} element - 输入框元素
+         * @param {string} errorId - 错误元素ID
+         */
+        function clearFieldError(element, errorId) {
+            if (!element) return;
+
+            // 清除错误样式
+            element.style.borderColor = '';
+            element.style.boxShadow = '';
+            element.style.backgroundColor = '';
+
+            // 移除错误提示元素
+            const errorElement = document.getElementById(errorId);
+            if (errorElement) {
+                errorElement.remove();
+            }
+
+            // 移除事件监听器
+            if (element._clearErrorHandler) {
+                const eventType = element.type === 'radio' || element.type === 'checkbox' ? 'change' : 'input';
+                element.removeEventListener(eventType, element._clearErrorHandler);
+                element._clearErrorHandler = null;
+            }
+        }
+    </script>
 {% endblock %}
-</body>
-</html>

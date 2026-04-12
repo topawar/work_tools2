@@ -23,9 +23,19 @@ def dashboard(request):
 
 def dynamic(request, form_id: str):
     """Orders list page."""
-    return render(request, "dynamic.html", {"active_page": "dynamic"})
+    return render(request, "dynamic.html", {"active_page": "dynamic", "form_id": form_id})
+
 
 
 def component_config(request: str):
     """Orders list page."""
     return render(request, "component_config.html", {"active_page": "component_config"})
+
+def database_config(request: str):
+    """Orders list page."""
+    return render(request, "database_config.html", {"active_page": "database_config"})
+
+
+def file_path_config(request: str):
+    """Orders list page."""
+    return render(request, "file_path_config.html", {"active_page": "file_path_config"})

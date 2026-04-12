@@ -168,6 +168,9 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+  <!-- Toast 通知容器 -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;" id="toastContainer">
+    </div>
     <div class="container-fluid">
         <div class="row">
             <!-- 侧边栏 -->
@@ -231,7 +234,71 @@
     </div>
 
     <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.7/dist/index.js"></script>
     <script>
+       // 全局 Toast 提示函数
+        function showToast(message, type = 'info', title = null, duration = 3000) {
+            const container = document.getElementById('toastContainer');
+
+            let bgClass = '';
+            let icon = '';
+            let defaultTitle = '';
+
+            switch(type) {
+                case 'success':
+                    bgClass = 'bg-success text-white';
+                    icon = '<i class="bi bi-check-circle-fill me-2"></i>';
+                    defaultTitle = '成功';
+                    break;
+                case 'error':
+                    bgClass = 'bg-danger text-white';
+                    icon = '<i class="bi bi-exclamation-triangle-fill me-2"></i>';
+                    defaultTitle = '错误';
+                    break;
+                case 'warning':
+                    bgClass = 'bg-warning text-dark';
+                    icon = '<i class="bi bi-exclamation-circle-fill me-2"></i>';
+                    defaultTitle = '警告';
+                    break;
+                case 'info':
+                default:
+                    bgClass = 'bg-info text-white';
+                    icon = '<i class="bi bi-info-circle-fill me-2"></i>';
+                    defaultTitle = '提示';
+                    break;
+            }
+
+            const toastId = 'toast_' + Date.now();
+            const toastHtml = `
+                <div id="${toastId}" class="toast align-items-center ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            ${icon}<strong>${title || defaultTitle}</strong><br>
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+
+            container.insertAdjacentHTML('beforeend', toastHtml);
+
+            const toastElement = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastElement, {
+                delay: duration,
+                autohide: true
+            });
+
+            toast.show();
+
+            // Toast 隐藏后移除 DOM
+            toastElement.addEventListener('hidden.bs.toast', function() {
+                this.remove();
+            });
+
+            return toast;
+        }
+
         // 从数据库加载的菜单数据
         const menuItems = [
             {% for group, menu_list in menus.items %}
@@ -256,24 +323,62 @@
         const searchInput = document.getElementById('sidebarSearch');
         const searchResults = document.getElementById('searchResults');
 
+        // 使用 pinyin-pro 库生成拼音
+        function getPinyin(str) {
+            if (window.pinyinPro) {
+                // 生成完整拼音（不带声调）
+                return window.pinyinPro.pinyin(str, { toneType: 'none' });
+            }
+            return '';
+        }
+
         // 模糊搜索函数 - 支持中文、拼音、二级菜单
         function fuzzySearch(query) {
             if (!query.trim()) return [];
 
             query = query.toLowerCase().trim();
+            const results = [];
 
-            return menuItems.filter(item => {
-                const searchText = (item.name + ' ' + (item.pinyin || '')).toLowerCase();
-
-                // 精确匹配（开头）
-                if (item.name.toLowerCase().startsWith(query) ||
-                    (item.pinyin && item.pinyin.startsWith(query))) {
-                    return true;
+            menuItems.forEach(item => {
+                // 生成拼音
+                const itemPinyin = getPinyin(item.name);
+                const parentSearchText = (item.name + ' ' + itemPinyin).toLowerCase();
+                
+                if (parentSearchText.includes(query)) {
+                    // 一级菜单匹配，添加一级菜单和所有子菜单
+                    results.push({
+                        name: item.name,
+                        url: item.url,
+                        isParent: true
+                    });
+                    
+                    // 如果有子菜单，也添加
+                    if (item.hasChildren && item.children) {
+                        item.children.forEach(child => {
+                            results.push({
+                                name: `└ ${child.name}`,
+                                url: child.url,
+                                isChild: true
+                            });
+                        });
+                    }
+                } else if (item.hasChildren && item.children) {
+                    // 一级菜单不匹配，检查子菜单
+                    item.children.forEach(child => {
+                        const childPinyin = getPinyin(child.name);
+                        const childSearchText = (child.name + ' ' + childPinyin).toLowerCase();
+                        if (childSearchText.includes(query)) {
+                            results.push({
+                                name: `${item.name} > ${child.name}`,
+                                url: child.url,
+                                isChild: true
+                            });
+                        }
+                    });
                 }
-
-                // 模糊匹配（包含）
-                return searchText.includes(query);
             });
+
+            return results;
         }
 
         // 渲染搜索结果

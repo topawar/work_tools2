@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}文件输出路径配置{% endblock %}
+
+{% block main_content %}
+    <div class="container-fluid p-0">
+        <h4 class="mb-4">文件输出路径配置</h4>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="alert alert-info mb-4">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>说明：</strong>配置 SQL 文件的保存路径，支持单一文件夹模式和按日期分层模式。
+                </div>
+
+                <form id="configForm">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">基础路径 <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="configBasePath" placeholder="请选择或输入路径">
+                                <button class="btn btn-outline-primary" type="button" onclick="selectDirectory()">
+                                    <i class="bi bi-folder2-open"></i> 选择文件夹
+                                </button>
+                            </div>
+                            <small class="text-muted">点击按钮选择文件输出的基础目录</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">保存模式 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="configSaveMode" onchange="handleSaveModeChange()">
+                                <option value="single">单一文件夹模式</option>
+                                <option value="date_layered">按日期分层模式</option>
+                            </select>
+                            <small class="text-muted">
+                                <strong>单一文件夹：</strong>所有文件保存到同一目录<br>
+                                <strong>分层模式：</strong>自动创建日期子目录
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">日期格式 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="configDateFormat">
+                                <option value="ymd_slash">年/月/日 (2025/12/07)</option>
+                                <option value="ymd_concat">年月日 (20251207)</option>
+                                <option value="ym_slash_d">年月/日 (202512/07)</option>
+                                <option value="week">按周格式 (202512\20251207-20251212)</option>
+                            </select>
+                            <small class="text-muted">仅在分层模式下生效</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">状态</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="configIsActive" checked>
+                                <label class="form-check-label" for="configIsActive">
+                                    启用此配置
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 路径预览 -->
+                    <div class="alert alert-secondary">
+                        <strong>路径预览：</strong>
+                        <div id="pathPreview" class="mt-2">
+                            <code>请选择路径</code>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-success" onclick="saveConfig()">
+                        <i class="bi bi-save"></i> 保存配置
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let configId = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadConfig();
+        });
+
+        function loadConfig() {
+            fetch('/api/file-path-configs/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data.length > 0) {
+                        const config = data.data[0]; // 只使用第一个配置
+                        configId = config.id;
+                        document.getElementById('configBasePath').value = config.base_path;
+                        document.getElementById('configSaveMode').value = config.save_mode;
+                        document.getElementById('configDateFormat').value = config.date_format;
+                        document.getElementById('configIsActive').checked = config.is_active;
+                        handleSaveModeChange();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function saveConfig() {
+            const basePath = document.getElementById('configBasePath').value.trim();
+            const saveMode = document.getElementById('configSaveMode').value;
+            const dateFormat = document.getElementById('configDateFormat').value;
+            const isActive = document.getElementById('configIsActive').checked;
+
+            if (!basePath) {
+                alert('请选择或输入基础路径');
+                return;
+            }
+
+            const requestData = {
+                name: '默认路径配置', // 固定名称
+                base_path: basePath,
+                save_mode: saveMode,
+                date_format: dateFormat,
+                is_default: true, // 始终为默认
+                is_active: isActive,
+                remark: ''
+            };
+
+            const url = configId ? `/api/file-path-configs/save/${configId}/` : '/api/file-path-configs/save/';
+
+            fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('配置保存成功');
+                    loadConfig();
+                } else {
+                    alert('保存失败：' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('保存失败');
+            });
+        }
+
+        function handleSaveModeChange() {
+            const saveMode = document.getElementById('configSaveMode').value;
+            const dateFormatSelect = document.getElementById('configDateFormat');
+            
+            if (saveMode === 'single') {
+                dateFormatSelect.disabled = true;
+            } else {
+                dateFormatSelect.disabled = false;
+            }
+            
+            updatePathPreview();
+        }
+
+        function updatePathPreview() {
+            const basePath = document.getElementById('configBasePath').value || '未设置';
+            const saveMode = document.getElementById('configSaveMode').value;
+            const dateFormat = document.getElementById('configDateFormat').value;
+            
+            const previewDiv = document.getElementById('pathPreview');
+            
+            if (basePath === '未设置') {
+                previewDiv.innerHTML = `<code>请选择路径</code>`;
+                return;
+            }
+            
+            if (saveMode === 'single') {
+                previewDiv.innerHTML = `<code>${basePath}</code>`;
+            } else {
+                const now = new Date();
+                let examplePath = '';
+                
+                switch(dateFormat) {
+                    case 'ymd_slash':
+                        examplePath = `${basePath}\\2025\\12\\07`;
+                        break;
+                    case 'ymd_concat':
+                        examplePath = `${basePath}\\20251207`;
+                        break;
+                    case 'ym_slash_d':
+                        examplePath = `${basePath}\\202512\\07`;
+                        break;
+                    case 'week':
+                        examplePath = `${basePath}\\202512\\20251207-20251212`;
+                        break;
+                }
+                
+                previewDiv.innerHTML = `
+                    <small class="text-muted">示例路径：</small><br>
+                    <code>${examplePath}</code><br>
+                    <small class="text-muted">实际文件名示例：72480_合同价格调整.sql</small>
+                `;
+            }
+        }
+
+        // 监听输入变化实时更新预览
+        document.addEventListener('DOMContentLoaded', function() {
+            ['configBasePath', 'configSaveMode', 'configDateFormat'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', updatePathPreview);
+                    el.addEventListener('change', updatePathPreview);
+                }
+            });
+        });
+
+        // 选择目录
+        function selectDirectory() {
+            const input = document.getElementById('configBasePath');
+            
+            // 调用后端 API，使用 tkinter 打开系统文件夹选择对话框
+            fetch('/api/file-path-configs/select-directory/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.path) {
+                    input.value = data.path;
+                    updatePathPreview();
+                } else if (data.message) {
+                    console.log(data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('打开文件夹选择器失败');
+            });
+        }
+        
+        // 获取 CSRF Token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+{% endblock %}

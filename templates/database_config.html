@@ -1,0 +1,1895 @@
+{% extends "base.html" %}
+
+{% block title %}数据库表单配置{% endblock %}
+
+{% block main_content %}
+    <div class="container-fluid p-4">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h4><i class="bi bi-database"></i> 数据库表管理</h4>
+                <p class="text-muted">管理SQLite数据库中的表结构、数据和查询</p>
+            </div>
+        </div>
+
+        <!-- 统计信息卡片 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title mb-0">总表数</h6>
+                                <h3 class="mb-0 mt-2" id="totalTables">0</h3>
+                            </div>
+                            <i class="bi bi-table display-4 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title mb-0">总记录数</h6>
+                                <h3 class="mb-0 mt-2" id="totalRecords">0</h3>
+                            </div>
+                            <i class="bi bi-file-earmark-text display-4 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title mb-0">今日导入</h6>
+                                <h3 class="mb-0 mt-2" id="todayImports">0</h3>
+                            </div>
+                            <i class="bi bi-cloud-upload display-4 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-title mb-0">数据库大小</h6>
+                                <h3 class="mb-0 mt-2" id="dbSize">0 MB</h3>
+                            </div>
+                            <i class="bi bi-hdd display-4 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+               <!-- 操作按钮区 -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-tools"></i> 快捷操作</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#createTableModal">
+                            <i class="bi bi-plus-circle"></i> 创建新表
+                        </button>
+                    </div>
+
+                    <div class="col-md-6">
+                        <button type="button" class="btn btn-info w-100" onclick="showImportTasksModal()">
+                            <i class="bi bi-list-task"></i> 导入任务队列
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+
+
+        <!-- 表列表 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-ul"></i> 表列表</span>
+                <div class="input-group" style="width: 300px;">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" id="tableSearchInput" placeholder="搜索表名..." oninput="filterTables()">
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearTableSearch()">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>表名</th>
+                            <th>字段数</th>
+                            <th>记录数</th>
+                            <th>创建时间</th>
+                            <th>最后更新</th>
+                            <th style="width: 350px;">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="tableListBody">
+                        <tr>
+                            <td colspan="7" class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">加载中...</span>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                <nav class="mt-3">
+                    <ul class="pagination pagination-sm justify-content-center" id="tablePagination">
+                        <!-- 动态生成分页 -->
+                    </ul>
+                </nav>
+
+                <!-- 分页信息 -->
+                <div class="text-center text-muted small mt-2" id="tablePageInfo">
+                    共 0 条，第 0/0 页
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建表模态框 -->
+    <div class="modal fade" id="createTableModal" tabindex="-1" aria-labelledby="createTableModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="createTableModalLabel">
+                        <i class="bi bi-plus-circle"></i> 创建新表
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">表名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="newTableName" placeholder="例如: users">
+                            <small class="text-muted">只能包含字母、数字和下划线</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">表备注</label>
+                            <input type="text" class="form-control" id="newTableComment" placeholder="可选">
+                        </div>
+                    </div>
+
+                    <hr>
+
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">字段定义</h6>
+                        <div class="d-flex gap-2">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <input type="radio" class="btn-check" name="fieldMode" id="simpleMode" autocomplete="off" checked onchange="toggleFieldMode('simple')">
+                                <label class="btn btn-outline-primary" for="simpleMode"><i class="bi bi-lightning"></i> 简略</label>
+
+                                <input type="radio" class="btn-check" name="fieldMode" id="fullMode" autocomplete="off" onchange="toggleFieldMode('full')">
+                                <label class="btn btn-outline-primary" for="fullMode"><i class="bi bi-gear"></i> 完整</label>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addFieldRow()">
+                                <i class="bi bi-plus-lg"></i> 添加字段
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="fieldsContainer">
+                        <!-- 动态生成字段行 -->
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>提示：</strong>至少需要定义一个字段。主键字段会自动创建。
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="createTable()">
+                        <i class="bi bi-check-circle"></i> 创建表
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑表结构模态框 -->
+    <div class="modal fade" id="editTableModal" tabindex="-1" aria-labelledby="editTableModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title" id="editTableModalLabel">
+                        <i class="bi bi-pencil-square"></i> 编辑表结构
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>警告：</strong>修改表结构可能导致数据丢失，请谨慎操作！
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">表名</label>
+                        <input type="text" class="form-control" id="editTableName" readonly>
+                    </div>
+
+                   <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">字段列表</h6>
+                        <div class="d-flex gap-2">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <input type="radio" class="btn-check" name="editFieldMode" id="editSimpleMode" autocomplete="off" checked onchange="toggleFieldMode('simple', true)">
+                                <label class="btn btn-outline-warning" for="editSimpleMode"><i class="bi bi-lightning"></i> 简略</label>
+
+                                <input type="radio" class="btn-check" name="editFieldMode" id="editFullMode" autocomplete="off" onchange="toggleFieldMode('full', true)">
+                                <label class="btn btn-outline-warning" for="editFullMode"><i class="bi bi-gear"></i> 完整</label>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEditFieldRow()">
+                                <i class="bi bi-plus-lg"></i> 添加字段
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="editFieldsContainer">
+                        <!-- 动态生成字段行 -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-warning" onclick="saveTableStructure()">
+                        <i class="bi bi-save"></i> 保存修改
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入CSV数据模态框 -->
+    <div class="modal fade" id="importCsvModal" tabindex="-1" aria-labelledby="importCsvModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="importCsvModalLabel">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> 导入CSV数据
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">目标表</label>
+                        <input type="text" class="form-control" id="importTableName" readonly>
+                    </div>
+
+                    <!-- Tab导航 -->
+                    <ul class="nav nav-tabs mb-3" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#querySqlTab" type="button">
+                                <i class="bi bi-code-slash"></i> 查询SQL
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#csvFileTab" type="button">
+                                <i class="bi bi-file-earmark-spreadsheet"></i> CSV文件导入
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Tab内容 -->
+                    <div class="tab-content">
+                        <!-- 查询SQL Tab -->
+                        <div class="tab-pane fade show active" id="querySqlTab">
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i>
+                                <strong>说明：</strong>编写查询SQL，复制到外部系统执行，导出CSV后再导入。
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">查询名称（用于保存）</label>
+                                <input type="text" class="form-control" id="sqlQueryName" placeholder="例如: 从ERP同步订单数据">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">查询SQL语句</label>
+                                <textarea class="form-control font-monospace" id="querySqlText" rows="8"
+                                          placeholder="输入查询SQL语句...&#10;例如: SELECT id, name, email FROM users WHERE status = 'active'"></textarea>
+                                <div class="d-flex gap-2 mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyQuerySql()">
+                                        <i class="bi bi-clipboard"></i> 复制SQL
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-success" onclick="saveQuerySql()">
+                                        <i class="bi bi-save"></i> 保存查询
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="loadSavedQuerySql()">
+                                        <i class="bi bi-folder-open"></i> 加载已保存
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-warning">
+                                <i class="bi bi-lightbulb"></i>
+                                <strong>使用步骤：</strong><br>
+                                1. 编写查询SQL语句<br>
+                                2. 点击"复制SQL"按钮<br>
+                                3. 在外部数据库执行SQL<br>
+                                4. 将查询结果导出为CSV文件<br>
+                                5. 切换到"CSV文件导入"标签页导入
+                            </div>
+
+                            <!-- 已保存的查询列表 -->
+                            <div id="savedQueriesSection" style="display: none;">
+                                <hr>
+                                <h6>已保存的查询</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover">
+                                        <thead>
+                                        <tr>
+                                            <th style="width: 50px;">#</th>
+                                            <th>查询名称</th>
+                                            <th style="width: 150px;">操作</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody id="savedQueriesList">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CSV文件导入Tab -->
+                        <div class="tab-pane fade" id="csvFileTab">
+                            <div class="mb-3">
+                                <label class="form-label">选择CSV文件 <span class="text-danger">*</span></label>
+                                <input type="file" class="form-control" id="csvFileInput" accept=".csv" onchange="previewCsvData()">
+                                <small class="text-muted">支持UTF-8编码的CSV文件，第一行必须为表头</small>
+                            </div>
+
+                            <!-- 预览区域 -->
+                            <div id="csvPreview" style="display: none;">
+                                <h6>数据预览（前5行）</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered" id="previewTable">
+                                        <!-- 动态生成预览 -->
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- 进度条 -->
+                            <div id="importProgress" style="display: none;">
+                                <div class="mb-2 d-flex justify-content-between">
+                                    <span>导入进度</span>
+                                    <span id="progressText">0%</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                         role="progressbar"
+                                         id="progressBar"
+                                         style="width: 0%"></div>
+                                </div>
+                                <div class="mt-2 text-muted small" id="progressDetail">
+                                    已处理 0 / 0 条记录
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                 <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-success" onclick="startImport()" id="startImportBtn">
+                        <i class="bi bi-cloud-upload"></i> 开始导入
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入任务队列模态框 -->
+    <div class="modal fade" id="importTasksModal" tabindex="-1" aria-labelledby="importTasksModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title" id="importTasksModalLabel">
+                        <i class="bi bi-list-task"></i> 导入任务队列
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                            <tr>
+                                <th style="width: 100px;">任务ID</th>
+                                <th>表名</th>
+                                <th style="width: 120px;">状态</th>
+                                <th style="width: 150px;">进度</th>
+                                <th style="width: 120px;">成功/失败</th>
+                                <th style="width: 160px;">创建时间</th>
+                                <th style="width: 100px;">操作</th>
+                            </tr>
+                            </thead>
+                            <tbody id="importTasksList">
+                            <tr>
+                                <td colspan="7" class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">加载中...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-outline-primary" onclick="refreshImportTasks()">
+                        <i class="bi bi-arrow-clockwise"></i> 刷新
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SQL查询模态框 -->
+    <div class="modal fade" id="sqlQueryModal" tabindex="-1" aria-labelledby="sqlQueryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title" id="sqlQueryModalLabel">
+                        <i class="bi bi-code-slash"></i> SQL查询编辑器
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">目标表</label>
+                        <input type="text" class="form-control" id="queryTableName" readonly>
+                    </div>
+
+                    <!-- 快捷查询按钮 -->
+                    <div class="mb-3">
+                        <label class="form-label">快捷查询</label>
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" class="btn btn-outline-primary" onclick="generateSelectAll()">
+                                <i class="bi bi-list-check"></i> SELECT *
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="generateCount()">
+                                <i class="bi bi-calculator"></i> COUNT
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="generateInsertTemplate()">
+                                <i class="bi bi-plus-circle"></i> INSERT模板
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="generateUpdateTemplate()">
+                                <i class="bi bi-pencil"></i> UPDATE模板
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="generateDeleteTemplate()">
+                                <i class="bi bi-trash"></i> DELETE模板
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">SQL语句</label>
+                        <textarea class="form-control font-monospace" id="sqlEditor" rows="8"
+                                  placeholder="输入SQL查询语句..."></textarea>
+                        <div class="d-flex justify-content-between mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copySqlToClipboard()">
+                                <i class="bi bi-clipboard"></i> 复制SQL
+                            </button>
+                            <small class="text-muted">支持SELECT、INSERT、UPDATE、DELETE语句</small>
+                        </div>
+                    </div>
+
+                    <!-- 查询结果 -->
+                    <div id="queryResult" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">查询结果</h6>
+                            <span class="badge bg-success" id="resultCount">0 条记录</span>
+                        </div>
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-sm table-striped table-bordered" id="resultTable">
+                                <!-- 动态生成结果 -->
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 错误信息 -->
+                    <div id="queryError" class="alert alert-danger" style="display: none;">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <span id="errorText"></span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-info" onclick="executeSql()">
+                        <i class="bi bi-play-fill"></i> 执行查询
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除表确认模态框 -->
+    <div class="modal fade" id="deleteTableModal" tabindex="-1" aria-labelledby="deleteTableModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="deleteTableModalLabel">
+                        <i class="bi bi-exclamation-triangle"></i> 确认删除
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <strong>警告：</strong>此操作不可恢复！
+                    </div>
+                    <p>确定要删除表 <strong id="deleteTableName"></strong> 吗？</p>
+                    <p class="text-muted">该表的所有数据都将被永久删除。</p>
+
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" id="confirmDelete">
+                        <label class="form-check-label" for="confirmDelete">
+                            我已知晓风险，确认删除
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmDeleteTable()" id="confirmDeleteBtn" disabled>
+                        <i class="bi bi-trash"></i> 确认删除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 清空表确认模态框 -->
+    <div class="modal fade" id="truncateTableModal" tabindex="-1" aria-labelledby="truncateTableModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title" id="truncateTableModalLabel">
+                        <i class="bi bi-exclamation-triangle"></i> 确认清空
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <strong>警告：</strong>此操作不可恢复！
+                    </div>
+                    <p>确定要清空表 <strong id="truncateTableName"></strong> 的所有数据吗？</p>
+                    <p class="text-muted">表结构将保留，但所有数据都将被删除。</p>
+
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" id="confirmTruncate">
+                        <label class="form-check-label" for="confirmTruncate">
+                            我已知晓风险，确认清空
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-warning" onclick="confirmTruncateTable()" id="confirmTruncateBtn" disabled>
+                        <i class="bi bi-trash"></i> 确认清空
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .font-monospace {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+
+        .field-row {
+            transition: all 0.2s;
+        }
+
+        .field-row:hover {
+            background-color: #f8f9fa;
+        }
+    </style>
+
+    <script>
+        let currentEditingTable = null;
+        let currentDeletingTable = null;
+        let currentTruncatingTable = null;
+        let fieldRowCount = 0;
+        let editFieldRowCount = 0;
+
+        // 分页相关变量
+        let tableCurrentPage = 1;
+        let tablePageSize = 10;
+        let allTables = [];
+
+        // 保存的查询SQL
+        let savedQuerySql = null;
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTableList();
+            loadStatistics();
+
+            // 监听删除确认复选框
+            document.getElementById('confirmDelete').addEventListener('change', function() {
+                document.getElementById('confirmDeleteBtn').disabled = !this.checked;
+            });
+
+            // 监听清空确认复选框
+            document.getElementById('confirmTruncate').addEventListener('change', function() {
+                document.getElementById('confirmTruncateBtn').disabled = !this.checked;
+            });
+        });
+
+        // ==================== 工具函数 ====================
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // ==================== 表列表管理 ====================
+
+           function loadTableList() {
+            fetch('/api/db/table-list/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        allTables = data.data.map(table => ({
+                            ...table,
+                            created_at: table.created_at || '-',
+                            updated_at: table.updated_at || '-'
+                        }));
+                        renderTableListWithPagination();
+                    } else {
+                        showToast(data.message, 'error', '加载失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('加载表列表失败', 'error');
+                });
+        }
+
+
+        function renderTableListWithPagination() {
+            const searchText = document.getElementById('tableSearchInput')?.value.toLowerCase() || '';
+
+            // 过滤表
+            const filteredTables = allTables.filter(table =>
+                table.name.toLowerCase().includes(searchText)
+            );
+
+            // 计算分页
+            const totalPages = Math.ceil(filteredTables.length / tablePageSize) || 1;
+            if (tableCurrentPage > totalPages) {
+                tableCurrentPage = totalPages;
+            }
+
+            const start = (tableCurrentPage - 1) * tablePageSize;
+            const end = start + tablePageSize;
+            const pageTables = filteredTables.slice(start, end);
+
+            // 渲染表格
+            const tbody = document.getElementById('tableListBody');
+
+            if (pageTables.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">暂无数据表</td></tr>';
+            } else {
+                tbody.innerHTML = pageTables.map((table, index) => `
+                    <tr>
+                        <td>${start + index + 1}</td>
+                        <td>
+                            <strong>${table.name}</strong>
+                            ${table.comment ? `<br><small class="text-muted">${table.comment}</small>` : ''}
+                        </td>
+                        <td><span class="badge bg-info">${table.field_count || 0}</span></td>
+                        <td><span class="badge bg-success">${table.record_count || 0}</span></td>
+                        <td>${table.created_at || '-'}</td>
+                        <td>${table.updated_at || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="viewTableStructure('${table.name}')" title="查看结构">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-warning me-1" onclick="editTableStructure('${table.name}')" title="编辑结构">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-success me-1" onclick="showImportCsvModal('${table.name}')" title="导入CSV">
+                                <i class="bi bi-file-earmark-spreadsheet"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-info me-1" onclick="showSqlQueryModal('${table.name}')" title="SQL查询">
+                                <i class="bi bi-code-slash"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger me-1" onclick="showTruncateModal('${table.name}')" title="清空表">
+                                <i class="bi bi-eraser"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="showDeleteModal('${table.name}')" title="删除表">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            // 更新分页信息
+            document.getElementById('tablePageInfo').textContent =
+                `共 ${filteredTables.length} 条，第 ${tableCurrentPage}/${totalPages} 页`;
+
+            // 渲染分页按钮
+            renderTablePagination(totalPages);
+        }
+
+        function renderTablePagination(totalPages) {
+            const pagination = document.getElementById('tablePagination');
+            if (!pagination) return;
+
+            let html = '';
+
+            // 上一页
+            html += `<li class="page-item ${tableCurrentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changeTablePage(${tableCurrentPage - 1}); return false;">上一页</a>
+            </li>`;
+
+            // 页码
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= tableCurrentPage - 2 && i <= tableCurrentPage + 2)) {
+                    html += `<li class="page-item ${i === tableCurrentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changeTablePage(${i}); return false;">${i}</a>
+                    </li>`;
+                } else if (i === tableCurrentPage - 3 || i === tableCurrentPage + 3) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+
+            // 下一页
+            html += `<li class="page-item ${tableCurrentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changeTablePage(${tableCurrentPage + 1}); return false;">下一页</a>
+            </li>`;
+
+            pagination.innerHTML = html;
+        }
+
+        function changeTablePage(page) {
+            const searchText = document.getElementById('tableSearchInput')?.value.toLowerCase() || '';
+            const filteredTables = allTables.filter(table =>
+                table.name.toLowerCase().includes(searchText)
+            );
+            const totalPages = Math.ceil(filteredTables.length / tablePageSize) || 1;
+
+            if (page < 1 || page > totalPages) return;
+
+            tableCurrentPage = page;
+            renderTableListWithPagination();
+        }
+
+        function filterTables() {
+            tableCurrentPage = 1;
+            renderTableListWithPagination();
+        }
+
+        function clearTableSearch() {
+            document.getElementById('tableSearchInput').value = '';
+            filterTables();
+        }
+
+        function refreshTableList() {
+            loadTableList();
+            loadStatistics();
+        }
+
+        function loadStatistics() {
+            fetch('/api/db/statistics/?t=' + Date.now())
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const stats = data.data;
+                        document.getElementById('totalTables').textContent = stats.total_tables;
+                        document.getElementById('totalRecords').textContent = stats.total_records;
+                        document.getElementById('todayImports').textContent = stats.today_imports;
+                        document.getElementById('dbSize').textContent = stats.db_size;
+
+                        // 调试信息
+                        console.log('统计数据已更新:', stats);
+                    } else {
+                        console.error('获取统计数据失败:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading statistics:', error);
+                });
+        }
+
+        // ==================== 创建表 ====================
+
+           let currentFieldMode = 'simple';
+        let currentEditFieldMode = 'simple';
+
+        function toggleFieldMode(mode, isEdit = false) {
+            if (isEdit) {
+                currentEditFieldMode = mode;
+            } else {
+                currentFieldMode = mode;
+            }
+        }
+
+        function addFieldRow() {
+            fieldRowCount++;
+            const container = document.getElementById('fieldsContainer');
+            const div = document.createElement('div');
+            div.className = 'field-row border rounded p-3 mb-2';
+
+            if (currentFieldMode === 'simple') {
+                div.innerHTML = `
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-10">
+                            <label class="form-label small">字段名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm field-name" placeholder="例如: username">
+
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removeFieldRow(this)">
+                                <i class="bi bi-trash"></i> 删除
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                div.innerHTML = `
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label small">字段名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm field-name" placeholder="例如: username">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">类型 <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm field-type">
+                                <option value="TEXT">TEXT</option>
+                                <option value="INTEGER">INTEGER</option>
+                                <option value="REAL">REAL</option>
+                                <option value="BLOB">BLOB</option>
+                                <option value="NUMERIC">NUMERIC</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <div class="form-check">
+                                <input class="form-check-input field-not-null" type="checkbox">
+                                <label class="form-check-label small">非空</label>
+                            </div>
+                        </div>
+                        <div class="col-md-1">
+                            <div class="form-check">
+                                <input class="form-check-input field-unique" type="checkbox">
+                                <label class="form-check-label small">唯一</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">默认值</label>
+                            <input type="text" class="form-control form-control-sm field-default" placeholder="可选">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removeFieldRow(this)">
+                                <i class="bi bi-trash"></i> 删除
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            container.appendChild(div);
+        }
+
+        function removeFieldRow(btn) {
+            btn.closest('.field-row').remove();
+        }
+
+        function createTable() {
+            const tableName = document.getElementById('newTableName').value.trim();
+            const tableComment = document.getElementById('newTableComment').value.trim();
+
+            if (!tableName) {
+                showToast('请输入表名', 'warning');
+                return;
+            }
+
+            const fields = [];
+            document.querySelectorAll('#fieldsContainer .field-row').forEach(row => {
+                const name = row.querySelector('.field-name').value.trim();
+
+                if (name) {
+                    if (currentFieldMode === 'simple') {
+                        fields.push({
+                            name: name,
+                            type: 'TEXT',
+                            notNull: false,
+                            unique: false,
+                            default: null
+                        });
+                    } else {
+                        const type = row.querySelector('.field-type').value;
+                        const notNull = row.querySelector('.field-not-null').checked;
+                        const unique = row.querySelector('.field-unique').checked;
+                        const defaultValue = row.querySelector('.field-default').value.trim();
+
+                        fields.push({
+                            name: name,
+                            type: type,
+                            notNull: notNull,
+                            unique: unique,
+                            default: defaultValue || null
+                        });
+                    }
+                }
+            });
+
+            if (fields.length === 0) {
+                showToast('至少需要定义一个字段', 'warning');
+                return;
+            }
+
+            fetch('/api/db/create-table/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    table_name: tableName,
+                    table_comment: tableComment,
+                    fields: fields
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('createTableModal')).hide();
+                    refreshTableList();
+                    // 清空表单
+                    document.getElementById('newTableName').value = '';
+                    document.getElementById('newTableComment').value = '';
+                    document.getElementById('fieldsContainer').innerHTML = '';
+                    fieldRowCount = 0;
+                } else {
+                    showToast('创建失败：' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('创建表失败', 'error');
+            });
+        }
+
+
+        // ==================== 编辑表结构 ====================
+
+         function viewTableStructure(tableName) {
+            fetch(`/api/db/table-structure/?table_name=${encodeURIComponent(tableName)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const structure = data.data;
+                        let message = `表名: ${structure.table_name}\n`;
+                        message += `记录数: ${structure.record_count}\n\n`;
+                        message += `字段列表:\n`;
+                        structure.fields.forEach(field => {
+                            message += `- ${field.name} (${field.type})`;
+                            if (field.primaryKey) message += ' [主键]';
+                            if (field.notNull) message += ' 非空';
+                            if (field.default) message += ` 默认: ${field.default}`;
+                            message += '\n';
+                        });
+
+                        showDetailModal('表结构详情', `<pre style="white-space: pre-wrap;">${message}</pre>`);
+                    } else {
+                        showToast('获取表结构失败：' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('获取表结构失败', 'error');
+                });
+        }
+
+
+        function editTableStructure(tableName) {
+            currentEditingTable = tableName;
+            document.getElementById('editTableName').value = tableName;
+
+            // 定义需要排除的自动管理字段
+            const autoFields = ['id', 'created_at', 'updated_at', 'create_time', 'update_time', 'created_time', 'updated_time'];
+
+            // 加载现有字段
+            fetch(`/api/db/table-structure/?table_name=${encodeURIComponent(tableName)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const container = document.getElementById('editFieldsContainer');
+                        container.innerHTML = '';
+                        editFieldRowCount = 0;
+
+                        data.data.fields.forEach(field => {
+                            // 跳过自动管理字段
+                            if (autoFields.includes(field.name)) {
+                                return;
+                            }
+
+                            addEditFieldRow({
+                                name: field.name,
+                                type: field.type,
+                                notNull: field.notNull,
+                                unique: false,
+                                default: field.default
+                            });
+                        });
+
+                       const modal = new bootstrap.Modal(document.getElementById('editTableModal'));
+                        modal.show();
+                    } else {
+                        showToast('加载表结构失败：' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('加载表结构失败', 'error');
+                });
+        }
+
+       function addEditFieldRow(fieldData = null) {
+            editFieldRowCount++;
+            const container = document.getElementById('editFieldsContainer');
+            const div = document.createElement('div');
+            div.className = 'field-row border rounded p-3 mb-2';
+
+            if (currentEditFieldMode === 'simple') {
+                div.innerHTML = `
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-10">
+                            <label class="form-label small">字段名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm field-name"
+                                   value="${fieldData?.name || ''}"
+                                   placeholder="例如: username">
+                            <small class="text-muted">类型默认为 TEXT</small>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removeFieldRow(this)">
+                                <i class="bi bi-trash"></i> 删除
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                div.innerHTML = `
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label small">字段名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm field-name"
+                                   value="${fieldData?.name || ''}"
+                                   placeholder="例如: username">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small">类型 <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm field-type">
+                                <option value="TEXT" ${fieldData?.type === 'TEXT' ? 'selected' : ''}>TEXT</option>
+                                <option value="INTEGER" ${fieldData?.type === 'INTEGER' ? 'selected' : ''}>INTEGER</option>
+                                <option value="REAL" ${fieldData?.type === 'REAL' ? 'selected' : ''}>REAL</option>
+                                <option value="BLOB" ${fieldData?.type === 'BLOB' ? 'selected' : ''}>BLOB</option>
+                                <option value="NUMERIC" ${fieldData?.type === 'NUMERIC' ? 'selected' : ''}>NUMERIC</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <div class="form-check">
+                                <input class="form-check-input field-not-null" type="checkbox" ${fieldData?.notNull ? 'checked' : ''}>
+                                <label class="form-check-label small">非空</label>
+                            </div>
+                        </div>
+                        <div class="col-md-1">
+                            <div class="form-check">
+                                <input class="form-check-input field-unique" type="checkbox" ${fieldData?.unique ? 'checked' : ''}>
+                                <label class="form-check-label small">唯一</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">默认值</label>
+                            <input type="text" class="form-control form-control-sm field-default"
+                                   value="${fieldData?.default || ''}"
+                                   placeholder="可选">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removeFieldRow(this)">
+                                <i class="bi bi-trash"></i> 删除
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            container.appendChild(div);
+        }
+
+            function saveTableStructure() {
+            if (!currentEditingTable) return;
+
+            const fields = [];
+            document.querySelectorAll('#editFieldsContainer .field-row').forEach(row => {
+                const name = row.querySelector('.field-name').value.trim();
+
+                if (name) {
+                    if (currentEditFieldMode === 'simple') {
+                        fields.push({
+                            name: name,
+                            type: 'TEXT',
+                            notNull: false,
+                            unique: false,
+                            default: null
+                        });
+                    } else {
+                        const type = row.querySelector('.field-type').value;
+                        const notNull = row.querySelector('.field-not-null').checked;
+                        const unique = row.querySelector('.field-unique').checked;
+                        const defaultValue = row.querySelector('.field-default').value.trim();
+
+                        fields.push({
+                            name: name,
+                            type: type,
+                            notNull: notNull,
+                            unique: unique,
+                            default: defaultValue || null
+                        });
+                    }
+                }
+            });
+
+             if (fields.length === 0) {
+                showToast('至少需要一个字段', 'warning');
+                return;
+            }
+
+            fetch('/api/db/update-table/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    table_name: currentEditingTable,
+                    fields: fields
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('editTableModal')).hide();
+                    refreshTableList();
+                } else {
+                    showToast('更新失败：' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('更新表结构失败', 'error');
+            });
+        }
+
+        // ==================== CSV导入 ====================
+
+        function showImportCsvModal(tableName) {
+            document.getElementById('importTableName').value = tableName;
+            document.getElementById('csvFileInput').value = '';
+            document.getElementById('csvPreview').style.display = 'none';
+            document.getElementById('importProgress').style.display = 'none';
+
+            // 重置Tab到查询SQL
+            const firstTab = new bootstrap.Tab(document.querySelector('#querySqlTab'));
+            firstTab.show();
+
+            // 如果有保存的SQL，自动填充
+            if (savedQuerySql) {
+                document.getElementById('querySqlText').value = savedQuerySql.sql;
+            } else {
+                document.getElementById('querySqlText').value = '';
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('importCsvModal'));
+            modal.show();
+        }
+
+         function copyQuerySql() {
+            const sqlEditor = document.getElementById('querySqlText');
+            if (!sqlEditor.value.trim()) {
+                showToast('请先输入SQL语句', 'warning');
+                return;
+            }
+
+            sqlEditor.select();
+            document.execCommand('copy');
+
+            const btn = event.target.closest('button');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check"></i> 已复制';
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+            }, 2000);
+
+            showToast('SQL已复制到剪贴板', 'success', '', 1500);
+        }
+
+
+        function saveQuerySql() {
+            const querySql = document.getElementById('querySqlText').value.trim();
+
+            if (!querySql) {
+                alert('请输入SQL语句');
+                return;
+            }
+
+            savedQuerySql = {
+                sql: querySql,
+                savedAt: new Date().toLocaleString('zh-CN')
+            };
+
+            alert('查询语句已保存！下次打开时会自动加载。');
+        }
+
+        function previewCsvData() {
+            const fileInput = document.getElementById('csvFileInput');
+            const file = fileInput.files[0];
+
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n').slice(0, 6);
+
+                const previewTable = document.getElementById('previewTable');
+
+                let html = '';
+                lines.forEach((line, index) => {
+                    if (!line.trim()) return;
+
+                    const cells = line.split(',');
+
+                    if (index === 0) {
+                        html += '<thead><tr>';
+                        cells.forEach(cell => {
+                            html += `<th>${cell.trim()}</th>`;
+                        });
+                        html += '</tr></thead><tbody>';
+                    } else {
+                        html += '<tr>';
+                        cells.forEach(cell => {
+                            html += `<td>${cell.trim()}</td>`;
+                        });
+                        html += '</tr>';
+                    }
+                });
+
+                html += '</tbody>';
+
+                previewTable.innerHTML = html;
+                document.getElementById('csvPreview').style.display = 'block';
+            };
+
+            reader.readAsText(file);
+        }
+
+        function startImport() {
+            const fileInput = document.getElementById('csvFileInput');
+            const file = fileInput.files[0];
+            const tableName = document.getElementById('importTableName').value;
+
+            if (!file) {
+                showToast('请选择CSV文件', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('table_name', tableName);
+            formData.append('csv_file', file);
+            formData.append('truncate_before', 'true');
+
+            // 显示进度条
+            document.getElementById('importProgress').style.display = 'block';
+            document.getElementById('startImportBtn').disabled = true;
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('progressText').textContent = '0%';
+            document.getElementById('progressDetail').textContent = '正在上传并创建任务...';
+
+            fetch('/api/db/import-csv/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('progressDetail').textContent = '任务已创建，正在后台处理...';
+                    showToast('导入任务已创建，正在后台处理...', 'info');
+
+                    // 开始轮询任务状态
+                    pollTaskStatus(data.task_id);
+                } else {
+                    showToast('创建任务失败：' + data.message, 'error');
+                    document.getElementById('startImportBtn').disabled = false;
+                    document.getElementById('importProgress').style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('创建任务失败', 'error');
+                document.getElementById('startImportBtn').disabled = false;
+                document.getElementById('importProgress').style.display = 'none';
+            });
+        }
+
+        function pollTaskStatus(taskId) {
+            const pollInterval = setInterval(() => {
+                fetch(`/api/db/task-status/?task_id=${taskId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const task = data.data;
+
+                            // 更新进度条
+                            document.getElementById('progressBar').style.width = `${task.progress}%`;
+                            document.getElementById('progressText').textContent = `${task.progress}%`;
+                            document.getElementById('progressDetail').textContent =
+                                `已处理 ${task.processed_records} / ${task.total_records} 条记录`;
+
+                            // 检查任务是否完成
+                            if (task.status === 'completed' || task.status === 'failed') {
+                                                              clearInterval(pollInterval);
+                                document.getElementById('startImportBtn').disabled = false;
+
+                                if (task.status === 'completed') {
+                                    setTimeout(() => {
+                                        showToast(task.message, 'success', '导入完成');
+                                        bootstrap.Modal.getInstance(document.getElementById('importCsvModal')).hide();
+                                        refreshTableList();
+                                    }, 1000);
+                                } else {
+                                    showToast('导入失败：' + task.message, 'error');
+                                    document.getElementById('importProgress').style.display = 'none';
+                                }
+                            }
+                        } else {
+                            clearInterval(pollInterval);
+                            showToast('获取任务状态失败', 'error');
+                            document.getElementById('startImportBtn').disabled = false;
+                            document.getElementById('importProgress').style.display = 'none';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        clearInterval(pollInterval);
+                        showToast('获取任务状态失败', 'error');
+                        document.getElementById('startImportBtn').disabled = false;
+                        document.getElementById('importProgress').style.display = 'none';
+                    });
+            }, 1000); // 每秒轮询一次
+        }
+
+
+
+        // ==================== SQL查询 ====================
+        function showSqlQueryModal(tableName) {
+            document.getElementById('queryTableName').value = tableName;
+            document.getElementById('sqlEditor').value = '';
+            document.getElementById('queryResult').style.display = 'none';
+            document.getElementById('queryError').style.display = 'none';
+
+            const modal = new bootstrap.Modal(document.getElementById('sqlQueryModal'));
+            modal.show();
+
+            // 加载表结构以获取字段信息
+            loadTableFieldsForSqlTemplate(tableName);
+        }
+
+        let currentTableFields = [];
+
+        function loadTableFieldsForSqlTemplate(tableName) {
+            fetch(`/api/db/table-structure/?table_name=${encodeURIComponent(tableName)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 排除id、created_at、updated_at等自动管理字段
+                        const autoFields = ['id', 'created_at', 'updated_at', 'create_time', 'update_time', 'created_time', 'updated_time'];
+                        currentTableFields = data.data.fields.filter(f => !autoFields.includes(f.name));
+                    } else {
+                        currentTableFields = [];
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    currentTableFields = [];
+                });
+        }
+
+        function generateSelectAll() {
+            const tableName = document.getElementById('queryTableName').value;
+            document.getElementById('sqlEditor').value = `SELECT * FROM ${tableName} LIMIT 100;`;
+        }
+
+        function generateCount() {
+            const tableName = document.getElementById('queryTableName').value;
+            document.getElementById('sqlEditor').value = `SELECT COUNT(*) as total FROM ${tableName};`;
+        }
+
+        function generateInsertTemplate() {
+            const tableName = document.getElementById('queryTableName').value;
+
+            if (currentTableFields.length === 0) {
+                document.getElementById('sqlEditor').value = `INSERT INTO ${tableName} (column1, column2, column3) VALUES (value1, value2, value3);`;
+                return;
+            }
+
+            const columns = currentTableFields.map(f => f.name).join(', ');
+            const placeholders = currentTableFields.map(f => {
+                if (f.type === 'TEXT') {
+                    return `'${f.name}_value'`;
+                } else if (f.type === 'INTEGER') {
+                    return '0';
+                } else if (f.type === 'REAL') {
+                    return '0.0';
+                } else {
+                    return `'value'`;
+                }
+            }).join(', ');
+
+            document.getElementById('sqlEditor').value = `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders});`;
+        }
+
+        function generateUpdateTemplate() {
+            const tableName = document.getElementById('queryTableName').value;
+
+            if (currentTableFields.length === 0) {
+                document.getElementById('sqlEditor').value = `UPDATE ${tableName} SET column1 = value1 WHERE condition;`;
+                return;
+            }
+
+            const firstField = currentTableFields[0];
+            let setValue = '';
+
+            if (firstField.type === 'TEXT') {
+                setValue = `${firstField.name} = 'new_value'`;
+            } else if (firstField.type === 'INTEGER') {
+                setValue = `${firstField.name} = 0`;
+            } else if (firstField.type === 'REAL') {
+                setValue = `${firstField.name} = 0.0`;
+            } else {
+                setValue = `${firstField.name} = 'value'`;
+            }
+
+            document.getElementById('sqlEditor').value = `UPDATE ${tableName} SET ${setValue} WHERE id = ?;`;
+        }
+
+        function generateDeleteTemplate() {
+            const tableName = document.getElementById('queryTableName').value;
+            document.getElementById('sqlEditor').value = `DELETE FROM ${tableName} WHERE id = ?;`;
+        }
+
+
+        function copySqlToClipboard() {
+            const sqlEditor = document.getElementById('sqlEditor');
+            sqlEditor.select();
+            document.execCommand('copy');
+
+            const btn = event.target.closest('button');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check"></i> 已复制';
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+            }, 2000);
+        }
+
+
+          function executeSql() {
+            const sql = document.getElementById('sqlEditor').value.trim();
+            const tableName = document.getElementById('queryTableName').value;
+
+            if (!sql) {
+                showToast('请输入SQL语句', 'warning');
+                return;
+            }
+
+            fetch('/api/db/execute-sql/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    sql: sql,
+                    table_name: tableName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const resultDiv = document.getElementById('queryResult');
+                    const errorDiv = document.getElementById('queryError');
+                    const resultTable = document.getElementById('resultTable');
+
+                    errorDiv.style.display = 'none';
+                    resultDiv.style.display = 'block';
+
+                    // 判断是查询还是非查询操作
+                    if (data.data.is_query) {
+                        // SELECT 查询
+                        if (data.data.rows.length === 0) {
+                            resultTable.innerHTML = '<tr><td class="text-center text-muted">无数据</td></tr>';
+                        } else {
+                            let html = '<thead><tr>';
+                            data.data.columns.forEach(col => {
+                                html += `<th>${col}</th>`;
+                            });
+                            html += '</tr></thead><tbody>';
+
+                            data.data.rows.forEach(row => {
+                                html += '<tr>';
+                                data.data.columns.forEach(col => {
+                                    const value = row[col];
+                                    html += `<td>${value !== null && value !== undefined ? value : ''}</td>`;
+                                });
+                                html += '</tr>';
+                            });
+                            html += '</tbody>';
+
+                            resultTable.innerHTML = html;
+                        }
+
+                        document.getElementById('resultCount').textContent = `${data.data.count} 条记录`;
+                        showToast(`查询成功，返回 ${data.data.count} 条记录`, 'success', '', 2000);
+                    } else {
+                        // INSERT、UPDATE、DELETE 操作
+                        resultTable.innerHTML = `<tr><td class="text-center text-success"><i class="bi bi-check-circle"></i> ${data.data.message}</td></tr>`;
+                        document.getElementById('resultCount').textContent = '操作成功';
+                        showToast(data.data.message, 'success');
+                    }
+                } else {
+                    const errorDiv = document.getElementById('queryError');
+                    const resultDiv = document.getElementById('queryResult');
+                    resultDiv.style.display = 'none';
+                    errorDiv.style.display = 'block';
+                    document.getElementById('errorText').textContent = data.message;
+                    showToast(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                const errorDiv = document.getElementById('queryError');
+                const resultDiv = document.getElementById('queryResult');
+                resultDiv.style.display = 'none';
+                errorDiv.style.display = 'block';
+                document.getElementById('errorText').textContent = '查询执行失败';
+                showToast('查询执行失败', 'error');
+            });
+        }
+
+
+
+
+        // ==================== 删除表 ====================
+
+        function showDeleteModal(tableName) {
+            currentDeletingTable = tableName;
+            document.getElementById('deleteTableName').textContent = tableName;
+            document.getElementById('confirmDelete').checked = false;
+            document.getElementById('confirmDeleteBtn').disabled = true;
+
+            const modal = new bootstrap.Modal(document.getElementById('deleteTableModal'));
+            modal.show();
+        }
+
+        function confirmDeleteTable() {
+            if (!currentDeletingTable) return;
+
+            fetch('/api/db/delete-table/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    table_name: currentDeletingTable
+                })
+            })
+               .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('deleteTableModal')).hide();
+                    refreshTableList();
+                } else {
+                    showToast('删除失败：' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('删除表失败', 'error');
+            });
+        }
+
+        // ==================== 清空表 ====================
+
+        function showTruncateModal(tableName) {
+            currentTruncatingTable = tableName;
+            document.getElementById('truncateTableName').textContent = tableName;
+            document.getElementById('confirmTruncate').checked = false;
+            document.getElementById('confirmTruncateBtn').disabled = true;
+
+            const modal = new bootstrap.Modal(document.getElementById('truncateTableModal'));
+            modal.show();
+        }
+
+        function confirmTruncateTable() {
+            if (!currentTruncatingTable) return;
+
+            fetch('/api/db/truncate-table/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    table_name: currentTruncatingTable
+                })
+            })
+
+             .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('truncateTableModal')).hide();
+                    refreshTableList();
+                } else {
+                    showToast('清空失败：' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('清空表失败', 'error');
+            });
+        }
+
+        // ==================== 导入任务队列 ====================
+
+        function showImportTasksModal() {
+            const modal = new bootstrap.Modal(document.getElementById('importTasksModal'));
+            modal.show();
+            loadImportTasks();
+        }
+
+        function loadImportTasks() {
+            fetch('/api/db/tasks-list/')
+                .then(response => response.json())
+                 .then(data => {
+                    if (data.success) {
+                        renderImportTasks(data.data);
+                    } else {
+                        showToast('加载任务列表失败：' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('加载任务列表失败', 'error');
+                });
+        }
+
+        function renderImportTasks(tasks) {
+            const tbody = document.getElementById('importTasksList');
+
+            if (tasks.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">暂无导入任务</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = tasks.map(task => {
+                let statusBadge = '';
+                if (task.status === 'pending') {
+                    statusBadge = '<span class="badge bg-secondary">等待中</span>';
+                } else if (task.status === 'running') {
+                    statusBadge = '<span class="badge bg-primary"><i class="bi bi-arrow-repeat spin"></i> 进行中</span>';
+                } else if (task.status === 'completed') {
+                    statusBadge = '<span class="badge bg-success">已完成</span>';
+                } else if (task.status === 'failed') {
+                    statusBadge = '<span class="badge bg-danger">失败</span>';
+                }
+
+                let progressBar = '';
+                if (task.status === 'running' || task.status === 'pending') {
+                    progressBar = `
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                 role="progressbar"
+                                 style="width: ${task.progress}%">
+                                ${task.progress}%
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    progressBar = `<div class="text-muted">${task.progress}%</div>`;
+                }
+
+                return `
+                    <tr>
+                        <td><code>${task.task_id}</code></td>
+                        <td><strong>${task.table_name}</strong></td>
+                        <td>${statusBadge}</td>
+                        <td>${progressBar}</td>
+                        <td>
+                            <span class="text-success">${task.inserted_count}</span> /
+                            <span class="text-danger">${task.failed_count}</span>
+                        </td>
+                        <td><small>${task.created_at}</small></td>
+                        <td>
+                            ${task.status === 'running' || task.status === 'pending' ?
+                                '<span class="text-muted small">处理中...</span>' :
+                                `<button class="btn btn-sm btn-outline-info" onclick="viewTaskErrors('${task.task_id}')">
+                                    <i class="bi bi-eye"></i> 详情
+                                </button>`
+                            }
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function refreshImportTasks() {
+            loadImportTasks();
+        }
+
+          function viewTaskErrors(taskId) {
+            fetch(`/api/db/task-status/?task_id=${taskId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const task = data.data;
+
+                        let html = `
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>任务ID:</strong> ${task.task_id}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>表名:</strong> ${task.table_name}
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-md-6">
+                                        <strong>状态:</strong>
+                                        <span class="badge bg-${task.status === 'completed' ? 'success' : task.status === 'failed' ? 'danger' : 'primary'}">
+                                            ${task.status === 'completed' ? '已完成' : task.status === 'failed' ? '失败' : '进行中'}
+                                        </span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>进度:</strong> ${task.progress}%
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-md-6">
+                                        <strong>成功:</strong> <span class="text-success">${task.inserted_count}</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>失败:</strong> <span class="text-danger">${task.failed_count}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+
+                        if (task.message) {
+                            html += `
+                                <div class="alert alert-${task.status === 'completed' ? 'success' : 'danger'}">
+                                    <strong>消息:</strong><br>
+                                    <pre style="white-space: pre-wrap; margin: 0;">${task.message}</pre>
+                                </div>
+                            `;
+                        }
+
+                        if (task.errors && task.errors.length > 0) {
+                            html += `
+                                <div class="alert alert-warning">
+                                    <strong>错误详情 (${task.errors.length} 条):</strong>
+                                    <ul class="mb-0 mt-2">
+                            `;
+                            task.errors.forEach(error => {
+                                html += `<li>${error}</li>`;
+                            });
+                            html += `
+                                    </ul>
+                                </div>
+                            `;
+                        }
+
+                        showDetailModal('任务详情', html);
+                    } else {
+                        showToast('获取任务详情失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('获取任务详情失败', 'error');
+                });
+        }
+
+
+        // ==================== 详情模态框 ====================
+
+        function showDetailModal(title, content) {
+            const modalId = 'detailModal_' + Date.now();
+            const modalHtml = `
+                <div class="modal fade" id="${modalId}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header bg-info text-white">
+                                <h5 class="modal-title"><i class="bi bi-info-circle"></i> ${title}</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                ${content}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById(modalId));
+            modal.show();
+
+            // 模态框关闭后移除DOM
+            document.getElementById(modalId).addEventListener('hidden.bs.modal', function() {
+                this.remove();
+            });
+        }
+
+               // 自动刷新运行中的任务
+        let tasksRefreshInterval = null;
+
+        document.getElementById('importTasksModal').addEventListener('shown.bs.modal', function () {
+            // 每2秒刷新一次任务列表
+            tasksRefreshInterval = setInterval(() => {
+                loadImportTasks();
+            }, 2000);
+        });
+
+        document.getElementById('importTasksModal').addEventListener('hidden.bs.modal', function () {
+            // 关闭模态框时停止刷新
+            if (tasksRefreshInterval) {
+                clearInterval(tasksRefreshInterval);
+                tasksRefreshInterval = null;
+            }
+        });
+
+    </script>
+
+{% endblock %}
+
