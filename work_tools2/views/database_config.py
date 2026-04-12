@@ -33,7 +33,8 @@ SYSTEM_TABLES = {
     'work_tools2_componentconfig',
     'work_tools2_menu',
     '_table_metadata',
-    'work_tools2_databaseipconfig'
+    'work_tools2_databaseipconfig',
+    'work_tools2_filepathconfig'
 }
 
 

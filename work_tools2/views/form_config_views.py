@@ -486,7 +486,8 @@ def get_database_tables(request):
                 'work_tools2_componentconfig',
                 'work_tools2_menu',
                 '_table_metadata',
-                'work_tools2_databaseipconfig'
+                'work_tools2_databaseipconfig',
+                'work_tools2_filepathconfig'
             }
 
             # 对于 SQLite，使用 sqlite_master 表查询
