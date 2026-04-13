@@ -175,10 +175,6 @@ def generate_update_sql(config, form_values):
     query_items = config.get('queryItems', [])
     update_items = config.get('updateItems', [])
 
-    print(f"[SQL生成] table_name_list: {table_name_list}")
-    print(f"[SQL生成] query_items数量: {len(query_items)}")
-    print(f"[SQL生成] update_items数量: {len(update_items)}")
-
     # 获取操作备注
     ops_remark = form_values.get('ops_remark', '')
     if isinstance(ops_remark, dict):
