@@ -2066,7 +2066,17 @@
          * 普通提交（非批量导入）
          */
         function submitData() {
-            const loadingIndex = layui.layer.load(2);
+            // 显示加载提示
+            const loadingIndex = layui.layer.load(2, {
+                shade: [0.3, '#000'],
+                content: '正在提交...',
+                success: function(layero) {
+                    layero.find('.layui-layer-content').css({
+                        'padding-top': '40px',
+                        'width': '100px'
+                    });
+                }
+            });
 
             // 获取所有表单值
             const allValues = window.getAllFormValues();
@@ -2088,7 +2098,10 @@
                     layui.layer.close(loadingIndex);
 
                     if (response.data.success) {
-                        // 成功：显示结果和文件路径
+                        // 成功：先弹出提示框
+                        layui.layer.msg('SQL 文件生成成功！', {icon: 1, time: 2000});
+                        
+                        // 然后显示详细结果
                         showSubmitResult(true, response.data.message || 'SQL 文件生成成功', {
                             filePath: response.data.filePath || ''
                         }, false);
