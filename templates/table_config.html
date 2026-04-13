@@ -81,11 +81,11 @@
                 <div class="modal-body">
                     <!-- 基本信息 -->
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">表单名称 <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="formName" placeholder="例如: 合同明细单价修改">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">所属主菜单</label>
                             <div class="input-group">
                                 <input type="text" class="form-control" id="parentMenuInput"
@@ -99,6 +99,17 @@
                                 </button>
                             </div>
                             <small class="text-muted">可从列表选择，或直接输入新菜单名（将自动创建）</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">查询模式</label>
+                            <select class="form-select" id="queryModeSelect">
+                                <option value="strict" selected>严格模式</option>
+                                <option value="loose">宽松模式</option>
+                            </select>
+                            <small class="text-muted d-block mt-1">
+                                <span class="text-info"><strong>严格模式：</strong>所有关联字段必须有值才生成SQL</span><br>
+                                <span class="text-success"><strong>宽松模式：</strong>至少一个字段有值就生成SQL</span>
+                            </small>
                         </div>
                     </div>
 
@@ -676,6 +687,9 @@
                         if (config.parentMenuName) {
                             document.getElementById('parentMenuInput').value = config.parentMenuName;
                         }
+                        
+                        // 设置查询模式
+                        document.getElementById('queryModeSelect').value = config.queryMode || 'strict';
 
                         tableNameList = config.tableNameList || [];
                         renderTableTags();
@@ -863,6 +877,7 @@
 
             document.getElementById('formName').value = '';
             document.getElementById('parentMenuInput').value = '';
+            document.getElementById('queryModeSelect').value = 'strict';  // 默认严格模式
             tableNameList = [];
             renderTableTags();
 
@@ -2882,6 +2897,7 @@
                     formName: formName,
                     tableNameList: tableNameList,
                     parentMenuId: parentMenuId,
+                    queryMode: document.getElementById('queryModeSelect').value,  // 添加查询模式
                     queryItems: queryItems,
                     updateItems: updateItems,
                     databaseIpIds: selectedDatabaseIpIds,  // 添加数据库IP配置ID列表

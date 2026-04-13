@@ -69,6 +69,8 @@ def format_sql(sql):
         # 先按行分割，再处理每行
         raw_lines = formatted.split('\n')
         
+        in_set_clause = False  # 标记是否在 SET 子句中
+        
         for line in raw_lines:
             stripped = line.strip()
             if not stripped:
@@ -93,6 +95,7 @@ def format_sql(sql):
                     if current_line:
                         lines.append(current_line)
                     current_line = word
+                    in_set_clause = False
                     i += 1
                     continue
                 
@@ -101,6 +104,7 @@ def format_sql(sql):
                     if current_line:
                         lines.append(current_line)
                     current_line = f"  {word}"
+                    in_set_clause = True
                     i += 1
                     continue
                 
@@ -109,6 +113,7 @@ def format_sql(sql):
                     if current_line:
                         lines.append(current_line)
                     current_line = f"  {word}"
+                    in_set_clause = False
                     i += 1
                     continue
                 
@@ -117,6 +122,15 @@ def format_sql(sql):
                     if current_line:
                         lines.append(current_line)
                     current_line = f"    {word}"
+                    i += 1
+                    continue
+                
+                # 如果在 SET 子句中，遇到逗号说明是下一个字段，需要换行
+                if in_set_clause and word.endswith(','):
+                    # 添加当前字段（带逗号）
+                    current_line += f" {word}"
+                    lines.append(current_line)
+                    current_line = "    "  # 下一行缩进
                     i += 1
                     continue
                 
@@ -174,6 +188,9 @@ def generate_update_sql(config, form_values):
     table_name_list = config.get('tableNameList', [])
     query_items = config.get('queryItems', [])
     update_items = config.get('updateItems', [])
+    
+    # 获取查询模式：strict(严格) 或 loose(宽松)
+    query_mode = config.get('queryMode', 'strict')
 
     # 获取操作备注
     ops_remark = form_values.get('ops_remark', '')
@@ -191,26 +208,44 @@ def generate_update_sql(config, form_values):
             if table_name in connected_tables:
                 table_query_fields.append(item)
 
-        # 第二步：检查所有关联字段是否都有值
+        # 第二步：根据查询模式收集WHERE条件
         where_conditions = []
-        all_fields_have_value = True
+        
+        if query_mode == 'loose':
+            # 宽松模式：只收集有值的字段
+            for item in table_query_fields:
+                binding_key = item.get('bindingKey')
+                value_data = form_values.get(binding_key, {})
+                value = value_data.get('value', '')
+                
+                if value:
+                    where_conditions.append(f"{binding_key} = '{value}'")
+        else:
+            # 严格模式（默认）：要求所有关联字段都有值
+            all_fields_have_value = True
+            
+            for item in table_query_fields:
+                binding_key = item.get('bindingKey')
+                value_data = form_values.get(binding_key, {})
+                value = value_data.get('value', '')
+                
+                if not value:
+                    all_fields_have_value = False
+                    break
+                else:
+                    where_conditions.append(f"{binding_key} = '{value}'")
+            
+            # 严格模式下，如果有字段为空则跳过
+            if not all_fields_have_value:
+                missing_fields = [item.get('bindingKey') for item in table_query_fields
+                                  if not form_values.get(item.get('bindingKey'), {}).get('value', '')]
+                print(f"[SQL生成-表:{table_name}] 跳过(严格模式): 以下字段未填写: {missing_fields}")
+                continue
 
-        for item in table_query_fields:
-            binding_key = item.get('bindingKey')
-            value_data = form_values.get(binding_key, {})
-            value = value_data.get('value', '')
-
-            if not value:
-                all_fields_have_value = False
-                break
-            else:
-                where_conditions.append(f"{binding_key} = '{value}'")
-
-        # 第三步：只有所有关联字段都有值时才生成SQL
-        if not all_fields_have_value or not where_conditions:
-            missing_fields = [item.get('bindingKey') for item in table_query_fields
-                              if not form_values.get(item.get('bindingKey'), {}).get('value', '')]
-            print(f"[SQL生成-表:{table_name}] 跳过: 以下字段未填写: {missing_fields}")
+        # 第三步：至少有一个查询字段有值时才生成SQL
+        if not where_conditions:
+            missing_fields = [item.get('bindingKey') for item in table_query_fields]
+            print(f"[SQL生成-表:{table_name}] 跳过: 所有查询字段均为空: {missing_fields}")
             continue
 
         forward_set_clauses = []

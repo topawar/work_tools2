@@ -12,9 +12,15 @@ VALID_RULES = [
 
 class FormConfig(models.Model):
     """动态表单配置主表"""
+    QUERY_MODES = [
+        ('strict', '严格模式'),
+        ('loose', '宽松模式'),
+    ]
+    
     form_name = models.CharField(max_length=100, verbose_name="表单名称")
     table_name_list = models.JSONField(verbose_name="表名列表", default=list)
     database_ip_ids = models.JSONField(verbose_name="数据库IP配置ID列表", default=list)
+    query_mode = models.CharField(max_length=20, choices=QUERY_MODES, default='strict', verbose_name="查询模式")
     is_active = models.BooleanField(default=True, verbose_name="是否启用")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")

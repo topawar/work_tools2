@@ -152,6 +152,7 @@ def save_form_config(request):
                     config.form_name = form_name
                     config.table_name_list = table_name_list
                     config.database_ip_ids = database_ip_ids
+                    config.query_mode = data.get('queryMode', 'strict')  # 添加查询模式，默认严格
                     config.save()
 
                     menu_url = f'/dynamic/{form_id}'
@@ -181,6 +182,7 @@ def save_form_config(request):
                     form_name=form_name,
                     table_name_list=table_name_list,
                     database_ip_ids=database_ip_ids,
+                    query_mode=data.get('queryMode', 'strict'),  # 添加查询模式，默认严格
                     is_active=True,
                 )
                 form_id = config.id
@@ -393,6 +395,7 @@ def get_form_config_detail(request, form_id):
                     'formName': config.form_name,
                     'tableNameList': config.table_name_list,
                     'databaseIpIds': config.database_ip_ids,
+                    'queryMode': config.query_mode,  # 添加查询模式
                     'parentMenuName': parent_menu_name,
                     'queryItems': query_items,
                     'updateItems': update_items,
