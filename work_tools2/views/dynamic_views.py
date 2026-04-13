@@ -48,8 +48,9 @@ def handle_field_value(field_name, value, valid_rule):
         else:
             return None
     elif valid_rule == 'defaultNull':
+        # 空值时设置为空字符串，而不是 NULL
         if is_empty:
-            return f"{field_name} = NULL"
+            return f"{field_name} = ''"
         else:
             return f"{field_name} = '{value}'"
     elif valid_rule == 'defaultField':
@@ -704,6 +705,31 @@ def validate_form_data(config, form_values, query_values=None):
 
     if query_items and not has_non_empty_query:
         errors.append("查询字段至少需要填写一个条件")
+    
+    # 校验更新字段至少有一个有值（新值或原值）
+    has_non_empty_update = False
+    for item in update_items:
+        binding_key = item.get('bindingKey')
+        input_type = item.get('inputType', '')
+        value_data = form_values.get(binding_key, {})
+        
+        if input_type == 'supplement':
+            # 补充框：检查主字段的新值或原值
+            new_value = value_data.get('newValue', '')
+            origin_value = value_data.get('originValue', '')
+            if new_value or origin_value:
+                has_non_empty_update = True
+                break
+        else:
+            # 普通字段：检查新值或原值
+            new_value = value_data.get('newValue', '')
+            origin_value = value_data.get('originValue', '')
+            if new_value or origin_value:
+                has_non_empty_update = True
+                break
+    
+    if update_items and not has_non_empty_update:
+        errors.append("更新字段至少需要填写一个新值或原值")
 
     if errors:
         return {

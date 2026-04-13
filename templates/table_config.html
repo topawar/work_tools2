@@ -322,16 +322,32 @@
                         <strong>提示：</strong>子字段将使用主字段选择的表。每个子字段需要配置显示名称、自定义字段名，并选择数据库中的映射字段。
                     </div>
 
-                    <div class="mb-3">
-                        <button type="button" class="btn btn-sm btn-primary" onclick="addSubField()"
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="addSubFieldInModal()"
                                 style="background: #667eea; border: none;">
                             <i class="bi bi-plus-circle"></i> 添加子字段
                         </button>
+                        
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="form-label mb-0 small text-muted">每页显示:</label>
+                            <select class="form-select form-select-sm" id="subFieldsPageSize" style="width: 80px;" onchange="changeSubFieldsPageSize()">
+                                <option value="5" selected>5条</option>
+                                <option value="10">10条</option>
+                                <option value="20">20条</option>
+                                <option value="50">50条</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div id="subFieldsContainer" class="sortable-container">
+                    <!-- 子字段折叠容器 -->
+                    <div id="subFieldsAccordion">
                         <!-- 动态生成子字段卡片 -->
                     </div>
+                    
+                    <!-- 分页控件 -->
+                    <nav id="subFieldsPagination" class="mt-3" style="display: none;">
+                        <ul class="pagination pagination-sm justify-content-center mb-0"></ul>
+                    </nav>
                 </div>
                 <div class="modal-footer"
                      style="background: rgba(255,255,255,0.1); border-top: 1px solid rgba(255,255,255,0.2);">
@@ -402,6 +418,13 @@
         let currentEditingCard = null;
         let subFieldCount = 0;
         let subFieldsSortable = null;
+        
+        // 子字段分页相关变量
+        let allSubFields = [];  // 所有子字段数据
+        let subFieldsCurrentPage = 1;
+        let subFieldsPageSize = 5;  // 默认每页5条
+        let currentExpandedSubFieldIndex = 0;  // 记录当前展开的子字段索引
+                
         let databaseTables = [];
         
         // 数据库IP配置相关变量
@@ -859,6 +882,26 @@
             updateFilteredCards = [];
             document.getElementById('querySearchInput').value = '';
             document.getElementById('updateSearchInput').value = '';
+            
+            // 设置默认激活的 Tab 页（查询字段）
+            const queryTabButton = document.querySelector('[data-bs-target="#queryTab"]');
+            const updateTabButton = document.querySelector('[data-bs-target="#updateTab"]');
+            const databaseTabButton = document.querySelector('[data-bs-target="#databaseTab"]');
+            const queryTabPane = document.getElementById('queryTab');
+            const updateTabPane = document.getElementById('updateTab');
+            const databaseTabPane = document.getElementById('databaseTab');
+            
+            // 移除所有 Tab 的 active 类
+            if (queryTabButton) queryTabButton.classList.remove('active');
+            if (updateTabButton) updateTabButton.classList.remove('active');
+            if (databaseTabButton) databaseTabButton.classList.remove('active');
+            if (queryTabPane) queryTabPane.classList.remove('show', 'active');
+            if (updateTabPane) updateTabPane.classList.remove('show', 'active');
+            if (databaseTabPane) databaseTabPane.classList.remove('show', 'active');
+            
+            // 设置查询字段 Tab 为默认激活
+            if (queryTabButton) queryTabButton.classList.add('active');
+            if (queryTabPane) queryTabPane.classList.add('show', 'active');
 
         }
 
@@ -1068,8 +1111,8 @@
                 <div class="col-md-4">
                     <label class="form-label">验证规则</label>
                     <select class="form-select query-valid-rule">
-                        <option value="required" ${data?.ValidRule === 'required' ? 'selected' : ''}>必填</option>
                         <option value="requiredReverse" ${data?.ValidRule === 'requiredReverse' ? 'selected' : ''}>不必填</option>
+                        <option value="required" ${data?.ValidRule === 'required' ? 'selected' : ''}>必填</option>
                     </select>
                 </div>
                 <div class="col-md-12">
@@ -1298,7 +1341,7 @@
         <div class="card-body">
             <input type="hidden" class="sort-order-value" value="${sortOrder}">
             <div class="row g-3">
-                <div class="col-md-3">
+                <div class="col-md-3 label-container" style="display: ${fieldType === 'calculated' ? 'none' : 'block'};">
                     <label class="form-label">字段中文名 <span class="text-danger">*</span></label>
                     <input type="text" class="form-control update-label" value="${data?.label || ''}" placeholder="例如: 数量" oninput="updateFieldSummary(this)">
                 </div>
@@ -1324,8 +1367,8 @@
                 <div class="col-md-3 new-valid-rule-container" style="display: ${fieldType === 'supplement' || fieldType === 'calculated' ? 'none' : 'block'};">
                     <label class="form-label">新值验证规则</label>
                     <select class="form-select update-new-valid-rule">
-                        <option value="required" ${data?.newValidRule === 'required' ? 'selected' : ''}>必填</option>
                         <option value="requiredReverse" ${data?.newValidRule === 'requiredReverse' ? 'selected' : ''}>不必填</option>
+                        <option value="required" ${data?.newValidRule === 'required' ? 'selected' : ''}>必填</option>
                         <option value="defaultNull" ${data?.newValidRule === 'defaultNull' ? 'selected' : ''}>默认空值</option>
                         <option value="defaultField" ${data?.newValidRule === 'defaultField' ? 'selected' : ''}>默认字段</option>
                     </select>
@@ -1333,8 +1376,8 @@
                 <div class="col-md-2 origin-valid-rule-container" style="display: ${(fieldType === 'supplement' || fieldType === 'radio' || fieldType === 'calculated') ? 'none' : 'block'};">
                     <label class="form-label">原值验证规则</label>
                     <select class="form-select update-origin-valid-rule">
-                        <option value="required" ${data?.originValidRule === 'required' ? 'selected' : ''}>必填</option>
                         <option value="requiredReverse" ${data?.originValidRule === 'requiredReverse' ? 'selected' : ''}>不必填</option>
+                        <option value="required" ${data?.originValidRule === 'required' ? 'selected' : ''}>必填</option>
                         <option value="defaultNull" ${data?.originValidRule === 'defaultNull' ? 'selected' : ''}>默认空值</option>
                         <option value="defaultField" ${data?.originValidRule === 'defaultField' ? 'selected' : ''}>默认字段</option>
                     </select>
@@ -1536,6 +1579,7 @@
             const newDefaultValueDiv = card.querySelector('.new-default-value-container');
             const newValidRuleContainer = card.querySelector('.new-valid-rule-container');
             const originValidRuleContainer = card.querySelector('.origin-valid-rule-container');
+            const labelContainer = card.querySelector('.label-container');
 
             optionsDiv.style.display = 'none';
             supplementDiv.style.display = 'none';
@@ -1543,7 +1587,7 @@
 
             if (fieldType === 'supplement') {
                 supplementDiv.style.display = 'block';
-                // 补充框：隐藏验证规则和默认值
+                // 补充框：隐藏验证规则和默认值，但显示字段中文名
                 if (newValidRuleContainer) {
                     newValidRuleContainer.style.display = 'none';
                 }
@@ -1556,13 +1600,27 @@
                 if (originDefaultValueDiv) {
                     originDefaultValueDiv.style.display = 'none';
                 }
+                if (labelContainer) {
+                    labelContainer.style.display = 'block';
+                }
             } else if (fieldType === 'calculated') {
                 calculatedDiv.style.display = 'block';
+                
+                // 计算字段：隐藏验证规则、默认值和字段中文名
                 if (newValidRuleContainer) {
                     newValidRuleContainer.style.display = 'none';
                 }
                 if (originValidRuleContainer) {
                     originValidRuleContainer.style.display = 'none';
+                }
+                if (newDefaultValueDiv) {
+                    newDefaultValueDiv.style.display = 'none';
+                }
+                if (originDefaultValueDiv) {
+                    originDefaultValueDiv.style.display = 'none';
+                }
+                if (labelContainer) {
+                    labelContainer.style.display = 'none';
                 }
                 
                 // 初始化计算字段的表达式配置
@@ -1592,6 +1650,10 @@
                 if (originValidRuleContainer) {
                     originValidRuleContainer.style.display = 'none';
                 }
+                // 显示字段中文名
+                if (labelContainer) {
+                    labelContainer.style.display = 'block';
+                }
             } else {
                 // 其他类型：都显示
                 if (newValidRuleContainer) {
@@ -1599,6 +1661,10 @@
                 }
                 if (originValidRuleContainer) {
                     originValidRuleContainer.style.display = 'block';
+                }
+                // 显示字段中文名
+                if (labelContainer) {
+                    labelContainer.style.display = 'block';
                 }
             }
 
@@ -1894,21 +1960,253 @@
                 }
             }
 
-            document.getElementById('subFieldsContainer').innerHTML = '';
-            subFieldCount = 0;
-
-            if (subFields.length > 0) {
-                subFields.forEach(sf => {
-                    addSubField(sf);
-                });
-            } else {
-                addSubField();
-            }
-
-            initSubFieldsSortable();
+            // 保存所有子字段数据
+            allSubFields = subFields;
+            subFieldsCurrentPage = 1;  // 重置到第一页
+            // 默认展开最后一个（最新添加的）
+            currentExpandedSubFieldIndex = subFields.length > 0 ? subFields.length - 1 : -1;
+            
+            // 渲染子字段（带折叠和分页）
+            renderSubFieldsWithPagination();
 
             const modal = new bootstrap.Modal(document.getElementById('subFieldsModal'));
             modal.show();
+        }
+        
+        /**
+         * 渲染子字段（带折叠和分页）
+         */
+        function renderSubFieldsWithPagination() {
+            const accordion = document.getElementById('subFieldsAccordion');
+            const paginationNav = document.getElementById('subFieldsPagination');
+            
+            if (!accordion) return;
+            
+            // 清空容器
+            accordion.innerHTML = '';
+            
+            // 如果没有子字段，显示提示
+            if (allSubFields.length === 0) {
+                accordion.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                        <p class="mt-2 mb-0">暂无子字段，请点击上方“添加子字段”按钮</p>
+                    </div>
+                `;
+                paginationNav.style.display = 'none';
+                return;
+            }
+            
+            // 计算分页
+            const totalPages = Math.ceil(allSubFields.length / subFieldsPageSize);
+            const startIndex = (subFieldsCurrentPage - 1) * subFieldsPageSize;
+            const endIndex = Math.min(startIndex + subFieldsPageSize, allSubFields.length);
+            const currentPageData = allSubFields.slice(startIndex, endIndex);
+            
+            // 生成折叠面板
+            currentPageData.forEach((sf, idx) => {
+                const globalIndex = startIndex + idx;
+                const collapseId = `subFieldCollapse_${globalIndex}`;
+                
+                // 默认展开最后一个（最新添加的）
+                if (allSubFields.length > 0) {
+                    currentExpandedSubFieldIndex = allSubFields.length - 1;
+                }
+                
+                const isExpanded = globalIndex === currentExpandedSubFieldIndex ? 'show' : '';
+                
+                const accordionItem = document.createElement('div');
+                accordionItem.className = 'accordion-item mb-2 border rounded shadow-sm';
+                accordionItem.dataset.globalIndex = globalIndex;
+                
+                let mainTableName = '';
+                if (currentEditingCard) {
+                    const mainTableSelect = currentEditingCard.querySelector('.update-main-table');
+                    if (mainTableSelect && mainTableSelect.value) {
+                        mainTableName = mainTableSelect.value;
+                    }
+                }
+                
+                accordionItem.innerHTML = `
+                    <h2 class="accordion-header" id="heading${globalIndex}" style="margin-bottom: 0;">
+                        <button class="accordion-button ${idx === 0 ? '' : 'collapsed'} p-0" type="button" 
+                                data-bs-toggle="collapse" data-bs-target="#${collapseId}" 
+                                aria-expanded="${idx === 0}" aria-controls="${collapseId}"
+                                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 500; border: none; box-shadow: none;">
+                            <div class="d-flex align-items-center justify-content-between w-100 px-3 py-2">
+                                <div class="d-flex align-items-center flex-grow-1">
+                                    <span class="badge bg-white text-primary me-2" style="min-width: 35px; font-size: 0.85rem;">#${globalIndex + 1}</span>
+                                    <span class="fw-bold" style="font-size: 0.95rem;">${sf.label || '未命名子字段'}</span>
+                                    ${sf.bindingKey ? `<span class="ms-2 text-white-50" style="font-size: 0.8rem; font-family: monospace;">${sf.bindingKey}</span>` : ''}
+                                </div>
+                                <div class="d-flex gap-1" onclick="event.stopPropagation();">
+                                    ${globalIndex > 0 ? `
+                                        <button type="button" class="btn btn-sm btn-light" onclick="moveSubFieldUpByIndex(${globalIndex})" title="上移" style="padding: 2px 8px;">
+                                            <i class="bi bi-arrow-up-short"></i>
+                                        </button>
+                                    ` : ''}
+                                    ${globalIndex < allSubFields.length - 1 ? `
+                                        <button type="button" class="btn btn-sm btn-light" onclick="moveSubFieldDownByIndex(${globalIndex})" title="下移" style="padding: 2px 8px;">
+                                            <i class="bi bi-arrow-down-short"></i>
+                                        </button>
+                                    ` : ''}
+                                    <button type="button" class="btn btn-sm btn-danger" onclick="removeSubFieldByIndex(${globalIndex})" title="删除" style="padding: 2px 8px;">
+                                        <i class="bi bi-trash3"></i> 删除
+                                    </button>
+                                </div>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="${collapseId}" class="accordion-collapse collapse ${isExpanded}" 
+                         aria-labelledby="heading${globalIndex}" data-bs-parent="#subFieldsAccordion">
+                        <div class="accordion-body" style="background: #f8f9fa; border-top: 2px solid #667eea;">
+                            <input type="hidden" class="sub-field-label-input" value="${sf.label || ''}">
+                            <input type="hidden" class="sub-field-binding-key-input" value="${sf.bindingKey || ''}">
+                            <input type="hidden" class="sub-field-db-field-input" value="${sf.dbField || ''}" data-saved-value="${sf.dbField || ''}">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-primary mb-1" style="font-size: 0.9rem;">
+                                        <i class="bi bi-tag-fill me-1"></i>显示标签 <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control sub-field-label-edit" 
+                                           value="${sf.label || ''}" placeholder="例如: 订单执行人姓名"
+                                           onchange="updateSubFieldData(${globalIndex}, 'label', this.value)">
+                                    <small class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle"></i> 用户看到的名称</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-success mb-1" style="font-size: 0.9rem;">
+                                        <i class="bi bi-key-fill me-1"></i>自定义字段名 <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control sub-field-binding-key-edit" 
+                                           value="${sf.bindingKey || ''}" placeholder="例如: ORDER_EXECUTOR_NAME"
+                                           onchange="updateSubFieldData(${globalIndex}, 'bindingKey', this.value)">
+                                    <small class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle"></i> 你定义的字段标识</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-info mb-1" style="font-size: 0.9rem;">
+                                        <i class="bi bi-database-fill me-1"></i>数据库映射字段 <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-select sub-field-db-field-edit" 
+                                            data-saved-value="${sf.dbField || ''}"
+                                            onchange="updateSubFieldData(${globalIndex}, 'dbField', this.value)">
+                                        <option value="">${mainTableName ? '请选择数据库字段' : '请先在主字段中选择表'}</option>
+                                    </select>
+                                    <small class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle"></i> 选择数据库中实际存在的字段</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                accordion.appendChild(accordionItem);
+                
+                // 加载数据库字段选项
+                if (mainTableName) {
+                    setTimeout(() => {
+                        const select = accordionItem.querySelector('.sub-field-db-field-edit');
+                        loadDbFieldsForSubFieldEdit(select, mainTableName, sf.dbField);
+                    }, 100);
+                }
+            })
+                        
+            // 渲染分页控件
+            if (totalPages > 1) {
+                renderSubFieldsPagination(totalPages);
+                paginationNav.style.display = 'block';
+            } else {
+                paginationNav.style.display = 'none';
+            }
+            
+            // 监听折叠面板的切换事件，同步当前展开的索引
+            if (accordion) {
+                accordion.addEventListener('show.bs.collapse', function (event) {
+                    const id = event.target.id;
+                    const match = id.match(/^subFieldCollapse_(\d+)$/);
+                    if (match) {
+                        currentExpandedSubFieldIndex = parseInt(match[1]);
+                    }
+                });
+            }
+        }
+        
+        /**
+         * 渲染分页控件
+         */
+        function renderSubFieldsPagination(totalPages) {
+            const paginationUl = document.querySelector('#subFieldsPagination ul');
+            if (!paginationUl) return;
+            
+            let html = '';
+            
+            // 上一页
+            html += `
+                <li class="page-item ${subFieldsCurrentPage === 1 ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changeSubFieldsPage(${subFieldsCurrentPage - 1}); return false;">上一页</a>
+                </li>
+            `;
+            
+            // 页码
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= subFieldsCurrentPage - 1 && i <= subFieldsCurrentPage + 1)) {
+                    html += `
+                        <li class="page-item ${i === subFieldsCurrentPage ? 'active' : ''}">
+                            <a class="page-link" href="#" onclick="changeSubFieldsPage(${i}); return false;">${i}</a>
+                        </li>
+                    `;
+                } else if (i === subFieldsCurrentPage - 2 || i === subFieldsCurrentPage + 2) {
+                    html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                }
+            }
+            
+            // 下一页
+            html += `
+                <li class="page-item ${subFieldsCurrentPage === totalPages ? 'disabled' : ''}">
+                    <a class="page-link" href="#" onclick="changeSubFieldsPage(${subFieldsCurrentPage + 1}); return false;">下一页</a>
+                </li>
+            `;
+            
+            // 统计信息
+            const startIndex = (subFieldsCurrentPage - 1) * subFieldsPageSize + 1;
+            const endIndex = Math.min(subFieldsCurrentPage * subFieldsPageSize, allSubFields.length);
+            html += `
+                <li class="page-item disabled">
+                    <span class="page-link text-muted">${startIndex}-${endIndex} / ${allSubFields.length}</span>
+                </li>
+            `;
+            
+            paginationUl.innerHTML = html;
+        }
+        
+        /**
+         * 切换子字段页码
+         */
+        function changeSubFieldsPage(page) {
+            const totalPages = Math.ceil(allSubFields.length / subFieldsPageSize);
+            if (page < 1 || page > totalPages) return;
+            
+            subFieldsCurrentPage = page;
+            renderSubFieldsWithPagination();
+        }
+        
+        /**
+         * 更改每页显示数量
+         */
+        function changeSubFieldsPageSize() {
+            const select = document.getElementById('subFieldsPageSize');
+            if (select) {
+                subFieldsPageSize = parseInt(select.value);
+                subFieldsCurrentPage = 1;  // 重置到第一页
+                renderSubFieldsWithPagination();
+            }
+        }
+        
+        /**
+         * 更新子字段数据
+         */
+        function updateSubFieldData(index, field, value) {
+            if (allSubFields[index]) {
+                allSubFields[index][field] = value;
+            }
         }
 
 
@@ -1944,6 +2242,32 @@
                     titleElement.textContent = `#${index + 1}`;
                 }
             });
+        }
+
+        /**
+         * 添加子字段（在模态框中）
+         */
+        function addSubFieldInModal() {
+            // 创建新的子字段数据
+            const newSubField = {
+                label: '',
+                bindingKey: '',
+                dbField: '',
+                sortOrder: allSubFields.length
+            };
+            
+            // 添加到数组
+            allSubFields.push(newSubField);
+            
+            // 设置展开最新添加的
+            currentExpandedSubFieldIndex = allSubFields.length - 1;
+            
+            // 跳转到最后一页
+            const totalPages = Math.ceil(allSubFields.length / subFieldsPageSize);
+            subFieldsCurrentPage = totalPages;
+            
+            // 重新渲染
+            renderSubFieldsWithPagination();
         }
 
         function addSubField(data = null) {
@@ -2016,6 +2340,47 @@
         }
 
 
+        /**
+         * 为子字段编辑框加载数据库字段选项
+         */
+        function loadDbFieldsForSubFieldEdit(select, tableName, savedField = null) {
+            if (!tableName) {
+                select.innerHTML = '<option value="">请先在主字段中选择表</option>';
+                return;
+            }
+
+            select.innerHTML = '<option value="">加载中...</option>';
+
+            fetch(`/api/database/table-fields/?table_name=${encodeURIComponent(tableName)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const fields = data.data.fields;
+                        const fieldOptions = fields.map(f =>
+                            `<option value="${f.name}">${f.name}</option>`
+                        ).join('');
+
+                        select.innerHTML = '<option value="">请选择数据库字段</option>' + fieldOptions;
+
+                        if (savedField) {
+                            select.value = savedField;
+                        } else {
+                            const savedValue = select.dataset.savedValue;
+                            if (savedValue) {
+                                select.value = savedValue;
+                                delete select.dataset.savedValue;
+                            }
+                        }
+                    } else {
+                        select.innerHTML = '<option value="">加载失败</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('加载字段失败:', error);
+                    select.innerHTML = '<option value="">加载失败</option>';
+                });
+        }
+
         function loadDbFieldsForSubField(card, tableName, savedField = null) {
             const dbFieldSelect = card.querySelector('.sub-field-db-field');
 
@@ -2057,6 +2422,58 @@
         }
 
 
+        /**
+         * 根据索引上移子字段
+         */
+        function moveSubFieldUpByIndex(index) {
+            if (index <= 0) return;
+            
+            // 交换数据
+            const temp = allSubFields[index];
+            allSubFields[index] = allSubFields[index - 1];
+            allSubFields[index - 1] = temp;
+            
+            // 重新渲染
+            renderSubFieldsWithPagination();
+        }
+        
+        /**
+         * 根据索引下移子字段
+         */
+        function moveSubFieldDownByIndex(index) {
+            if (index >= allSubFields.length - 1) return;
+            
+            // 交换数据
+            const temp = allSubFields[index];
+            allSubFields[index] = allSubFields[index + 1];
+            allSubFields[index + 1] = temp;
+            
+            // 重新渲染
+            renderSubFieldsWithPagination();
+        }
+        
+        /**
+         * 根据索引删除子字段
+         */
+        function removeSubFieldByIndex(index) {
+            allSubFields.splice(index, 1);
+            
+            // 如果当前页没有数据了，回到上一页
+            const totalPages = Math.ceil(allSubFields.length / subFieldsPageSize);
+            if (subFieldsCurrentPage > totalPages && totalPages > 0) {
+                subFieldsCurrentPage = totalPages;
+            }
+            
+            // 删除后，默认展开最后一个（如果还有数据的话）
+            if (allSubFields.length > 0) {
+                currentExpandedSubFieldIndex = allSubFields.length - 1;
+            } else {
+                currentExpandedSubFieldIndex = -1;
+            }
+            
+            renderSubFieldsWithPagination();
+        }
+
         function moveSubFieldUp(btn) {
             const card = btn.closest('.sub-field-card');
             if (card && card.previousElementSibling) {
@@ -2082,25 +2499,28 @@
         }
 
         function saveSubFieldsConfig() {
-            const subFields = [];
-            document.querySelectorAll('#subFieldsContainer .sub-field-card').forEach((card, idx) => {
-                const label = card.querySelector('.sub-field-label').value.trim();
-                const bindingKey = card.querySelector('.sub-field-binding-key').value.trim();
-                const dbField = card.querySelector('.sub-field-db-field').value.trim();
-
+            // 验证所有子字段是否填写完整
+            const validSubFields = [];
+            for (let i = 0; i < allSubFields.length; i++) {
+                const sf = allSubFields[i];
+                const label = sf.label ? sf.label.trim() : '';
+                const bindingKey = sf.bindingKey ? sf.bindingKey.trim() : '';
+                const dbField = sf.dbField ? sf.dbField.trim() : '';
+                
                 if (!label || !bindingKey || !dbField) {
+                    alert(`第${i + 1}个子字段信息不完整，请填写显示标签、自定义字段名和数据库映射字段`);
                     return;
                 }
-
-                subFields.push({
+                
+                validSubFields.push({
                     label: label,
                     bindingKey: bindingKey,
                     dbField: dbField,
-                    sortOrder: idx
+                    sortOrder: i
                 });
-            });
+            }
 
-            if (subFields.length === 0) {
+            if (validSubFields.length === 0) {
                 alert('至少需要配置一个有效的子字段（显示标签、自定义字段名、数据库映射字段均为必填）');
                 return;
             }
@@ -2108,19 +2528,17 @@
             if (currentEditingCard) {
                 const subFieldsTextarea = currentEditingCard.querySelector('.update-sub-fields');
                 if (subFieldsTextarea) {
-                    subFieldsTextarea.value = JSON.stringify(subFields, null, 2);
+                    subFieldsTextarea.value = JSON.stringify(validSubFields, null, 2);
                 }
 
                 const previewDiv = currentEditingCard.querySelector('.sub-fields-preview');
                 if (previewDiv) {
-                    if (subFields.length > 0) {
+                    if (validSubFields.length > 0) {
                         previewDiv.style.display = 'block';
-                        previewDiv.innerHTML = `
-                            <small class="text-muted d-block mb-2">子字段预览：</small>
-                            ${subFields.map((sf, idx) => `
-                                <span class="badge bg-info me-1 mb-1" title="自定义字段: ${sf.bindingKey} | 数据库字段: ${sf.dbField}">${idx + 1}. ${sf.label}</span>
-                            `).join('')}
-                        `;
+                        previewDiv.innerHTML = '<small class="text-muted d-block mb-2">子字段预览：</small>' +
+                            validSubFields.map((sf, idx) => 
+                                `<span class="badge bg-info me-1 mb-1" title="自定义字段: ${sf.bindingKey} | 数据库字段: ${sf.dbField}">${idx + 1}. ${sf.label}</span>`
+                            ).join('');
                     } else {
                         previewDiv.style.display = 'none';
                     }
@@ -2128,7 +2546,7 @@
 
                 const countSpan = currentEditingCard.querySelector('.sub-fields-count');
                 if (countSpan) {
-                    countSpan.textContent = subFields.length + ' 个子字段';
+                    countSpan.textContent = validSubFields.length + ' 个子字段';
                 }
             }
 
@@ -2265,6 +2683,7 @@
             // 先检查是否有空行或部分填写的行
             for (let i = 0; i < updateCards.length; i++) {
                 const div = updateCards[i];
+                const fieldType = div.querySelector('.update-field-type').value;
                 const label = div.querySelector('.update-label').value.trim();
                 const bindingKey = div.querySelector('.update-binding-key').value.trim();
                 
@@ -2274,16 +2693,25 @@
                     return;
                 }
                 
-                // 如果只有一个字段有值，说明用户开始填写了但未完成
-                if ((label && !bindingKey) || (!label && bindingKey)) {
-                    alert(`更新字段第${i + 1}行信息不完整，请填写完整的字段中文名和英文名`);
-                    return;
+                // 计算字段只需要英文名，不需要中文名
+                if (fieldType === 'calculated') {
+                    if (!bindingKey) {
+                        alert(`计算字段第${i + 1}行的字段英文名不能为空`);
+                        return;
+                    }
+                } else {
+                    // 非计算字段：如果只有一个字段有值，说明用户开始填写了但未完成
+                    if ((label && !bindingKey) || (!label && bindingKey)) {
+                        alert(`更新字段第${i + 1}行信息不完整，请填写完整的字段中文名和英文名`);
+                        return;
+                    }
                 }
             }
             
             // 再收集有效字段
             for (let i = 0; i < updateCards.length; i++) {
                 const div = updateCards[i];
+                const fieldType = div.querySelector('.update-field-type').value;
                 const label = div.querySelector('.update-label').value.trim();
                 const bindingKey = div.querySelector('.update-binding-key').value.trim();
 
@@ -2292,17 +2720,24 @@
                     continue;
                 }
 
-                // 如果只有一个为空，说明用户开始填写了但未完成，需要提示
-                if (label && !bindingKey) {
-                    alert(`更新字段“${label}”的字段英文名不能为空`);
-                    return;
+                // 计算字段不需要中文名，只需要英文名
+                if (fieldType === 'calculated') {
+                    if (!bindingKey) {
+                        alert(`计算字段第${i + 1}行的字段英文名不能为空`);
+                        return;
+                    }
+                    // 计算字段跳过中文名校验，继续处理
+                } else {
+                    // 非计算字段：如果只有一个为空，说明用户开始填写了但未完成，需要提示
+                    if (label && !bindingKey) {
+                        alert(`更新字段“${label}”的字段英文名不能为空`);
+                        return;
+                    }
+                    if (!label && bindingKey) {
+                        alert(`更新字段第${i + 1}行的字段中文名不能为空（英文名：${bindingKey}）`);
+                        return;
+                    }
                 }
-                if (!label && bindingKey) {
-                    alert(`更新字段第${i + 1}行的字段中文名不能为空（英文名：${bindingKey}）`);
-                    return;
-                }
-
-                const fieldType = div.querySelector('.update-field-type').value;
 
                 let inputType = 'input';
                 if (fieldType === 'select') {
@@ -2421,8 +2856,14 @@
                 updateItems.push(item);
             }
 
-            if (queryItems.length === 0 && updateItems.length === 0) {
-                alert('至少需要配置一个查询字段或更新字段');
+            // 分别校验查询字段和更新字段至少要有一个
+            if (queryItems.length === 0) {
+                alert('至少需要配置一个查询字段');
+                return;
+            }
+            
+            if (updateItems.length === 0) {
+                alert('至少需要配置一个更新字段');
                 return;
             }
             

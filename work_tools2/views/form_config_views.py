@@ -80,7 +80,7 @@ def create_or_get_menu(request):
                     pinyin='',
                     sort_order=Menu.objects.filter(parent_id__isnull=True).count(),
                     is_visible=True,
-                    group_name=menu_name,  # 一级菜单的group_name设置为自己的名称
+                    group_name='主菜单',  # 一级菜单的group_name设置为主菜单
                 )
 
                 return JsonResponse({

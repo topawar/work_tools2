@@ -1768,7 +1768,7 @@
         };
 
 
-        function showSubmitResult(isSuccess, message, data, isBatchImport) {
+        function showSubmitResult(isSuccess, message, data, isBatchImport, errors) {
             const resultArea = document.getElementById('submitResultArea');
             const resultAlert = document.getElementById('resultAlert');
             const resultTitle = document.getElementById('resultTitle');
@@ -1778,7 +1778,20 @@
             // 设置样式
             resultAlert.className = isSuccess ? 'alert alert-success' : 'alert alert-danger';
             resultTitle.textContent = isSuccess ? (isBatchImport ? '批量导入完成' : '提交成功') : (isBatchImport ? '批量导入失败' : '提交失败');
-            resultMessage.textContent = message;
+            
+            // 构建消息内容
+            let messageHtml = message;
+            
+            // 如果有详细错误信息，添加到消息中
+            if (!isSuccess && errors && errors.length > 0) {
+                messageHtml += '<ul style="margin-top: 10px; margin-bottom: 0; padding-left: 20px;">';
+                errors.forEach(function(error) {
+                    messageHtml += `<li style="margin: 5px 0;">${error}</li>`;
+                });
+                messageHtml += '</ul>';
+            }
+            
+            resultMessage.innerHTML = messageHtml;
 
             // 清空操作按钮
             resultActions.innerHTML = '';
@@ -1872,6 +1885,8 @@
          * @param {Array} errors - 错误信息数组
          */
         function markErrorsToFields(errors) {
+            const unhandledErrors = [];
+            
             errors.forEach(function(errorMsg) {
                 let elementId = null;
                 
@@ -1922,8 +1937,55 @@
                         const errorId = `error_${elementId}`;
                         markAsError(element, errorId, errorMsg);
                     }
+                } else {
+                    // 无法匹配到具体字段的错误，加入未处理列表
+                    unhandledErrors.push(errorMsg);
                 }
             });
+            
+            // 如果有未处理的错误，在顶部显示
+            if (unhandledErrors.length > 0) {
+                showTopErrorMessage(unhandledErrors.join('<br>'));
+            }
+        }
+        
+        /**
+         * 在页面顶部显示错误信息
+         * @param {String} message - 错误信息（支持HTML）
+         */
+        function showTopErrorMessage(message) {
+            // 查找或创建错误提示容器
+            let errorContainer = document.getElementById('topErrorContainer');
+            if (!errorContainer) {
+                errorContainer = document.createElement('div');
+                errorContainer.id = 'topErrorContainer';
+                errorContainer.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background-color: #ff4d4f;
+                    color: white;
+                    padding: 12px 24px;
+                    border-radius: 4px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    z-index: 9999;
+                    max-width: 80%;
+                    text-align: center;
+                    font-size: 14px;
+                    line-height: 1.6;
+                `;
+                document.body.appendChild(errorContainer);
+                
+                // 5秒后自动消失
+                setTimeout(() => {
+                    if (errorContainer && errorContainer.parentNode) {
+                        errorContainer.remove();
+                    }
+                }, 5000);
+            }
+            
+            errorContainer.innerHTML = `<i class="bi bi-exclamation-triangle-fill" style="margin-right: 8px;"></i>${message}`;
         }
 
 
@@ -1974,17 +2036,26 @@
                     layui.layer.close(loadingIndex);
                     console.error('导入失败:', error);
 
+                    // 先清除所有错误样式
+                    clearAllFieldErrors();
+
                     let errorMsg = '导入失败';
+                    let errors = [];
+                    
                     if (error.response && error.response.data) {
-                        if (error.response.data.message) {
-                            errorMsg = error.response.data.message;
-                        }
+                        errorMsg = error.response.data.message || '导入失败';
+                        errors = error.response.data.errors || [];
                     } else if (error.response) {
                         errorMsg = `服务器错误：${error.response.status}`;
                     } else if (error.request) {
                         errorMsg = '无法连接到服务器';
                     } else {
                         errorMsg = error.message;
+                    }
+
+                    // 如果有详细错误信息，标记到对应字段
+                    if (errors.length > 0) {
+                        markErrorsToFields(errors);
                     }
 
                     showSubmitResult(false, errorMsg, {}, true);
@@ -2030,20 +2101,31 @@
                             markErrorsToFields(response.data.errors);
                         }
                         
-                        // 显示错误信息
-                        showSubmitResult(false, response.data.message || '提交失败', {}, false);
+                        // 显示错误信息（包含详细错误列表）
+                        showSubmitResult(false, response.data.message || '提交失败', {}, false, response.data.errors || []);
                     }
                 })
                 .catch(function (error) {
                     layui.layer.close(loadingIndex);
                     console.error('提交失败:', error);
 
+                    // 先清除所有错误样式
+                    clearAllFieldErrors();
+
                     let errorMsg = '提交失败';
+                    let errors = [];
+                    
                     if (error.response && error.response.data) {
                         errorMsg = error.response.data.message || error.response.data.error || '服务器错误';
+                        errors = error.response.data.errors || [];
                     }
 
-                    showSubmitResult(false, errorMsg, {}, false);
+                    // 如果有详细错误信息，标记到对应字段
+                    if (errors.length > 0) {
+                        markErrorsToFields(errors);
+                    }
+
+                    showSubmitResult(false, errorMsg, {}, false, errors);
                 });
         }
 
@@ -2257,75 +2339,122 @@
                 const mainNewId = `newMain${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                 const mainOriginId = `originMain${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
 
-                let newHtml = '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
-
-                newHtml += `
-                    <span class="input-group-text" style=" background: greenyellow">新${item.label}</span>
-                    <input type="text"
-                           id="${mainNewId}"
-                           class="form-control"
-                           value=""
-                           data-binding-key="${item.bindingKey}"
-                           data-field-type="supplement-main"
-                           placeholder="请输入${item.label}主值"
-                           oninput="handleSupplementInput('${item.bindingKey}', this, 'newValue')"
-                          >
-                `;
-
+                // 收集所有字段（主字段 + 子字段）
+                const allFields = [];
+                
+                // 添加主字段（保持绿色背景样式）
+                allFields.push({
+                    id: mainNewId,
+                    label: `新${item.label}`,
+                    labelStyle: 'background: greenyellow',
+                    bindingKey: item.bindingKey,
+                    fieldType: 'supplement-main',
+                    placeholder: `请输入${item.label}主值`,
+                    oninput: `handleSupplementInput('${item.bindingKey}', this, 'newValue')`
+                });
+                
+                // 添加子字段（普通样式）
                 item.subFields.forEach((subField, index) => {
                     const subNewId = `newSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
-                    newHtml += `
-                        <div style="width: 15px"></div>
-                        <span class="input-group-text" >新${subField.label}</span>
-                        <input type="text"
-                               id="${subNewId}"
-                               class="form-control"
-                               value=""
-                               data-binding-key="${subField.bindingKey}"
-                               data-sub-index="${index}"
-                               data-parent-binding-key="${item.bindingKey}"
-                               data-field-type="supplement-sub"
-                               placeholder="请输入${subField.label}"
-                              >
-                    `;
+                    allFields.push({
+                        id: subNewId,
+                        label: `新${subField.label}`,
+                        labelStyle: '',
+                        bindingKey: subField.bindingKey,
+                        fieldType: 'supplement-sub',
+                        placeholder: `请输入${subField.label}`,
+                        subIndex: index,
+                        parentBindingKey: item.bindingKey
+                    });
                 });
 
-                newHtml += '</div></div>';
+                // 每行最多3个字段，生成多行HTML
+                let newHtml = '';
+                const itemsPerRow = 3;
+                for (let i = 0; i < allFields.length; i += itemsPerRow) {
+                    const rowFields = allFields.slice(i, i + itemsPerRow);
+                    newHtml += '<div class="row g-3 align-items-center mb-2"><div class="input-group">';
+                    
+                    rowFields.forEach((field, idx) => {
+                        if (idx > 0) {
+                            newHtml += '<div style="width: 15px"></div>';
+                        }
+                        newHtml += `
+                            <span class="input-group-text" style="${field.labelStyle}">${field.label}</span>
+                            <input type="text"
+                                   id="${field.id}"
+                                   class="form-control"
+                                   value=""
+                                   data-binding-key="${field.bindingKey}"
+                                   data-field-type="${field.fieldType}"
+                                   placeholder="${field.placeholder}"
+                                   ${field.oninput ? `oninput="${field.oninput}"` : ''}
+                                   ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
+                                   ${field.parentBindingKey ? `data-parent-binding-key="${field.parentBindingKey}"` : ''}
+                                  >
+                        `;
+                    });
+                    
+                    newHtml += '</div></div>';
+                }
 
-                let originHtml = '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
-
-                originHtml += `
-                    <span class="input-group-text" style="background: greenyellow;">原${item.label}</span>
-                    <input type="text"
-                           id="${mainOriginId}"
-                           class="form-control"
-                           value=""
-                           data-binding-key="${item.bindingKey}"
-                           data-field-type="supplement-main"
-                           placeholder="原${item.label}主值"
-                           oninput="handleSupplementInput('${item.bindingKey}', this, 'originValue')"
-                           >
-                `;
-
+                // 处理原值字段
+                const originAllFields = [];
+                
+                // 添加原值主字段（保持绿色背景样式）
+                originAllFields.push({
+                    id: mainOriginId,
+                    label: `原${item.label}`,
+                    labelStyle: 'background: greenyellow;',
+                    bindingKey: item.bindingKey,
+                    fieldType: 'supplement-main',
+                    placeholder: `原${item.label}主值`,
+                    oninput: `handleSupplementInput('${item.bindingKey}', this, 'originValue')`
+                });
+                
+                // 添加原值子字段（普通样式）
                 item.subFields.forEach((subField, index) => {
                     const subOriginId = `originSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
-                    originHtml += `
-                        <div style="width: 15px"></div>
-                        <span class="input-group-text" >原${subField.label}</span>
-                        <input type="text"
-                               id="${subOriginId}"
-                               class="form-control"
-                               value=""
-                               data-binding-key="${subField.bindingKey}"
-                               data-sub-index="${index}"
-                               data-parent-binding-key="${item.bindingKey}"
-                               data-field-type="supplement-sub"
-                               placeholder="原${subField.label}"
-                               >
-                    `;
+                    originAllFields.push({
+                        id: subOriginId,
+                        label: `原${subField.label}`,
+                        labelStyle: '',
+                        bindingKey: subField.bindingKey,
+                        fieldType: 'supplement-sub',
+                        placeholder: `原${subField.label}`,
+                        subIndex: index,
+                        parentBindingKey: item.bindingKey
+                    });
                 });
 
-                originHtml += '</div></div>';
+                // 每行最多3个字段，生成多行HTML
+                let originHtml = '';
+                for (let i = 0; i < originAllFields.length; i += itemsPerRow) {
+                    const rowFields = originAllFields.slice(i, i + itemsPerRow);
+                    originHtml += '<div class="row g-3 align-items-center mb-2"><div class="input-group">';
+                    
+                    rowFields.forEach((field, idx) => {
+                        if (idx > 0) {
+                            originHtml += '<div style="width: 15px"></div>';
+                        }
+                        originHtml += `
+                            <span class="input-group-text" style="${field.labelStyle}">${field.label}</span>
+                            <input type="text"
+                                   id="${field.id}"
+                                   class="form-control"
+                                   value=""
+                                   data-binding-key="${field.bindingKey}"
+                                   data-field-type="${field.fieldType}"
+                                   placeholder="${field.placeholder}"
+                                   ${field.oninput ? `oninput="${field.oninput}"` : ''}
+                                   ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
+                                   ${field.parentBindingKey ? `data-parent-binding-key="${field.parentBindingKey}"` : ''}
+                                  >
+                        `;
+                    });
+                    
+                    originHtml += '</div></div>';
+                }
 
                 return newHtml + originHtml;
             }
