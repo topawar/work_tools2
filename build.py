@@ -74,17 +74,67 @@ def build_project():
     """打包项目"""
     print("\n[Step 4/4] Building project...")
     print("This may take a few minutes, please wait...\n")
-    
+
     # 清理旧的打包文件
     import shutil
+    import time
+
     if Path("dist").exists():
         print("Cleaning old dist folder...")
-        shutil.rmtree("dist")
+        try:
+            shutil.rmtree("dist")
+        except PermissionError as e:
+            print(f"[WARNING] Cannot delete dist folder: {e}")
+            print("[INFO] Trying alternative method...")
+
+            # 尝试重命名后再删除
+            retry_count = 0
+            max_retries = 3
+
+            while retry_count < max_retries:
+                try:
+                    # 重命名为临时名称
+                    temp_name = f"dist_old_{int(time.time())}"
+                    os.rename("dist", temp_name)
+
+                    # 异步删除旧文件夹
+                    import threading
+                    def delete_later(folder_name):
+                        time.sleep(2)  # 等待2秒
+                        try:
+                            shutil.rmtree(folder_name, ignore_errors=True)
+                        except:
+                            pass
+
+                    thread = threading.Thread(target=delete_later, args=(temp_name,))
+                    thread.daemon = True
+                    thread.start()
+
+                    print(f"[OK] Renamed old dist to {temp_name} (will be deleted automatically)")
+                    break
+                except Exception as rename_error:
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        print(f"[RETRY {retry_count}/{max_retries}] Waiting 1 second...")
+                        time.sleep(1)
+                    else:
+                        print(f"[ERROR] Failed to clean dist folder after {max_retries} retries")
+                        print(f"[ERROR] Please manually delete the 'dist' folder and try again")
+                        input("Press Enter to exit...")
+                        return False
+
     if Path("build").exists():
-        shutil.rmtree("build")
+        try:
+            shutil.rmtree("build")
+        except:
+            print("[WARNING] Cannot delete build folder, skipping...")
+
     for spec_file in Path(".").glob("*.spec"):
-        spec_file.unlink()
-    
+        try:
+            spec_file.unlink()
+        except:
+            pass
+
     # 构建pyinstaller命令
     cmd = [
         sys.executable, "-m", "PyInstaller",
@@ -103,9 +153,9 @@ def build_project():
         "--console",
         "launcher.py"
     ]
-    
+
     print(f"Running command: {' '.join(cmd)}\n")
-    
+
     try:
         result = subprocess.run(cmd, check=True, capture_output=False)
         print("\n[OK] Build completed!")
