@@ -3,6 +3,7 @@ import csv
 import io
 import os
 import sqlite3
+import time
 from datetime import datetime
 
 from django.conf import settings
@@ -34,7 +35,8 @@ SYSTEM_TABLES = {
     'work_tools2_menu',
     '_table_metadata',
     'work_tools2_databaseipconfig',
-    'work_tools2_filepathconfig'
+    'work_tools2_filepathconfig',
+    '_query_sql_config'
 }
 
 
@@ -362,7 +364,7 @@ def get_table_structure(request):
 
 @require_http_methods(["POST"])
 def update_table_structure(request):
-    """更新表结构（SQLite限制较多，仅支持重命名表和添加列）"""
+    """更新表结构（支持添加和删除字段）"""
     try:
         import json
         data = json.loads(request.body)
@@ -390,43 +392,142 @@ def update_table_structure(request):
         cursor.execute(f"PRAGMA table_info({table_name})")
         existing_fields = {row['name']: row for row in cursor.fetchall()}
 
-        # 找出新增的字段
+        # 找出新增的字段和要保留的字段
         new_fields = []
+        kept_field_names = set()
+        
         for field in fields:
             field_name = field['name']
+            kept_field_names.add(field_name)
             if field_name not in existing_fields and field_name != 'id':
                 new_fields.append(field)
 
-        # 添加新字段
-        for field in new_fields:
-            field_name = field['name']
-            field_type = field['type']
-            not_null = field.get('notNull', False)
-            default_value = field.get('default', None)
+        # 找出要删除的字段（排除自动管理字段）
+        auto_fields = {'id', 'created_at', 'updated_at', 'create_time', 'update_time', 'created_time', 'updated_time'}
+        fields_to_delete = [name for name in existing_fields.keys() 
+                           if name not in kept_field_names and name not in auto_fields]
 
-            alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {field_name} {field_type}"
+        # 如果没有变化，直接返回
+        if not new_fields and not fields_to_delete:
+            conn.close()
+            return JsonResponse({
+                'success': True,
+                'message': f'表 {table_name} 结构没有变化',
+                'added_fields': 0,
+                'deleted_fields': 0
+            })
 
-            if not_null and default_value is not None:
-                if field_type in ['TEXT']:
-                    alter_sql += f" NOT NULL DEFAULT '{default_value}'"
-                else:
-                    alter_sql += f" NOT NULL DEFAULT {default_value}"
-            elif default_value is not None:
-                if field_type in ['TEXT']:
-                    alter_sql += f" DEFAULT '{default_value}'"
-                else:
-                    alter_sql += f" DEFAULT {default_value}"
+        # 如果只有新增字段，使用简单的 ALTER TABLE
+        if new_fields and not fields_to_delete:
+            for field in new_fields:
+                field_name = field['name']
+                field_type = field['type']
+                not_null = field.get('notNull', False)
+                default_value = field.get('default', None)
 
-            cursor.execute(alter_sql)
+                alter_sql = f"ALTER TABLE {table_name} ADD COLUMN {field_name} {field_type}"
 
-        conn.commit()
-        conn.close()
+                if not_null and default_value is not None:
+                    if field_type in ['TEXT']:
+                        alter_sql += f" NOT NULL DEFAULT '{default_value}'"
+                    else:
+                        alter_sql += f" NOT NULL DEFAULT {default_value}"
+                elif default_value is not None:
+                    if field_type in ['TEXT']:
+                        alter_sql += f" DEFAULT '{default_value}'"
+                    else:
+                        alter_sql += f" DEFAULT {default_value}"
 
-        return JsonResponse({
-            'success': True,
-            'message': f'表 {table_name} 结构更新成功',
-            'added_fields': len(new_fields)
-        })
+                cursor.execute(alter_sql)
+
+            conn.commit()
+            conn.close()
+
+            return JsonResponse({
+                'success': True,
+                'message': f'表 {table_name} 结构更新成功',
+                'added_fields': len(new_fields),
+                'deleted_fields': 0
+            })
+
+        # 如果有删除字段，需要重建表
+        if fields_to_delete:
+            # 开始事务
+            cursor.execute("BEGIN TRANSACTION")
+            
+            try:
+                # 1. 创建临时表名
+                temp_table_name = f"{table_name}_temp_{int(time.time())}"
+                
+                # 2. 构建新表的字段定义
+                field_defs = []
+                
+                # 首先添加 id 主键
+                if 'id' in existing_fields:
+                    field_defs.append("id INTEGER PRIMARY KEY AUTOINCREMENT")
+                
+                # 添加用户定义的字段
+                for field in fields:
+                    field_name = field['name']
+                    field_type = field['type']
+                    not_null = field.get('notNull', False)
+                    unique = field.get('unique', False)
+                    default_value = field.get('default', None)
+                    
+                    col_def = f"{field_name} {field_type}"
+                    if not_null:
+                        col_def += " NOT NULL"
+                    if unique:
+                        col_def += " UNIQUE"
+                    if default_value is not None:
+                        if field_type in ['TEXT']:
+                            col_def += f" DEFAULT '{default_value}'"
+                        else:
+                            col_def += f" DEFAULT {default_value}"
+                    
+                    field_defs.append(col_def)
+                
+                # 添加自动管理字段
+                field_defs.append("created_at DATETIME DEFAULT (datetime('now', 'localtime'))")
+                field_defs.append("updated_at DATETIME DEFAULT (datetime('now', 'localtime'))")
+                
+                # 3. 创建新表
+                create_sql = f"CREATE TABLE {temp_table_name} (\n    " + ",\n    ".join(field_defs) + "\n)"
+                cursor.execute(create_sql)
+                
+                # 4. 复制数据（只复制保留的字段）
+                columns_to_copy = [f['name'] for f in fields if f['name'] in existing_fields]
+                if 'id' in existing_fields:
+                    columns_to_copy.insert(0, 'id')
+                
+                columns_str = ', '.join(columns_to_copy)
+                insert_sql = f"INSERT INTO {temp_table_name} ({columns_str}) SELECT {columns_str} FROM {table_name}"
+                cursor.execute(insert_sql)
+                
+                # 5. 删除旧表
+                cursor.execute(f"DROP TABLE {table_name}")
+                
+                # 6. 重命名新表
+                cursor.execute(f"ALTER TABLE {temp_table_name} RENAME TO {table_name}")
+                
+                # 提交事务
+                cursor.execute("COMMIT")
+                
+                conn.close()
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': f'表 {table_name} 结构更新成功',
+                    'added_fields': len(new_fields),
+                    'deleted_fields': len(fields_to_delete),
+                    'deleted_field_names': fields_to_delete
+                })
+                
+            except Exception as e:
+                # 回滚事务
+                cursor.execute("ROLLBACK")
+                conn.close()
+                raise e
 
     except Exception as e:
         return JsonResponse({
@@ -630,9 +731,19 @@ def import_csv_data(request):
         # 获取表的字段信息
         cursor.execute(f"PRAGMA table_info({table_name})")
         table_fields = {row['name']: row for row in cursor.fetchall()}
+        
+        # 创建小写字段名映射（用于大小写不敏感匹配）
+        table_fields_lower = {name.lower(): name for name in table_fields.keys()}
 
-        # 过滤掉表中不存在的字段
-        valid_headers = [h for h in headers if h in table_fields]
+        # 过滤掉表中不存在的字段（大小写不敏感）
+        valid_headers = []
+        header_mapping = {}  # CSV表头 -> 表字段名的映射
+        for h in headers:
+            h_lower = h.lower()
+            if h_lower in table_fields_lower:
+                actual_field_name = table_fields_lower[h_lower]
+                valid_headers.append(actual_field_name)
+                header_mapping[h] = actual_field_name
 
         if not valid_headers:
             conn.close()
@@ -640,6 +751,11 @@ def import_csv_data(request):
                 'success': False,
                 'message': 'CSV文件中的字段与表结构不匹配'
             }, status=400)
+        
+        # 如果有部分字段不匹配，记录警告信息
+        invalid_headers = [h for h in headers if h.lower() not in table_fields_lower]
+        if invalid_headers:
+            print(f"警告: 以下字段在表中不存在，将被忽略: {', '.join(invalid_headers)}")
 
         # 清空表（如果需要）
         truncate_before = request.POST.get('truncate_before', 'false').lower() == 'true'
@@ -664,12 +780,14 @@ def import_csv_data(request):
                 # 提取有效字段的数据
                 values = []
                 for i, header in enumerate(headers):
-                    if header in valid_headers:
+                    # 使用映射后的实际字段名
+                    if header in header_mapping:
+                        actual_field_name = header_mapping[header]
                         value = row[i].strip() if i < len(row) else ''
 
                         # 数据类型转换
-                        if header in table_fields:
-                            field_type = table_fields[header]['type']
+                        if actual_field_name in table_fields:
+                            field_type = table_fields[actual_field_name]['type']
                             if field_type == 'INTEGER' and value:
                                 try:
                                     value = int(value)
@@ -985,4 +1103,155 @@ def get_import_tasks_list(request):
         return JsonResponse({
             'success': False,
             'message': f'获取任务列表失败: {str(e)}'
+        }, status=500)
+
+
+# ==================== 查询SQL保存/加载 ====================
+
+def ensure_query_sql_table():
+    """确保查询SQL配置表存在"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS _query_sql_config (
+                table_name TEXT PRIMARY KEY,
+                query_sql TEXT NOT NULL,
+                saved_at DATETIME DEFAULT (datetime('now', 'localtime')),
+                updated_at DATETIME DEFAULT (datetime('now', 'localtime'))
+            )
+        """)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+@require_http_methods(["POST"])
+def save_query_sql(request):
+    """保存查询SQL（每个表独立保存，持久化到数据库）"""
+    try:
+        import json
+        import re
+        
+        data = json.loads(request.body)
+        sql = data.get('sql', '').strip()
+        table_name = data.get('table_name', '').strip()
+
+        if not sql:
+            return JsonResponse({
+                'success': False,
+                'message': 'SQL语句不能为空'
+            }, status=400)
+
+        if not table_name:
+            return JsonResponse({
+                'success': False,
+                'message': '表名不能为空'
+            }, status=400)
+
+        # 安全检查：去除注释后检查是否为SELECT语句
+        # 移除单行注释（-- 开头的行）
+        sql_no_comments = re.sub(r'--[^\n]*', '', sql)
+        # 移除多行注释（/* ... */）
+        sql_no_comments = re.sub(r'/\*.*?\*/', '', sql_no_comments, flags=re.DOTALL)
+        # 去除空白字符
+        sql_no_comments = sql_no_comments.strip()
+        
+        sql_upper = sql_no_comments.upper()
+        if not sql_upper.startswith('SELECT'):
+            return JsonResponse({
+                'success': False,
+                'message': '只允许保存SELECT查询语句'
+            }, status=400)
+
+        # 禁止危险操作（在原始SQL中检查）
+        dangerous_keywords = ['DROP', 'ALTER', 'CREATE', 'TRUNCATE', 'DELETE', 'UPDATE', 'INSERT']
+        sql_upper_original = sql.upper()
+        for keyword in dangerous_keywords:
+            # 使用正则表达式匹配完整的单词，避免误判（如SELECT中的ECT不会被DELETE匹配）
+            if re.search(r'\b' + keyword + r'\b', sql_upper_original):
+                return JsonResponse({
+                    'success': False,
+                    'message': f'SQL语句中包含不允许的关键字: {keyword}'
+                }, status=400)
+
+        # 确保配置表存在
+        ensure_query_sql_table()
+        
+        # 保存到数据库（使用INSERT OR REPLACE实现更新）
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT OR REPLACE INTO _query_sql_config (table_name, query_sql, updated_at)
+                VALUES (?, ?, datetime('now', 'localtime'))
+            """, (table_name, sql))
+            conn.commit()
+        finally:
+            conn.close()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'表 {table_name} 的查询SQL已保存'
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'JSON格式错误'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'保存失败: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["GET"])
+def load_query_sql(request):
+    """加载指定表的已保存查询SQL（从数据库读取）"""
+    try:
+        table_name = request.GET.get('table_name', '').strip()
+
+        if not table_name:
+            return JsonResponse({
+                'success': False,
+                'message': '表名不能为空'
+            }, status=400)
+
+        # 确保配置表存在
+        ensure_query_sql_table()
+        
+        # 从数据库读取
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                SELECT query_sql, saved_at
+                FROM _query_sql_config
+                WHERE table_name = ?
+            """, (table_name,))
+            result = cursor.fetchone()
+        finally:
+            conn.close()
+
+        if result:
+            return JsonResponse({
+                'success': True,
+                'data': {
+                    'sql': result['query_sql'],
+                    'saved_at': result['saved_at']
+                }
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'data': None,
+                'message': f'表 {table_name} 没有保存的查询SQL'
+            })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'加载失败: {str(e)}'
         }, status=500)

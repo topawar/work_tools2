@@ -10,6 +10,11 @@ from django.conf import settings
 # 全局任务队列
 import_tasks = {}
 task_lock = threading.Lock()
+# 任务执行队列（FIFO）
+task_queue = []
+queue_lock = threading.Lock()
+# 标记是否有任务正在执行
+is_executing = False
 
 
 class ImportTask:
@@ -48,6 +53,41 @@ class ImportTask:
         }
 
 
+def process_task_queue():
+    """处理任务队列（FIFO）"""
+    global is_executing
+    
+    with queue_lock:
+        # 如果正在执行或队列为空，直接返回
+        if is_executing or not task_queue:
+            return
+        
+        # 取出第一个任务
+        task_id = task_queue.pop(0)
+        is_executing = True
+        print(f"[任务队列] 开始执行任务: {task_id}, 队列剩余: {len(task_queue)}")
+    
+    # 在锁外执行任务
+    with task_lock:
+        task = import_tasks.get(task_id)
+    
+    if task:
+        try:
+            execute_import_task(task)
+            print(f"[任务队列] 任务完成: {task_id}, 状态: {task.status}")
+        except Exception as e:
+            print(f"[任务队列] 任务执行异常: {task_id}, 错误: {str(e)}")
+    else:
+        print(f"[任务队列] 任务不存在: {task_id}")
+    
+    # 任务完成后，标记为可执行下一个
+    with queue_lock:
+        is_executing = False
+    
+    # 检查是否还有待执行的任务
+    process_task_queue()
+
+
 def execute_import_task(task):
     """执行导入任务（在后台线程中运行）"""
     try:
@@ -77,9 +117,19 @@ def execute_import_task(task):
         # 获取表的字段信息
         cursor.execute(f"PRAGMA table_info({task.table_name})")
         table_fields = {row[1]: row for row in cursor.fetchall()}
+        
+        # 创建小写字段名映射（用于大小写不敏感匹配）
+        table_fields_lower = {name.lower(): name for name in table_fields.keys()}
 
-        # 过滤掉表中不存在的字段
-        valid_headers = [h for h in headers if h in table_fields]
+        # 过滤掉表中不存在的字段（大小写不敏感）
+        valid_headers = []
+        header_mapping = {}  # CSV表头 -> 表字段名的映射
+        for h in headers:
+            h_lower = h.lower()
+            if h_lower in table_fields_lower:
+                actual_field_name = table_fields_lower[h_lower]
+                valid_headers.append(actual_field_name)
+                header_mapping[h] = actual_field_name
 
         if not valid_headers:
             task.status = 'failed'
@@ -90,7 +140,7 @@ def execute_import_task(task):
             return
 
         # 如果有部分字段不匹配，记录警告信息
-        invalid_headers = [h for h in headers if h not in table_fields]
+        invalid_headers = [h for h in headers if h.lower() not in table_fields_lower]
         if invalid_headers:
             task.errors.append(f"以下字段在表中不存在，将被忽略: {', '.join(invalid_headers)}")
 
@@ -121,12 +171,14 @@ def execute_import_task(task):
                     # 提取有效字段的数据
                     values = []
                     for j, header in enumerate(headers):
-                        if header in valid_headers:
+                        # 使用映射后的实际字段名
+                        if header in header_mapping:
+                            actual_field_name = header_mapping[header]
                             value = row[j].strip() if j < len(row) else ''
                             
                             # 数据类型转换
-                            if header in table_fields:
-                                field_type = table_fields[header][2]
+                            if actual_field_name in table_fields:
+                                field_type = table_fields[actual_field_name][2]
                                 if field_type == 'INTEGER' and value:
                                     try:
                                         value = int(value)
@@ -172,7 +224,7 @@ def execute_import_task(task):
 
 
 def create_import_task(table_name, file_content, truncate_before=False):
-    """创建导入任务并启动后台执行"""
+    """创建导入任务并加入队列"""
     import uuid
     
     task_id = str(uuid.uuid4())[:8]
@@ -181,8 +233,12 @@ def create_import_task(table_name, file_content, truncate_before=False):
     with task_lock:
         import_tasks[task_id] = task
     
-    # 启动后台线程执行任务
-    thread = threading.Thread(target=execute_import_task, args=(task,))
+    # 将任务ID加入队列
+    with queue_lock:
+        task_queue.append(task_id)
+    
+    # 启动队列处理器（如果还没有在运行）
+    thread = threading.Thread(target=process_task_queue)
     thread.daemon = True
     thread.start()
     

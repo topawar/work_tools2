@@ -1321,7 +1321,7 @@
                     </select>
                 </div>
 
-                <div class="col-md-3 new-valid-rule-container" style="display: ${fieldType === 'supplement' ? 'none' : 'block'};">
+                <div class="col-md-3 new-valid-rule-container" style="display: ${fieldType === 'supplement' || fieldType === 'calculated' ? 'none' : 'block'};">
                     <label class="form-label">新值验证规则</label>
                     <select class="form-select update-new-valid-rule">
                         <option value="required" ${data?.newValidRule === 'required' ? 'selected' : ''}>必填</option>
@@ -1330,7 +1330,7 @@
                         <option value="defaultField" ${data?.newValidRule === 'defaultField' ? 'selected' : ''}>默认字段</option>
                     </select>
                 </div>
-                <div class="col-md-2 origin-valid-rule-container" style="display: ${(fieldType === 'supplement' || fieldType === 'radio') ? 'none' : 'block'};">
+                <div class="col-md-2 origin-valid-rule-container" style="display: ${(fieldType === 'supplement' || fieldType === 'radio' || fieldType === 'calculated') ? 'none' : 'block'};">
                     <label class="form-label">原值验证规则</label>
                     <select class="form-select update-origin-valid-rule">
                         <option value="required" ${data?.originValidRule === 'required' ? 'selected' : ''}>必填</option>
@@ -1360,21 +1360,25 @@
                 </div>
 
 
-                <div class="col-md-3 new-default-value-container" style="display: ${(fieldType === 'select' || fieldType === 'radio') ? 'block' : 'none'};">
+                <div class="col-md-3 new-default-value-container" style="display: ${(fieldType === 'supplement' || fieldType === 'calculated') ? 'none' : 'block'};">
                     <label class="form-label">新值默认值</label>
                     <div class="new-default-value-wrapper">
-                        ${generateComponentOptionsSelect(componentName, newDefaultValue, 'update-new-default-value')}
+                        ${(fieldType === 'select' || fieldType === 'radio') ? generateComponentOptionsSelect(componentName, newDefaultValue, 'update-new-default-value') : `<input type="text" class="form-control update-new-default-value" value="${newDefaultValue}" placeholder="请输入新值默认值">`}
                     </div>
                 </div>
 
-                 <div class="col-md-3 origin-default-value-container" style="display: ${(fieldType === 'select' || fieldType === 'radio') ? 'block' : 'none'};">
+                 <div class="col-md-3 origin-default-value-container" style="display: ${(fieldType === 'supplement' || fieldType === 'calculated' || fieldType === 'radio') ? 'none' : 'block'};">
                     <label class="form-label">原值默认值</label>
                     ${fieldType === 'radio' ? `
                         <input type="text" class="form-control update-origin-default-value" value="${data?.originDefaultValue || ''}" readonly disabled placeholder="将根据新值自动取反" style="background-color: #e9ecef; cursor: not-allowed;">
                         <small class="text-muted">原值将自动与新值相反（不可编辑）</small>
-                    ` : `
+                    ` : (fieldType === 'select' || fieldType === 'radio') ? `
                         <div class="origin-default-value-wrapper">
                             ${generateComponentOptionsSelect(componentName, data?.originDefaultValue, 'update-origin-default-value')}
+                        </div>
+                    ` : `
+                        <div class="origin-default-value-wrapper">
+                            <input type="text" class="form-control update-origin-default-value" value="${data?.originDefaultValue || ''}" placeholder="请输入原值默认值">
                         </div>
                     `}
                 </div>
@@ -1539,11 +1543,18 @@
 
             if (fieldType === 'supplement') {
                 supplementDiv.style.display = 'block';
+                // 补充框：隐藏验证规则和默认值
                 if (newValidRuleContainer) {
                     newValidRuleContainer.style.display = 'none';
                 }
                 if (originValidRuleContainer) {
                     originValidRuleContainer.style.display = 'none';
+                }
+                if (newDefaultValueDiv) {
+                    newDefaultValueDiv.style.display = 'none';
+                }
+                if (originDefaultValueDiv) {
+                    originDefaultValueDiv.style.display = 'none';
                 }
             } else if (fieldType === 'calculated') {
                 calculatedDiv.style.display = 'block';
@@ -1621,8 +1632,25 @@
                 }
             } else {
                 componentSelectorDiv.style.display = 'none';
-                originDefaultValueDiv.style.display = 'none';
-                newDefaultValueDiv.style.display = 'none';
+                // 文本、数值、日期等类型需要显示默认值输入框（补充框和计算字段除外）
+                if (fieldType !== 'supplement' && fieldType !== 'calculated') {
+                    originDefaultValueDiv.style.display = 'block';
+                    newDefaultValueDiv.style.display = 'block';
+                    
+                    // 恢复为普通文本输入框
+                    const currentOriginValue = card.querySelector('.update-origin-default-value')?.value || '';
+                    const currentNewValue = card.querySelector('.update-new-default-value')?.value || '';
+                    
+                    const originWrapper = card.querySelector('.origin-default-value-wrapper');
+                    if (originWrapper) {
+                        originWrapper.innerHTML = `<input type="text" class="form-control update-origin-default-value" value="${currentOriginValue}" placeholder="请输入原值默认值">`;
+                    }
+                    
+                    const newWrapper = card.querySelector('.new-default-value-wrapper');
+                    if (newWrapper) {
+                        newWrapper.innerHTML = `<input type="text" class="form-control update-new-default-value" value="${currentNewValue}" placeholder="请输入新值默认值">`;
+                    }
+                }
             }
         }
 
@@ -1968,10 +1996,6 @@
                             <small class="text-muted" style="font-size: 10px;">你定义的字段标识</small>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-bold text-primary">宽度（像素）</label>
-                            <input type="number" class="form-control form-control-sm sub-field-width" value="${data?.width || 100}" placeholder="100" min="50" max="500">
-                        </div>
-                        <div class="col-md-12">
                             <label class="form-label small fw-bold text-success">数据库映射字段 <span class="text-danger">*</span></label>
                             <select class="form-select form-select-sm sub-field-db-field" data-saved-value="${data?.dbField || ''}">
                                 <option value="">请先在主字段中选择表</option>
@@ -2062,7 +2086,6 @@
             document.querySelectorAll('#subFieldsContainer .sub-field-card').forEach((card, idx) => {
                 const label = card.querySelector('.sub-field-label').value.trim();
                 const bindingKey = card.querySelector('.sub-field-binding-key').value.trim();
-                const width = parseInt(card.querySelector('.sub-field-width').value) || 100;
                 const dbField = card.querySelector('.sub-field-db-field').value.trim();
 
                 if (!label || !bindingKey || !dbField) {
@@ -2072,7 +2095,6 @@
                 subFields.push({
                     label: label,
                     bindingKey: bindingKey,
-                    width: width,
                     dbField: dbField,
                     sortOrder: idx
                 });
@@ -2300,9 +2322,13 @@
                     sortOrder: i,
                     inputType: inputType,
                     connectedTable: getSelectedTables(div),
-                    newValidRule: div.querySelector('.update-new-valid-rule').value,
-                    originValidRule: div.querySelector('.update-origin-valid-rule').value,
                 };
+                
+                // 计算字段不需要验证规则
+                if (fieldType !== 'calculated') {
+                    item.newValidRule = div.querySelector('.update-new-valid-rule').value;
+                    item.originValidRule = div.querySelector('.update-origin-valid-rule').value;
+                }
 
                 // 校验所有更新字段必须至少关联一个表
                 if (!item.connectedTable || item.connectedTable.length === 0) {
@@ -2326,7 +2352,8 @@
 
                     const newDefaultElement = div.querySelector('.update-new-default-value');
                     item.newDefaultValue = newDefaultElement ? newDefaultElement.value : '';
-                } else {
+                } else if (fieldType !== 'supplement' && fieldType !== 'calculated') {
+                    // 普通字段（文本、数值、日期）才收集默认值
                     item.originDefaultValue = div.querySelector('.update-origin-default-value')?.value || '';
                     item.newDefaultValue = div.querySelector('.update-new-default-value')?.value || '';
                 }
@@ -2442,6 +2469,21 @@
                     // 延迟重新加载表单列表，让模态框先关闭
                     setTimeout(() => {
                         loadFormList();  // 重新加载表单列表（带分页和搜索）
+                        
+                        // 刷新侧边栏菜单
+                        if (window.loadSidebarMenu) {
+                            window.loadSidebarMenu();
+                        }
+                        
+                        // 如果有动态表单页面打开，尝试刷新它
+                        if (currentEditingFormId) {
+                            const dynamicIframe = document.querySelector(`iframe[src*="/dynamic/${currentEditingFormId}"]`);
+                            if (dynamicIframe) {
+                                dynamicIframe.contentWindow.location.reload();
+                                console.log(`已刷新动态表单页面: /dynamic/${currentEditingFormId}`);
+                            }
+                        }
+                        
                         // 重置编辑状态
                         currentEditingFormId = null;
                         document.getElementById('editorTitle').textContent = '新增表单配置';

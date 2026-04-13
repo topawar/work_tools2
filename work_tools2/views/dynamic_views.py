@@ -24,7 +24,7 @@ def format_sql(sql):
             sql,
             reindent=True,           # 重新缩进
             keyword_case='upper',    # 关键字大写
-            identifier_case='lower', # 标识符小写
+            identifier_case='upper', # 标识符小写
             strip_comments=True      # 去除注释
         )
         return formatted
@@ -965,6 +965,8 @@ def dynamic_submit(request):
 
             # 使用路径配置获取保存路径
             save_dir = get_save_path_from_config()
+            print(f"[DEBUG] SQL文件保存路径: {save_dir}")
+            print(f"[DEBUG] 文件名: {dynamic_no}_{file_prefix}.sql")
 
             os.makedirs(save_dir, exist_ok=True)
 
@@ -1757,10 +1759,9 @@ def batch_import(request):
                 elif isinstance(dynamic_no_data, str):
                     dynamic_no = dynamic_no_data
 
-            now = datetime.now()
-            year_month = now.strftime('%Y%m')
-            day = now.strftime('%d')
-            save_dir = f"D:\\临时文件\\{year_month}\\{day}"
+            # 使用路径配置获取保存路径
+            save_dir = get_save_path_from_config()
+            print(f"[DEBUG BATCH] 批量导入SQL文件保存路径: {save_dir}")
 
             os.makedirs(save_dir, exist_ok=True)
 
@@ -1803,6 +1804,7 @@ def batch_import(request):
 
             excel_file_path = None
             if fail_count > 0:
+                now = datetime.now()
                 excel_filename = f"{dynamic_no}_导入结果_{now.strftime('%Y%m%d_%H%M%S')}.xlsx"
                 excel_filepath = os.path.join(save_dir, excel_filename)
 

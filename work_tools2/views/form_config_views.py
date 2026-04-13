@@ -80,7 +80,7 @@ def create_or_get_menu(request):
                     pinyin='',
                     sort_order=Menu.objects.filter(parent_id__isnull=True).count(),
                     is_visible=True,
-                    group_name='',
+                    group_name=menu_name,  # 一级菜单的group_name设置为自己的名称
                 )
 
                 return JsonResponse({
@@ -208,6 +208,7 @@ def save_form_config(request):
 
             FormQueryItem.objects.filter(form_config=config).delete()
             for item_data in query_items:
+                print(f"[DEBUG SAVE] 保存查询字段: label={item_data.get('label')}, bindingKey={item_data.get('bindingKey')}, defaultValue='{item_data.get('defaultValue', '')}'")
                 FormQueryItem.objects.create(
                     form_config=config,
                     label=item_data.get('label'),
@@ -332,8 +333,12 @@ def get_form_config_detail(request, form_id):
                     parent_menu_name = parent_menu.name
 
             query_items = []
-            for item in config.query_items.all():
-                query_items.append({
+            all_query_items = list(config.query_items.all())
+
+
+            for idx, item in enumerate(all_query_items):
+
+                query_item_data = {
                     'label': item.label,
                     'type': item.field_type,
                     'defaultValue': item.default_value,
@@ -341,7 +346,10 @@ def get_form_config_detail(request, form_id):
                     'sortOrder': item.sort_order,
                     'connectedTable': item.connected_table,
                     'ValidRule': item.valid_rule,
-                })
+                }
+                query_items.append(query_item_data)
+            
+            print(f"[DEBUG] 总共返回 {len(query_items)} 个查询字段")
 
             update_items = []
             for item in config.update_items.all():
@@ -487,7 +495,8 @@ def get_database_tables(request):
                 'work_tools2_menu',
                 '_table_metadata',
                 'work_tools2_databaseipconfig',
-                'work_tools2_filepathconfig'
+                'work_tools2_filepathconfig',
+                '_query_sql_config'
             }
 
             # 对于 SQLite，使用 sqlite_master 表查询

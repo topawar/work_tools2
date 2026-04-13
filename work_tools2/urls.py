@@ -52,6 +52,9 @@ urlpatterns = [
     # 在 urls.py 中添加
     path('api/db/task-status/', views.get_import_task_status, name='get_import_task_status'),
     path('api/db/tasks-list/', views.get_import_tasks_list, name='get_import_tasks_list'),
+    # 查询SQL保存/加载
+    path('api/db/save-query-sql/', views.save_query_sql, name='save_query_sql'),
+    path('api/db/load-query-sql/', views.load_query_sql, name='load_query_sql'),
     # 数据库IP配置API
     path("api/database-ip-configs/", views.get_database_ip_configs, name="get_database_ip_configs"),
     path("api/database-ip-config/save/", views.save_database_ip_config, name="save_database_ip_config"),

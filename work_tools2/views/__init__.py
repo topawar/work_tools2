@@ -43,7 +43,9 @@ from .database_config import (
     get_database_statistics,
     execute_sql_query,
     get_import_task_status,
-    get_import_tasks_list
+    get_import_tasks_list,
+    save_query_sql,
+    load_query_sql
 )
 from .database_ip_config import (
     get_database_ip_configs,
@@ -76,6 +78,7 @@ __all__ = [
     'get_table_list', 'create_table', 'get_table_structure', 'update_table_structure',
     'delete_table', 'truncate_table', 'import_csv_data', 'get_database_statistics', 'execute_sql_query',
     'get_import_task_status','get_import_tasks_list',
+    'save_query_sql', 'load_query_sql',
     'download_merge_template', 'batch_import_merge',
     'get_database_ip_configs', 'save_database_ip_config', 'delete_database_ip_config', 'get_database_ip_config_detail',
     # 4. 正确暴露页面函数和模块别名

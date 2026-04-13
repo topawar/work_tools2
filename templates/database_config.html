@@ -296,11 +296,6 @@
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">查询名称（用于保存）</label>
-                                <input type="text" class="form-control" id="sqlQueryName" placeholder="例如: 从ERP同步订单数据">
-                            </div>
-
-                            <div class="mb-3">
                                 <label class="form-label">查询SQL语句</label>
                                 <textarea class="form-control font-monospace" id="querySqlText" rows="8"
                                           placeholder="输入查询SQL语句...&#10;例如: SELECT id, name, email FROM users WHERE status = 'active'"></textarea>
@@ -310,9 +305,6 @@
                                     </button>
                                     <button type="button" class="btn btn-sm btn-outline-success" onclick="saveQuerySql()">
                                         <i class="bi bi-save"></i> 保存查询
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="loadSavedQuerySql()">
-                                        <i class="bi bi-folder-open"></i> 加载已保存
                                     </button>
                                 </div>
                             </div>
@@ -327,24 +319,7 @@
                                 5. 切换到"CSV文件导入"标签页导入
                             </div>
 
-                            <!-- 已保存的查询列表 -->
-                            <div id="savedQueriesSection" style="display: none;">
-                                <hr>
-                                <h6>已保存的查询</h6>
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-hover">
-                                        <thead>
-                                        <tr>
-                                            <th style="width: 50px;">#</th>
-                                            <th>查询名称</th>
-                                            <th style="width: 150px;">操作</th>
-                                        </tr>
-                                        </thead>
-                                        <tbody id="savedQueriesList">
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+
                         </div>
 
                         <!-- CSV文件导入Tab -->
@@ -631,6 +606,44 @@
             // 监听清空确认复选框
             document.getElementById('confirmTruncate').addEventListener('change', function() {
                 document.getElementById('confirmTruncateBtn').disabled = !this.checked;
+            });
+            
+            // 监听导入CSV模态框关闭事件，清除轮询定时器
+            document.getElementById('importCsvModal').addEventListener('hidden.bs.modal', function () {
+                console.log('导入CSV模态框已关闭，清理资源...');
+                
+                // 清除轮询定时器
+                if (window.currentPollInterval) {
+                    clearInterval(window.currentPollInterval);
+                    window.currentPollInterval = null;
+                    console.log('已清除轮询定时器');
+                }
+                
+                // 重置按钮状态
+                const startImportBtn = document.getElementById('startImportBtn');
+                if (startImportBtn) {
+                    startImportBtn.disabled = false;
+                }
+                
+                // 隐藏进度条
+                const importProgress = document.getElementById('importProgress');
+                if (importProgress) {
+                    importProgress.style.display = 'none';
+                }
+                
+                // 重置文件输入
+                const csvFileInput = document.getElementById('csvFileInput');
+                if (csvFileInput) {
+                    csvFileInput.value = '';
+                }
+                
+                // 隐藏预览
+                const csvPreview = document.getElementById('csvPreview');
+                if (csvPreview) {
+                    csvPreview.style.display = 'none';
+                }
+                
+                console.log('资源清理完成');
             });
         });
 
@@ -1070,7 +1083,7 @@
                             <input type="text" class="form-control form-control-sm field-name"
                                    value="${fieldData?.name || ''}"
                                    placeholder="例如: username">
-                            <small class="text-muted">类型默认为 TEXT</small>
+
                         </div>
                         <div class="col-md-2">
                             <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removeFieldRow(this)">
@@ -1127,7 +1140,9 @@
             container.appendChild(div);
         }
 
-            function saveTableStructure() {
+        // ==================== 保存表结构（带依赖检查） ====================
+
+        function saveTableStructure() {
             if (!currentEditingTable) return;
 
             const fields = [];
@@ -1160,11 +1175,15 @@
                 }
             });
 
-             if (fields.length === 0) {
+            if (fields.length === 0) {
                 showToast('至少需要一个字段', 'warning');
                 return;
             }
 
+            // 直接执行表结构更新
+            executeTableUpdate(fields);
+        }
+        function executeTableUpdate(fields) {
             fetch('/api/db/update-table/', {
                 method: 'POST',
                 headers: {
@@ -1204,12 +1223,9 @@
             const firstTab = new bootstrap.Tab(document.querySelector('#querySqlTab'));
             firstTab.show();
 
-            // 如果有保存的SQL，自动填充
-            if (savedQuerySql) {
-                document.getElementById('querySqlText').value = savedQuerySql.sql;
-            } else {
-                document.getElementById('querySqlText').value = '';
-            }
+            // 清空SQL编辑器，然后尝试加载已保存的SQL
+            document.getElementById('querySqlText').value = '';
+            loadSavedQuerySql();
 
             const modal = new bootstrap.Modal(document.getElementById('importCsvModal'));
             modal.show();
@@ -1238,18 +1254,61 @@
 
         function saveQuerySql() {
             const querySql = document.getElementById('querySqlText').value.trim();
+            const tableName = document.getElementById('importTableName').value;
 
             if (!querySql) {
-                alert('请输入SQL语句');
+                showToast('请输入SQL语句', 'warning');
                 return;
             }
 
-            savedQuerySql = {
-                sql: querySql,
-                savedAt: new Date().toLocaleString('zh-CN')
-            };
+            if (!tableName) {
+                showToast('表名不能为空', 'warning');
+                return;
+            }
 
-            alert('查询语句已保存！下次打开时会自动加载。');
+            fetch('/api/db/save-query-sql/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    sql: querySql,
+                    table_name: tableName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success', '', 1500);
+                } else {
+                    showToast('保存失败：' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('保存失败', 'error');
+            });
+        }
+
+
+        function loadSavedQuerySql() {
+            const tableName = document.getElementById('importTableName').value;
+            
+            if (!tableName) {
+                return;
+            }
+
+            fetch(`/api/db/load-query-sql/?table_name=${encodeURIComponent(tableName)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.sql) {
+                        document.getElementById('querySqlText').value = data.data.sql;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading saved SQL:', error);
+                });
         }
 
         function previewCsvData() {
@@ -1362,7 +1421,7 @@
 
                             // 检查任务是否完成
                             if (task.status === 'completed' || task.status === 'failed') {
-                                                              clearInterval(pollInterval);
+                                clearInterval(pollInterval);
                                 document.getElementById('startImportBtn').disabled = false;
 
                                 if (task.status === 'completed') {
@@ -1391,6 +1450,9 @@
                         document.getElementById('importProgress').style.display = 'none';
                     });
             }, 1000); // 每秒轮询一次
+            
+            // 将pollInterval存储到全局，以便模态框关闭时清除
+            window.currentPollInterval = pollInterval;
         }
 
 
@@ -1618,7 +1680,7 @@
                     table_name: currentDeletingTable
                 })
             })
-               .then(response => response.json())
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     showToast(data.message, 'success');
@@ -1659,8 +1721,7 @@
                     table_name: currentTruncatingTable
                 })
             })
-
-             .then(response => response.json())
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     showToast(data.message, 'success');

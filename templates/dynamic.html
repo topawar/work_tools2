@@ -384,18 +384,21 @@
             // 4. 获取单选框的值
             gRadioItems.forEach(function (item) {
                 const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
+                const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
 
-                // 获取选中的单选框值
+                // 获取选中的单选框值（新值）
                 const checkedRadio = $('input[name="' + newId + '"]:checked');
                 const newVal = checkedRadio.length > 0 ? checkedRadio.val() : '';
-                const originVal = !newVal;
+                
+                // 原值从只读输入框中获取（已经由 handleRadioChange 自动更新）
+                const originVal = $('#' + originId).val() || '';
 
                 result[item.bindingKey] = {
                     label: item.label,
                     newValue: newVal,
                     originValue: originVal,
                     inputType: 'radio',
-                    ValidRule: item.newValidRule
+                    newValidRule: item.newValidRule
                 };
             });
 
@@ -718,7 +721,7 @@
             colsConfig.push({
                 field: mainField,
                 title: currentSupplementItem.label,
-                minWidth: 150,
+                width: 'auto',  // 自适应宽度
                 sort: true
             });
 
@@ -727,7 +730,7 @@
                 colsConfig.push({
                     field: subField.dbField || subField.bindingKey,
                     title: subField.label,
-                    minWidth: subField.width || 120,
+                    width: 'auto',  // 自适应宽度
                     sort: true
                 });
             });
@@ -1427,6 +1430,34 @@
             inputElement.style.backgroundColor = '';
         }
 
+        /**
+         * 处理单选框变化，自动更新原值（取反）
+         * @param {string} bindingKey - 字段绑定键
+         * @param {HTMLElement} radioElement - 被点击的单选框元素
+         */
+        function handleRadioChange(bindingKey, radioElement) {
+            const newValue = radioElement.value;
+            
+            // 找到对应的配置项
+            const configItem = dynamicTableConfig.updateItems.find(item => item.bindingKey === bindingKey);
+            if (!configItem || !configItem.options || configItem.options.length !== 2) {
+                return;
+            }
+            
+            // 找到相反的选项
+            const oppositeOption = configItem.options.find(opt => opt.value !== newValue);
+            if (!oppositeOption) {
+                return;
+            }
+            
+            // 更新原值输入框
+            const originId = `origin${bindingKey.charAt(0).toUpperCase() + bindingKey.slice(1)}`;
+            const originInput = document.getElementById(originId);
+            if (originInput) {
+                originInput.value = oppositeOption.value;
+            }
+        }
+
 
         /**
          * 提交表单
@@ -1988,37 +2019,31 @@
 
                 options.forEach((opt, index) => {
                     html += `
-                        <div class="form-check form-check-inline">
+                        <div class="form-check form-check-inline" style="margin-top: 7px;margin-left: 5px;">
                             <input class="form-check-input" type="radio"
                                    name="${newId}"
                                    id="${newId}_${index}"
                                    value="${opt.value}"
                                    ${opt.value === item.newDefaultValue ? 'checked' : ''}
                                    data-binding-key="${item.bindingKey}"
-                                   data-field-type="radio">
+                                   data-field-type="radio"
+                                   onchange="handleRadioChange('${item.bindingKey}', this)">
                             <label class="form-check-label" for="${newId}_${index}">${opt.label}</label>
                         </div>
                     `;
                 });
 
-                html += '<div style="width: 15px"></div>';
-
-                html += `<span class="input-group-text">原${item.label}</span>`;
-
-                options.forEach((opt, index) => {
-                    html += `
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio"
-                                   name="${originId}"
-                                   id="${originId}_${index}"
-                                   value="${opt.value}"
-                                   ${opt.value === item.originDefaultValue ? 'checked' : ''}
-                                   data-binding-key="${item.bindingKey}"
-                                   data-field-type="radio">
-                            <label class="form-check-label" for="${originId}_${index}">${opt.label}</label>
-                        </div>
-                    `;
-                });
+                // 原值不显示，完全隐藏，但保留在DOM中用于数据提交
+                const oppositeOption = options.find(opt => opt.value !== item.newDefaultValue);
+                const originValue = oppositeOption ? oppositeOption.value : '';
+                
+                html += `
+                    <input type="hidden"
+                           id="${originId}"
+                           value="${originValue}"
+                           data-binding-key="${item.bindingKey}"
+                           data-field-type="radio-origin">
+                `;
 
                 html += '</div></div>';
 
@@ -2083,14 +2108,14 @@
                            data-field-type="supplement-main"
                            placeholder="请输入${item.label}主值"
                             onchange="supplementContainerChange('${item.bindingKey}', this)"
-                           style="max-width: 200px;">
+                          >
                 `;
 
                 item.subFields.forEach((subField, index) => {
                     const subNewId = `newSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
                     newHtml += `
                         <div style="width: 15px"></div>
-                        <span class="input-group-text" style="max-width: ${subField.width || 80}px;">新${subField.label}</span>
+                        <span class="input-group-text" >新${subField.label}</span>
                         <input type="text"
                                id="${subNewId}"
                                class="form-control"
@@ -2100,7 +2125,7 @@
                                data-parent-binding-key="${item.bindingKey}"
                                data-field-type="supplement-sub"
                                placeholder="请输入${subField.label}"
-                               style="min-width: ${subField.width || 120};">
+                              >
                     `;
                 });
 
@@ -2118,14 +2143,14 @@
                            data-field-type="supplement-main"
                            placeholder="原${item.label}主值"
                            onchange="supplementContainerChange('${item.bindingKey}', this)"
-                           style="max-width: 200px;">
+                           >
                 `;
 
                 item.subFields.forEach((subField, index) => {
                     const subOriginId = `originSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
                     originHtml += `
                         <div style="width: 15px"></div>
-                        <span class="input-group-text" style="max-width: ${subField.width || 80}px;">原${subField.label}</span>
+                        <span class="input-group-text" >原${subField.label}</span>
                         <input type="text"
                                id="${subOriginId}"
                                class="form-control"
@@ -2135,7 +2160,7 @@
                                data-parent-binding-key="${item.bindingKey}"
                                data-field-type="supplement-sub"
                                placeholder="原${subField.label}"
-                               style="min-width: ${subField.width || 120};">
+                               >
                     `;
                 });
 
@@ -2162,6 +2187,15 @@
             ));
 
             gQueryItems = sortInputItems(dynamicTableConfig.queryItems || []);
+
+            // 调试：检查查询字段是否正确加载
+            console.log('[DEBUG] 查询字段数量:', gQueryItems.length);
+            console.log('[DEBUG] 查询字段详情:', gQueryItems.map(item => ({
+                label: item.label,
+                bindingKey: item.bindingKey,
+                defaultValue: item.defaultValue,
+                hasDefaultValue: !!item.defaultValue
+            })));
 
             const selectContainer = document.getElementById('selectContainer');
             if (gSelectItems.length > 0) {
