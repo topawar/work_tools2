@@ -19,6 +19,7 @@ def format_sql(sql):
     """格式化 SQL 语句 - 优化可读性"""
     try:
         import sqlparse
+        import re
         
         # 先使用 sqlparse 进行基本格式化，但不重新缩进
         formatted = sqlparse.format(
@@ -29,63 +30,102 @@ def format_sql(sql):
             strip_comments=True
         )
         
+        # 处理 IN 子句：如果值很多，进行换行格式化
+        def format_in_clause(match):
+            """格式化 IN 子句，当值超过3个时换行显示"""
+            field_name = match.group(1)
+            values_str = match.group(2)
+            
+            # 提取所有值
+            values = [v.strip() for v in values_str.split(',')]
+            
+            if len(values) <= 3:
+                # 值不多，保持在一行
+                return f"{field_name} IN ({values_str})"
+            else:
+                # 值很多，换行显示
+                indent = " " * 4  # 基础缩进
+                values_indent = " " * 6  # 值的缩进
+                
+                # 每行显示3个值
+                formatted_values = []
+                for i in range(0, len(values), 3):
+                    chunk = values[i:i+3]
+                    formatted_values.append(f"{values_indent}{', '.join(chunk)}")
+                
+                result = f"{field_name} IN (\n"
+                result += ",\n".join(formatted_values)
+                result += f"\n{indent})"
+                return result
+        
+        # 匹配 IN 子句：FIELD IN (value1, value2, ...)
+        in_pattern = r"([A-Z_][A-Z0-9_]*)\s+IN\s*\(([^)]+)\)"
+        formatted = re.sub(in_pattern, format_in_clause, formatted, flags=re.IGNORECASE)
+        
         # 手动格式化：按关键字分割并重新组织
         lines = []
         
-        # 将SQL按关键字分割
-        parts = formatted.split()
-        i = 0
-        current_line = ""
+        # 将SQL按关键字分割（注意：IN 子句可能已经包含换行）
+        # 先按行分割，再处理每行
+        raw_lines = formatted.split('\n')
         
-        while i < len(parts):
-            word = parts[i]
-            word_upper = word.upper()
-            
-            # UPDATE 关键字：新起一行
-            if word_upper == 'UPDATE':
-                if current_line:
-                    lines.append(current_line)
-                current_line = word
-                i += 1
+        for line in raw_lines:
+            stripped = line.strip()
+            if not stripped:
                 continue
             
-            # SET 关键字：新起一行，缩进
-            if word_upper == 'SET':
-                if current_line:
-                    lines.append(current_line)
-                current_line = f"  {word}"
-                i += 1
+            # 如果这一行已经是 IN 子句的一部分（以 ) 结尾且前面有 IN），直接保留
+            if stripped.startswith(')') or (stripped.endswith(',') and '(' in line):
+                lines.append(line)
                 continue
             
-            # WHERE 关键字：新起一行
-            if word_upper == 'WHERE':
-                if current_line:
-                    lines.append(current_line)
-                current_line = f"  {word}"
-                i += 1
-                continue
+            # 处理普通行
+            parts = stripped.split()
+            i = 0
+            current_line = ""
             
-            # OR 关键字：新起一行，增加缩进
-            if word_upper == 'OR':
-                if current_line:
-                    lines.append(current_line)
-                current_line = f"    {word}"
-                i += 1
-                continue
-            
-            # 逗号（SET子句中的字段分隔）：保持在同一行
-            if word == ',':
+            while i < len(parts):
+                word = parts[i]
+                word_upper = word.upper()
+                
+                # UPDATE 关键字：新起一行
+                if word_upper == 'UPDATE':
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = word
+                    i += 1
+                    continue
+                
+                # SET 关键字：新起一行，缩进
+                if word_upper == 'SET':
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = f"  {word}"
+                    i += 1
+                    continue
+                
+                # WHERE 关键字：新起一行
+                if word_upper == 'WHERE':
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = f"  {word}"
+                    i += 1
+                    continue
+                
+                # OR 关键字：新起一行，增加缩进
+                if word_upper == 'OR':
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = f"    {word}"
+                    i += 1
+                    continue
+                
+                # 其他内容：添加到当前行
                 current_line += f" {word}"
                 i += 1
-                continue
             
-            # 其他内容：添加到当前行
-            current_line += f" {word}"
-            i += 1
-        
-        # 添加最后一行
-        if current_line:
-            lines.append(current_line)
+            if current_line:
+                lines.append(current_line)
         
         return '\n'.join(lines)
         
@@ -395,11 +435,8 @@ def generate_update_sql(config, form_values):
 def merge_where_clauses(where_clauses):
     """
     智能合并WHERE子句
-    - 将多个 WHERE 条件组合为 (cond1 AND cond2) OR (cond3 AND cond4)
-    - 例如: 
-      WHERE (SECTION_NO='aa' AND SUPPLIER_ID='222')
-         OR (SECTION_NO='bb' AND SUPPLIER_ID='2222')
-         OR (SECTION_NO='cc' AND SUPPLIER_ID='22222')
+    - 单字段条件：使用 IN (value1, value2, value3)
+    - 多字段组合条件：使用 (cond1 AND cond2) OR (cond3 AND cond4)
     """
     if not where_clauses:
         return ''
@@ -407,8 +444,41 @@ def merge_where_clauses(where_clauses):
     if len(where_clauses) == 1:
         return where_clauses[0]
 
-    # 直接将所有 WHERE 条件用 OR 连接
-    # 每个条件本身已经包含了所有字段的 AND 组合
+    # 检查是否所有条件都是单字段
+    all_single_field = True
+    field_values_map = {}  # {field: [values]}
+    
+    for where_clause in where_clauses:
+        # 如果包含 AND，说明是多字段组合
+        if ' AND ' in where_clause:
+            all_single_field = False
+            break
+        
+        # 解析单字段条件：field = 'value'
+        if '=' in where_clause:
+            parts = where_clause.split('=')
+            if len(parts) == 2:
+                field = parts[0].strip()
+                value = parts[1].strip()
+                
+                if field not in field_values_map:
+                    field_values_map[field] = []
+                field_values_map[field].append(value)
+    
+    # 如果所有条件都是单字段，且只有一个字段，使用 IN
+    if all_single_field and len(field_values_map) == 1:
+        field = list(field_values_map.keys())[0]
+        values = field_values_map[field]
+        
+        if len(values) == 1:
+            # 只有一个值，直接用 =
+            return f"{field} = {values[0]}"
+        else:
+            # 多个值，使用 IN
+            values_str = ', '.join(values)
+            return f"{field} IN ({values_str})"
+    
+    # 多字段组合条件：使用 (cond1 AND cond2) OR (cond3 AND cond4)
     merged_conditions = []
     for where_clause in where_clauses:
         # 如果条件中包含多个 AND，加上括号
@@ -1068,6 +1138,9 @@ def dynamic_submit(request):
                 for i, sql_item in enumerate(sql_result['forward_sqls'], 1):
                     # sql_item可能是字典{'raw': ..., 'formatted': ...}或字符串
                     sql = sql_item['formatted'] if isinstance(sql_item, dict) else sql_item
+                    # 确保SQL末尾有分号
+                    if not sql.rstrip().endswith(';'):
+                        sql = sql.rstrip() + ';'
                     sql_content.append(sql)
                     sql_content.append("")
 
@@ -1076,6 +1149,9 @@ def dynamic_submit(request):
                 for i, sql_item in enumerate(sql_result['backward_sqls'], 1):
                     # sql_item可能是字典{'raw': ..., 'formatted': ...}或字符串
                     sql = sql_item['formatted'] if isinstance(sql_item, dict) else sql_item
+                    # 确保SQL末尾有分号
+                    if not sql.rstrip().endswith(';'):
+                        sql = sql.rstrip() + ';'
                     sql_content.append(sql)
                     sql_content.append("")
 
@@ -1874,10 +1950,16 @@ def batch_import(request):
 
                 sql_content.append("1.执行语句")
                 for idx, sql in enumerate(merged_result['forward_sqls'], 1):
+                    # 确保SQL末尾有分号
+                    if not sql.rstrip().endswith(';'):
+                        sql = sql.rstrip() + ';'
                     sql_content.append(sql)
                     sql_content.append("")
                 sql_content.append("2.回退语句")
                 for idx, sql in enumerate(merged_result['backward_sqls'], 1):
+                    # 确保SQL末尾有分号
+                    if not sql.rstrip().endswith(';'):
+                        sql = sql.rstrip() + ';'
                     sql_content.append(sql)
                     sql_content.append("")
 
