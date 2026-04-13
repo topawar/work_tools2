@@ -430,31 +430,34 @@
                 const mainNewVal = $('#' + mainNewId).val() || '';
                 const mainOriginVal = $('#' + mainOriginId).val() || '';
 
-                // 存储主输入框的值
-                result[item.bindingKey] = {
-                    label: item.label,
-                    newValue: mainNewVal,
-                    originValue: mainOriginVal,
-                    inputType: 'supplement',
-                    fieldType: 'supplement'
-                };
-
-                // 存储每个子输入框的值（使用独立的 bindingKey）
-                item.subFields.forEach((subField, index) => {
-                    const subNewId = `newSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
-                    const subOriginId = `originSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
-
-                    const subNewVal = $('#' + subNewId).val() || '';
-                    const subOriginVal = $('#' + subOriginId).val() || '';
-
-                    result[subField.bindingKey] = {
-                        newValue: subNewVal,
-                        originValue: subOriginVal,
-                        inputType: 'supplement-sub',
-                        fieldType: 'supplement-sub',
-                        parentKey: item.bindingKey
+                // 只有当原值有值时，才传输该补充框的数据
+                if (mainOriginVal) {
+                    // 存储主输入框的值
+                    result[item.bindingKey] = {
+                        label: item.label,
+                        newValue: mainNewVal,
+                        originValue: mainOriginVal,
+                        inputType: 'supplement',
+                        fieldType: 'supplement'
                     };
-                });
+
+                    // 存储每个子输入框的值（使用独立的 bindingKey）
+                    item.subFields.forEach((subField, index) => {
+                        const subNewId = `newSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
+                        const subOriginId = `originSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
+
+                        const subNewVal = $('#' + subNewId).val() || '';
+                        const subOriginVal = $('#' + subOriginId).val() || '';
+
+                        result[subField.bindingKey] = {
+                            newValue: subNewVal,
+                            originValue: subOriginVal,
+                            inputType: 'supplement-sub',
+                            fieldType: 'supplement-sub',
+                            parentKey: item.bindingKey
+                        };
+                    });
+                }
             });
 
             return result;
@@ -481,6 +484,78 @@
             console.log('查询字段值:', result);
             return result;
         };
+
+
+        /**
+         * 补充框输入处理（带防抖）
+         * @param {string} bindingKey - 绑定键
+         * @param {HTMLElement} element - 输入框元素
+         * @param {string} valueType - 'newValue' 或 'originValue'
+         */
+        const supplementInputTimers = {};
+        
+        window.handleSupplementInput = function (bindingKey, element, valueType) {
+            const value = element.value;
+            const isOriginValue = valueType === 'originValue';
+            
+            console.log('=== 补充框输入 ===');
+            console.log('bindingKey:', bindingKey);
+            console.log('value:', value);
+            console.log('valueType:', valueType);
+            console.log('是否为原值输入框:', isOriginValue);
+            
+            // 如果值为空，立即清空中字段
+            if (!value || value.trim() === '') {
+                console.log('值为空，清空中字段');
+                clearSupplementSubFields(bindingKey, isOriginValue);
+                return;
+            }
+            
+            // 清除之前的定时器
+            const timerKey = `${bindingKey}_${valueType}`;
+            if (supplementInputTimers[timerKey]) {
+                clearTimeout(supplementInputTimers[timerKey]);
+            }
+            
+            // 设置新的定时器，500ms 后触发查询
+            supplementInputTimers[timerKey] = setTimeout(() => {
+                console.log('防抖触发查询');
+                supplementContainerChange(bindingKey, element);
+            }, 500);
+        };
+        
+        /**
+         * 清空补充框的子字段
+         * @param {string} bindingKey - 主字段的 bindingKey
+         * @param {boolean} isOriginValue - 是否为原值
+         */
+        function clearSupplementSubFields(bindingKey, isOriginValue) {
+            const supplementItem = gSupplementItems.find(item => item.bindingKey === bindingKey);
+            if (!supplementItem) {
+                return;
+            }
+            
+            supplementItem.subFields.forEach((subField, index) => {
+                const subId = isOriginValue 
+                    ? `originSub${bindingKey.charAt(0).toUpperCase() + bindingKey.slice(1)}_${index}`
+                    : `newSub${bindingKey.charAt(0).toUpperCase() + bindingKey.slice(1)}_${index}`;
+                
+                const subInput = document.getElementById(subId);
+                if (subInput) {
+                    subInput.value = '';
+                    console.log('已清空中字段:', subId);
+                    
+                    // 清除错误样式
+                    const errorElement = document.getElementById(`error_${subId}`);
+                    if (errorElement) {
+                        errorElement.remove();
+                    }
+                    subInput.style.borderColor = '';
+                    subInput.style.boxShadow = '';
+                    subInput.style.backgroundColor = '';
+                }
+            });
+        }
 
 
         /**
@@ -1596,18 +1671,36 @@
                         }
                     }
 
-                    // 原主输入框校验
-                    if ((item.originValue === '' || item.originValue === null || item.originValue === undefined)) {
-                        const mainOriginId = `originMain${key.charAt(0).toUpperCase() + key.slice(1)}`;
-                        element = document.getElementById(mainOriginId);
-                        errorId = `error_${mainOriginId}`;
-                        errorLabel = `原${item.label}不能为空`;
+                    // 原主输入框校验：多个补充框时，只要求至少有一个有原值
+                    // 这里先收集所有补充框的原值情况，在循环外统一校验
+                }
+            }
 
-                        if (element) {
-                            markAsError(element, errorId, errorLabel);
-                            console.error(errorLabel);
-                            hasError = true;
-                        }
+            // 补充框原值校验：多个补充框时，只要求至少有一个有原值
+            if (gSupplementItems.length > 0) {
+                let hasAnyOriginValue = false;
+                
+                // 检查是否有至少一个补充框的原值有值
+                for (const [key, item] of Object.entries(allValues)) {
+                    if ((item.inputType === 'supplement' || item.inputType === 'supplement-main') && 
+                        item.originValue && item.originValue.trim() !== '') {
+                        hasAnyOriginValue = true;
+                        break;
+                    }
+                }
+                
+                // 如果没有任何补充框有原值，报错
+                if (!hasAnyOriginValue) {
+                    const firstSupplementItem = gSupplementItems[0];
+                    const mainOriginId = `originMain${firstSupplementItem.bindingKey.charAt(0).toUpperCase() + firstSupplementItem.bindingKey.slice(1)}`;
+                    element = document.getElementById(mainOriginId);
+                    errorId = `error_${mainOriginId}`;
+                    errorLabel = `至少需要填写一个补充框的原值`;
+
+                    if (element) {
+                        markAsError(element, errorId, errorLabel);
+                        console.error(errorLabel);
+                        hasError = true;
                     }
                 }
             }
@@ -1775,6 +1868,66 @@
 
 
         /**
+         * 将错误信息标记到对应字段
+         * @param {Array} errors - 错误信息数组
+         */
+        function markErrorsToFields(errors) {
+            errors.forEach(function(errorMsg) {
+                let elementId = null;
+                
+                // 解析错误信息，提取字段名称
+                const newMatch = errorMsg.match(/^新(.+?)不能为空$/);
+                const originMatch = errorMsg.match(/^原(.+?)不能为空$/);
+                const normalMatch = errorMsg.match(/^(.+?)不能为空$/);
+                
+                if (newMatch) {
+                    // 新值错误
+                    const label = newMatch[1];
+                    const supplementItem = gSupplementItems.find(s => s.label === label);
+                    if (supplementItem) {
+                        elementId = `newMain${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}`;
+                    } else {
+                        const updateItem = dynamicTableConfig.updateItems.find(u => u.label === label && u.inputType !== 'supplement');
+                        if (updateItem) {
+                            elementId = `new${updateItem.bindingKey.charAt(0).toUpperCase() + updateItem.bindingKey.slice(1)}`;
+                        }
+                    }
+                } else if (originMatch) {
+                    // 原值错误
+                    const label = originMatch[1];
+                    const supplementItem = gSupplementItems.find(s => s.label === label);
+                    if (supplementItem) {
+                        elementId = `originMain${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}`;
+                    } else {
+                        const updateItem = dynamicTableConfig.updateItems.find(u => u.label === label && u.inputType !== 'supplement');
+                        if (updateItem) {
+                            elementId = `origin${updateItem.bindingKey.charAt(0).toUpperCase() + updateItem.bindingKey.slice(1)}`;
+                        }
+                    }
+                } else if (normalMatch) {
+                    // 没有“新”或“原”前缀的错误
+                    const label = normalMatch[1];
+                    const queryItem = dynamicTableConfig.queryItems.find(q => q.label === label);
+                    if (queryItem) {
+                        elementId = queryItem.bindingKey;
+                    } else if (['filePrefix', 'onesLink', 'dynamicNo', 'ops_remark'].includes(label)) {
+                        elementId = label;
+                    }
+                }
+                
+                // 如果找到了元素，标记错误
+                if (elementId) {
+                    const element = document.getElementById(elementId);
+                    if (element) {
+                        const errorId = `error_${elementId}`;
+                        markAsError(element, errorId, errorMsg);
+                    }
+                }
+            });
+        }
+
+
+        /**
          * 带批量导入的提交
          */
         function submitWithBatchImport() {
@@ -1869,7 +2022,15 @@
                             filePath: response.data.filePath || ''
                         }, false);
                     } else {
-                        // 失败：显示错误信息
+                        // 失败：先清除所有错误样式
+                        clearAllFieldErrors();
+                        
+                        // 如果有详细错误信息，标记到对应字段
+                        if (response.data.errors && Array.isArray(response.data.errors)) {
+                            markErrorsToFields(response.data.errors);
+                        }
+                        
+                        // 显示错误信息
                         showSubmitResult(false, response.data.message || '提交失败', {}, false);
                     }
                 })
@@ -2107,7 +2268,7 @@
                            data-binding-key="${item.bindingKey}"
                            data-field-type="supplement-main"
                            placeholder="请输入${item.label}主值"
-                            onchange="supplementContainerChange('${item.bindingKey}', this)"
+                           oninput="handleSupplementInput('${item.bindingKey}', this, 'newValue')"
                           >
                 `;
 
@@ -2142,7 +2303,7 @@
                            data-binding-key="${item.bindingKey}"
                            data-field-type="supplement-main"
                            placeholder="原${item.label}主值"
-                           onchange="supplementContainerChange('${item.bindingKey}', this)"
+                           oninput="handleSupplementInput('${item.bindingKey}', this, 'originValue')"
                            >
                 `;
 

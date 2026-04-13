@@ -85,22 +85,35 @@ def generate_update_sql(config, form_values):
         ops_remark = ''
 
     for table_name in table_name_list:
-        where_conditions = []
+        # 第一步：找出该表关联的所有查询字段
+        table_query_fields = []
         
         for item in query_items:
             connected_tables = item.get('connectedTable', [])
-            valid_rule = item.get('ValidRule', '')
-            binding_key = item.get('bindingKey')
-
             if table_name in connected_tables:
-                value_data = form_values.get(binding_key, {})
-                value = value_data.get('value', '')
-
-                if valid_rule in ['required', 'requiredReverse']:
-                    if value:
-                        where_conditions.append(f"{binding_key} = '{value}'")
-                else:
-                    where_conditions.append(f"{binding_key} = '{value}'")
+                table_query_fields.append(item)
+        
+        # 第二步：检查所有关联字段是否都有值
+        where_conditions = []
+        all_fields_have_value = True
+        
+        for item in table_query_fields:
+            binding_key = item.get('bindingKey')
+            value_data = form_values.get(binding_key, {})
+            value = value_data.get('value', '')
+            
+            if not value:
+                all_fields_have_value = False
+                break
+            else:
+                where_conditions.append(f"{binding_key} = '{value}'")
+        
+        # 第三步：只有所有关联字段都有值时才生成SQL
+        if not all_fields_have_value or not where_conditions:
+            missing_fields = [item.get('bindingKey') for item in table_query_fields 
+                            if not form_values.get(item.get('bindingKey'), {}).get('value', '')]
+            print(f"[SQL生成-表:{table_name}] 跳过: 以下字段未填写: {missing_fields}")
+            continue
 
         forward_set_clauses = []
         backward_set_clauses = []
@@ -226,6 +239,11 @@ def generate_update_sql(config, form_values):
             # 处理补充框类型
             elif input_type == 'supplement':
                 parent_key = item.get('bindingKey')
+                
+                # 如果 form_values 中没有这个补充框，说明前端没有传输（原值为空），跳过
+                if parent_key not in form_values:
+                    continue
+                
                 value_data = form_values.get(parent_key, {})
                 new_value = value_data.get('newValue', '')
                 origin_value = value_data.get('originValue', '')
@@ -591,6 +609,10 @@ def validate_form_data(config, form_values, query_values=None):
 
         # 补充框校验
         elif input_type == 'supplement':
+            # 如果 form_values 中没有这个补充框，说明前端没有传输（原值为空），跳过校验
+            if binding_key not in form_values:
+                continue
+            
             main_table = item.get('mainTable', '')
             main_field = item.get('mainField', '')
             sub_fields = item.get('subFields', [])
