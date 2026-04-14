@@ -260,30 +260,22 @@ def generate_update_sql(config, form_values):
 
             # 处理计算字段类型
             if input_type == 'calculated':
-                # print(f"[DEBUG] 处理计算字段: label={item.get('label')}, bindingKey={item.get('bindingKey')}")  # 调试日志
-                # print(f"[DEBUG]   connectedTable: {item.get('connectedTable', [])}")  # 调试日志
-                # print(f"[DEBUG]   当前表: {table_name}, 是否在关联表中: {table_name in connected_tables}")  # 调试日志
-
                 if table_name in connected_tables:
                     # 获取当前表的表达式
                     expressions = item.get('expressions', {})
                     expression = expressions.get(table_name, '').strip()
                     binding_key = item.get('bindingKey', '')
 
-                    # print(f"[DEBUG]   表: {table_name}, 表达式: '{expression}', 绑定键: {binding_key}")  # 调试日志
-
                     if expression and binding_key:
-                        # 使用 ${变量名} 语法替换表达式中的变量
                         import re
 
                         # 查找所有 ${variable} 模式的变量（允许内部有空格）
                         variables = re.findall(r'\$\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}', expression)
 
-                        # print(f"[DEBUG]   找到的变量: {variables}")  # 调试日志
-
                         forward_expression = expression
                         backward_expression = expression
-                        has_referenced_value = False
+                        has_any_valid_value = False  # 是否至少有一个变量有有效值
+                        all_variables_processed = True  # 是否所有变量都处理成功
 
                         for var_name in variables:
                             # 查找这个字段在update_items或query_items中的定义（不区分大小写）
@@ -303,69 +295,105 @@ def generate_update_sql(config, form_values):
 
                             if field_item:
                                 field_key = field_item['bindingKey']
-                                field_type = field_item.get('type', 'text')  # 获取字段类型
-                                value_data = form_values.get(field_key, {})
-
-                                # 查询字段使用 value，更新字段使用 newValue/originValue
-                                if 'value' in value_data:
-                                    # 查询字段
-                                    query_value = value_data.get('value', '')
-                                    new_value = query_value
-                                    origin_value = query_value
+                                field_type = field_item.get('type', 'text')
+                                
+                                # 获取字段的验证规则
+                                if 'value' in form_values.get(field_key, {}):
+                                    # 查询字段：没有验证规则概念，直接使用值
+                                    value_data = form_values.get(field_key, {})
+                                    new_value = value_data.get('value', '')
+                                    origin_value = value_data.get('value', '')
+                                    valid_rule = 'defaultField'  # 查询字段默认为defaultField
                                 else:
-                                    # 更新字段
+                                    # 更新字段：使用该字段自己配置的验证规则
+                                    value_data = form_values.get(field_key, {})
                                     new_value = value_data.get('newValue', '')
                                     origin_value = value_data.get('originValue', '')
+                                    # 关键修复：使用field_item（被引用字段）的验证规则，而不是item（计算字段）的
+                                    valid_rule = field_item.get('newValidRule', 'defaultField')
 
-                                # print(f"[DEBUG]     变量 {var_name} -> field_key={field_key}, field_type={field_type}")  # 调试日志
-                                # print(f"[DEBUG]       newValue='{new_value}', originValue='{origin_value}'")  # 调试日志
+                                # 判断是否为数值类型
+                                is_number_type = (field_type == 'number')
 
-                                # 如果有新值或原值，说明这个字段有数据
-                                if new_value or origin_value:
-                                    has_referenced_value = True
+                                # 处理新值（forward表达式）
+                                if new_value:
+                                    # 有值：正常替换
+                                    has_any_valid_value = True
+                                    if is_number_type:
+                                        forward_expression = re.sub(
+                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                            new_value,
+                                            forward_expression
+                                        )
+                                    else:
+                                        forward_expression = re.sub(
+                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                            f"'{new_value}'",
+                                            forward_expression
+                                        )
+                                else:
+                                    # 没值：根据验证规则决定
+                                    if valid_rule == 'defaultField':
+                                        # defaultField：替换为字段名本身（不加引号）
+                                        forward_expression = re.sub(
+                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                            var_name.upper(),
+                                            forward_expression
+                                        )
+                                    elif valid_rule == 'required':
+                                        # required：标记为无效，整个计算字段不生成
+                                        all_variables_processed = False
+                                        has_any_valid_value = False
+                                        break
+                                    else:
+                                        # optional或其他：替换为空字符串或0
+                                        replacement = '0' if is_number_type else "''"
+                                        forward_expression = re.sub(
+                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                            replacement,
+                                            forward_expression
+                                        )
 
-                                    # 判断是否为数值类型，只有 number 类型不加引号
-                                    is_number_type = (field_type == 'number')
+                                # 处理原值（backward表达式）
+                                if origin_value:
+                                    has_any_valid_value = True
+                                    if is_number_type:
+                                        backward_expression = re.sub(
+                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                            origin_value,
+                                            backward_expression
+                                        )
+                                    else:
+                                        backward_expression = re.sub(
+                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                            f"'{origin_value}'",
+                                            backward_expression
+                                        )
+                                else:
+                                    # 没值：根据验证规则决定
+                                    if valid_rule == 'defaultField':
+                                        backward_expression = re.sub(
+                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                            var_name.upper(),
+                                            backward_expression
+                                        )
+                                    elif valid_rule == 'required':
+                                        all_variables_processed = False
+                                        has_any_valid_value = False
+                                        break
+                                    else:
+                                        replacement = '0' if is_number_type else "''"
+                                        backward_expression = re.sub(
+                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                            replacement,
+                                            backward_expression
+                                        )
+                            else:
+                                # 找不到字段定义，保留原样
+                                print(f"[警告] 计算字段 {binding_key} 的表达式中引用了未定义的变量: {var_name}")
 
-                                    # 使用正则替换，支持 ${ variable } 中有空格的情况
-                                    # 替换正向表达式中的 ${variable} 为新值
-                                    if new_value:
-                                        if is_number_type:
-                                            # 数值类型，不加引号
-                                            forward_expression = re.sub(
-                                                r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
-                                                new_value,
-                                                forward_expression
-                                            )
-                                        else:
-                                            # 非数值类型，加引号
-                                            forward_expression = re.sub(
-                                                r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
-                                                f"'{new_value}'",
-                                                forward_expression
-                                            )
-
-                                    # 替换反向表达式中的 ${variable} 为原值
-                                    if origin_value:
-                                        if is_number_type:
-                                            # 数值类型，不加引号
-                                            backward_expression = re.sub(
-                                                r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
-                                                origin_value,
-                                                backward_expression
-                                            )
-                                        else:
-                                            # 非数值类型，加引号
-                                            backward_expression = re.sub(
-                                                r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
-                                                f"'{origin_value}'",
-                                                backward_expression
-                                            )
-
-                        # print(f"[DEBUG]   替换后 - forward: '{forward_expression}', backward: '{backward_expression}'")  # 调试日志
-
-                        # 只有当表达式中至少有一个引用字段有值时，才生成SET子句
-                        if has_referenced_value:
+                        # 只有当所有变量都处理成功且至少有一个有效值时，才生成SET子句
+                        if all_variables_processed and has_any_valid_value:
                             forward_set_clauses.append(f"{binding_key} = {forward_expression}")
                             backward_set_clauses.append(f"{binding_key} = {backward_expression}")
 
@@ -527,6 +555,8 @@ def merge_sql_statements(all_sql_statements):
     合并相同修改但不同查询条件的SQL语句
     - 同一字段的不同值使用 IN
     - 不同字段的条件使用 OR
+    - 完全相同的语句（包括WHERE）进行去重
+    - 汇总表更新语句（多条明细共用一个汇总条件）放置在最后
     """
     if not all_sql_statements:
         return []
@@ -567,8 +597,10 @@ def merge_sql_statements(all_sql_statements):
                 'where_clause': where_clause
             })
 
-    merged_forward = []
-    merged_backward = []
+    merged_forward_normal = []  # 普通SQL（明细表更新）
+    merged_forward_summary = []  # 汇总SQL（主表汇总更新）
+    merged_backward_normal = []
+    merged_backward_summary = []
 
     # 合并执行语句
     for key, items in forward_groups.items():
@@ -576,28 +608,104 @@ def merge_sql_statements(all_sql_statements):
             # 只有一个条件，不需要合并
             item = items[0]
             sql = f"UPDATE {item['table_name']} SET {item['set_clause']} WHERE {item['where_clause']}"
-            merged_forward.append(format_sql(sql))
+            formatted_sql = format_sql(sql)
+            
+            # 判断是否为汇总SQL：如果包含SELECT SUM等聚合函数，则为汇总SQL
+            if _is_summary_sql(item['set_clause']):
+                merged_forward_summary.append(formatted_sql)
+            else:
+                merged_forward_normal.append(formatted_sql)
         else:
             # 多个条件，需要智能合并
-            merged_where = merge_where_clauses([item['where_clause'] for item in items])
-            sql = f"UPDATE {items[0]['table_name']} SET {items[0]['set_clause']} WHERE {merged_where}"
-            merged_forward.append(format_sql(sql))
+            # 先对WHERE子句去重（完全相同的WHERE只保留一个）
+            unique_where_clauses = list(dict.fromkeys([item['where_clause'] for item in items]))
+            
+            if len(unique_where_clauses) == 1:
+                # 所有WHERE条件都相同，说明是重复的汇总SQL，只生成一条
+                item = items[0]
+                sql = f"UPDATE {item['table_name']} SET {item['set_clause']} WHERE {unique_where_clauses[0]}"
+                formatted_sql = format_sql(sql)
+                
+                # 汇总SQL放到最后
+                if _is_summary_sql(item['set_clause']):
+                    merged_forward_summary.append(formatted_sql)
+                else:
+                    merged_forward_normal.append(formatted_sql)
+            else:
+                # 不同的WHERE条件，需要合并
+                merged_where = merge_where_clauses(unique_where_clauses)
+                sql = f"UPDATE {items[0]['table_name']} SET {items[0]['set_clause']} WHERE {merged_where}"
+                formatted_sql = format_sql(sql)
+                
+                # 判断是否为汇总SQL
+                if _is_summary_sql(items[0]['set_clause']):
+                    merged_forward_summary.append(formatted_sql)
+                else:
+                    merged_forward_normal.append(formatted_sql)
 
     # 合并回退语句
     for key, items in backward_groups.items():
         if len(items) == 1:
             item = items[0]
             sql = f"UPDATE {item['table_name']} SET {item['set_clause']} WHERE {item['where_clause']}"
-            merged_backward.append(format_sql(sql))
+            formatted_sql = format_sql(sql)
+            
+            # 判断是否为汇总SQL
+            if _is_summary_sql(item['set_clause']):
+                merged_backward_summary.append(formatted_sql)
+            else:
+                merged_backward_normal.append(formatted_sql)
         else:
-            merged_where = merge_where_clauses([item['where_clause'] for item in items])
-            sql = f"UPDATE {items[0]['table_name']} SET {items[0]['set_clause']} WHERE {merged_where}"
-            merged_backward.append(format_sql(sql))
+            # 先对WHERE子句去重
+            unique_where_clauses = list(dict.fromkeys([item['where_clause'] for item in items]))
+            
+            if len(unique_where_clauses) == 1:
+                # 所有WHERE条件都相同，只生成一条
+                item = items[0]
+                sql = f"UPDATE {item['table_name']} SET {item['set_clause']} WHERE {unique_where_clauses[0]}"
+                formatted_sql = format_sql(sql)
+                
+                if _is_summary_sql(item['set_clause']):
+                    merged_backward_summary.append(formatted_sql)
+                else:
+                    merged_backward_normal.append(formatted_sql)
+            else:
+                # 不同的WHERE条件，需要合并
+                merged_where = merge_where_clauses(unique_where_clauses)
+                sql = f"UPDATE {items[0]['table_name']} SET {items[0]['set_clause']} WHERE {merged_where}"
+                formatted_sql = format_sql(sql)
+                
+                if _is_summary_sql(items[0]['set_clause']):
+                    merged_backward_summary.append(formatted_sql)
+                else:
+                    merged_backward_normal.append(formatted_sql)
+
+    # 合并结果：普通SQL在前，汇总SQL在后
+    merged_forward = merged_forward_normal + merged_forward_summary
+    merged_backward = merged_backward_normal + merged_backward_summary
 
     return {
         'forward_sqls': merged_forward,
         'backward_sqls': merged_backward
     }
+
+
+def _is_summary_sql(set_clause):
+    """
+    判断SET子句是否包含汇总计算（聚合函数）
+    如果包含 SELECT SUM、SELECT COUNT、SELECT AVG 等，则认为是汇总SQL
+    """
+    if not set_clause:
+        return False
+    
+    set_upper = set_clause.upper()
+    summary_keywords = ['SELECT SUM', 'SELECT COUNT', 'SELECT AVG', 'SELECT MAX', 'SELECT MIN']
+    
+    for keyword in summary_keywords:
+        if keyword in set_upper:
+            return True
+    
+    return False
 
 
 def extract_set_clause(sql):
