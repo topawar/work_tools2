@@ -1117,10 +1117,20 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                 else:
                     missing_columns.append(origin_label)
 
+                # 如果值为空且有默认值，使用默认值
+                new_value_str = str(new_value) if new_value is not None else ''
+                origin_value_str = str(origin_value) if origin_value is not None else ''
+                
+                if not new_value_str and item.get('newDefaultValue'):
+                    new_value_str = str(item.get('newDefaultValue', ''))
+                
+                if not origin_value_str and item.get('originDefaultValue'):
+                    origin_value_str = str(item.get('originDefaultValue', ''))
+
                 form_values[binding_key] = {
                     'label': label,
-                    'newValue': str(new_value) if new_value is not None else '',
-                    'originValue': str(origin_value) if origin_value is not None else '',
+                    'newValue': new_value_str,
+                    'originValue': origin_value_str,
                     'inputType': input_type,
                     'fieldType': item.get('type', 'text'),
                     'newValidRule': item.get('newValidRule', ''),
@@ -1245,9 +1255,11 @@ def download_template(request):
             ws = wb.active
             ws.title = form_name[:31]
 
-            header_font = Font(bold=True, size=12)
+            header_font = Font(bold=True, size=12, color='000000')  # 黑色字体
             header_alignment = Alignment(horizontal='center', vertical='center')
             header_fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
+            # 黄色背景，用于标注有默认值的字段
+            default_value_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
 
             headers = []
 
@@ -1255,7 +1267,8 @@ def download_template(request):
                 headers.append({
                     'label': item.get('label', ''),
                     'bindingKey': item.get('bindingKey', ''),
-                    'type': 'query'
+                    'type': 'query',
+                    'hasDefaultValue': False
                 })
 
             for item in update_items:
@@ -1269,16 +1282,23 @@ def download_template(request):
                     sub_fields = item.get('subFields', [])
 
                     # 主字段：新值和原值都需要用户填写
+                    has_new_default = bool(item.get('newDefaultValue'))
+                    has_origin_default = bool(item.get('originDefaultValue'))
+                    
                     headers.append({
                         'label': f'新{parent_label}',
                         'bindingKey': parent_binding_key,
-                        'type': 'update_new'
+                        'type': 'update_new',
+                        'hasDefaultValue': has_new_default,
+                        'defaultValue': item.get('newDefaultValue', '')
                     })
 
                     headers.append({
                         'label': f'原{parent_label}',
                         'bindingKey': parent_binding_key,
-                        'type': 'update_origin'
+                        'type': 'update_origin',
+                        'hasDefaultValue': has_origin_default,
+                        'defaultValue': item.get('originDefaultValue', '')
                     })
 
                     # 子字段：只有原值需要填写（新值自动查询）
@@ -1289,28 +1309,40 @@ def download_template(request):
                         headers.append({
                             'label': f'原{sub_label}',
                             'bindingKey': sub_binding_key,
-                            'type': 'update_origin_sub'
+                            'type': 'update_origin_sub',
+                            'hasDefaultValue': False
                         })
                 else:
                     label = item.get('label', '')
                     binding_key = item.get('bindingKey', '')
+                    has_new_default = bool(item.get('newDefaultValue'))
+                    has_origin_default = bool(item.get('originDefaultValue'))
 
                     headers.append({
                         'label': f'新{label}',
                         'bindingKey': binding_key,
-                        'type': 'update_new'
+                        'type': 'update_new',
+                        'hasDefaultValue': has_new_default,
+                        'defaultValue': item.get('newDefaultValue', '')
                     })
                     headers.append({
                         'label': f'原{label}',
                         'bindingKey': binding_key,
-                        'type': 'update_origin'
+                        'type': 'update_origin',
+                        'hasDefaultValue': has_origin_default,
+                        'defaultValue': item.get('originDefaultValue', '')
                     })
 
             for col_num, header in enumerate(headers, 1):
                 cell = ws.cell(row=1, column=col_num, value=header['label'])
                 cell.font = header_font
                 cell.alignment = header_alignment
-                cell.fill = header_fill
+                
+                # 如果有默认值，使用黄色背景
+                if header.get('hasDefaultValue'):
+                    cell.fill = default_value_fill
+                else:
+                    cell.fill = header_fill
 
                 col_letter = chr(64 + (col_num % 26)) if col_num <= 26 else chr(64 + (col_num // 26)) + chr(
                     64 + (col_num % 26))
