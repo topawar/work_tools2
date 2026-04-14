@@ -462,10 +462,12 @@ def generate_update_sql(config, form_values):
                         value = value_data.get('value', '')
                         if not value:
                             missing_field_labels.add(label)
-                    print(f"[SQL生成-表:{table_name}] 跳过(严格模式): 存在未填写的查询字段")
+                    # 调试日志已关闭
+                    # print(f"[SQL生成-表:{table_name}] 跳过(严格模式): 存在未填写的查询字段")
                 else:
                     # 只有一个查询字段且为空，静默跳过
-                    print(f"[SQL生成-表:{table_name}] 跳过(严格模式): 唯一查询字段为空，静默跳过")
+                    # print(f"[SQL生成-表:{table_name}] 跳过(严格模式): 唯一查询字段为空，静默跳过")
+                    pass
                 continue
 
         # 第五步：至少有一个查询字段有值时才生成SQL
@@ -518,7 +520,12 @@ def merge_where_clauses(where_clauses):
     """
     智能合并WHERE子句
     - 单字段条件：使用 IN (value1, value2, value3)
-    - 多字段组合条件：使用 (cond1 AND cond2) OR (cond3 AND cond4)
+    - 多字段组合条件：提取公共字段，不同字段使用 IN
+    示例：
+      输入: ["BPO_LINE_ID = 'A' AND BPO_VER = '1.0'", 
+             "BPO_LINE_ID = 'B' AND BPO_VER = '1.0'",
+             "BPO_LINE_ID = 'C' AND BPO_VER = '1.0'"]
+      输出: "BPO_LINE_ID IN ('A', 'B', 'C') AND BPO_VER = '1.0'"
     """
     if not where_clauses:
         return ''
@@ -526,51 +533,66 @@ def merge_where_clauses(where_clauses):
     if len(where_clauses) == 1:
         return where_clauses[0]
 
-    # 检查是否所有条件都是单字段
-    all_single_field = True
-    field_values_map = {}  # {field: [values]}
-    
+    # 第一步：解析所有WHERE子句，提取字段和值
+    # conditions_list: [{field: value}, ...]
+    conditions_list = []
     for where_clause in where_clauses:
-        # 如果包含 AND，说明是多字段组合
-        if ' AND ' in where_clause:
-            all_single_field = False
-            break
-        
-        # 解析单字段条件：field = 'value'
-        if '=' in where_clause:
-            parts = where_clause.split('=')
-            if len(parts) == 2:
-                field = parts[0].strip()
-                value = parts[1].strip()
-                
-                if field not in field_values_map:
-                    field_values_map[field] = []
-                field_values_map[field].append(value)
+        condition_dict = {}
+        # 分割 AND 条件
+        parts = where_clause.split(' AND ')
+        for part in parts:
+            part = part.strip()
+            if '=' in part:
+                field_value = part.split('=')
+                if len(field_value) == 2:
+                    field = field_value[0].strip()
+                    value = field_value[1].strip()
+                    condition_dict[field] = value
+        conditions_list.append(condition_dict)
     
-    # 如果所有条件都是单字段，且只有一个字段，使用 IN
-    if all_single_field and len(field_values_map) == 1:
-        field = list(field_values_map.keys())[0]
-        values = field_values_map[field]
-        
-        if len(values) == 1:
-            # 只有一个值，直接用 =
-            return f"{field} = {values[0]}"
-        else:
-            # 多个值，使用 IN
-            values_str = ', '.join(values)
-            return f"{field} IN ({values_str})"
+    if not conditions_list:
+        return ' OR '.join([f"({wc})" for wc in where_clauses])
     
-    # 多字段组合条件：使用 (cond1 AND cond2) OR (cond3 AND cond4)
-    merged_conditions = []
-    for where_clause in where_clauses:
-        # 如果条件中包含多个 AND，加上括号
-        if ' AND ' in where_clause:
-            merged_conditions.append(f"({where_clause})")
+    # 第二步：统计每个字段在所有条件中的值
+    # field_values_map: {field: [value1, value2, ...]}
+    all_fields = set()
+    for cond in conditions_list:
+        all_fields.update(cond.keys())
+    
+    field_values_map = {}
+    for field in all_fields:
+        values = []
+        for cond in conditions_list:
+            if field in cond:
+                values.append(cond[field])
+        field_values_map[field] = values
+    
+    # 第三步：分类字段
+    # - 公共字段：所有条件中该字段的值都相同
+    # - 差异字段：不同条件中该字段的值不同
+    common_conditions = []  # 公共条件列表
+    diff_conditions = []    # 差异条件列表
+    
+    for field, values in field_values_map.items():
+        # 检查是否所有值都相同
+        unique_values = list(dict.fromkeys(values))  # 去重并保持顺序
+        
+        if len(unique_values) == 1:
+            # 公共字段：所有条件的值都相同
+            common_conditions.append(f"{field} = {unique_values[0]}")
         else:
-            merged_conditions.append(where_clause)
-
-    # 用 OR 连接所有条件组
-    return '\n  OR '.join(merged_conditions)
+            # 差异字段：使用 IN
+            values_str = ', '.join(unique_values)
+            diff_conditions.append(f"{field} IN ({values_str})")
+    
+    # 第四步：生成最终的WHERE子句
+    final_conditions = common_conditions + diff_conditions
+    
+    if not final_conditions:
+        return ' OR '.join([f"({wc})" for wc in where_clauses])
+    
+    # 用 AND 连接所有条件
+    return ' AND '.join(final_conditions)
 
 
 def merge_sql_statements(all_sql_statements):
@@ -1032,12 +1054,19 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
         if label in headers:
             col = headers[label]
             value = ws.cell(row=row_idx, column=col).value
+            value_str = str(value) if value is not None else ''
+            
+            # 如果值为空且有默认值，使用默认值
+            if not value_str and item.get('defaultValue'):
+                value_str = str(item.get('defaultValue', ''))
+            
             form_values[binding_key] = {
                 'label': label,
-                'value': str(value) if value is not None else '',
+                'value': value_str,
                 'inputType': 'query',
                 'fieldType': item.get('type', 'text'),
-                'ValidRule': item.get('ValidRule', '')
+                'ValidRule': item.get('ValidRule', ''),
+                'defaultValue': item.get('defaultValue', '')  # 保留默认值配置
             }
         else:
             missing_columns.append(label)
@@ -1116,10 +1145,11 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                     values_str = ', '.join(["'" + str(v).replace("'", "''") + "'" for v in query_values])
                     sql = f"SELECT {fields_str} FROM {main_table} WHERE {main_field} IN ({values_str})"
 
-                    print("=" * 50)
-                    print(f"批量导入-自动查询补充框子字段: {binding_key}")
-                    print("SQL:", sql)
-                    print("=" * 50)
+                    # 调试日志已关闭
+                    # print("=" * 50)
+                    # print(f"批量导入-自动查询补充框子字段: {binding_key}")
+                    # print("SQL:", sql)
+                    # print("=" * 50)
 
                     try:
                         with connection.cursor() as cursor:
@@ -1404,11 +1434,13 @@ def download_template(request):
             headers = []
 
             for item in query_items:
+                has_default = bool(item.get('defaultValue'))
                 headers.append({
                     'label': item.get('label', ''),
                     'bindingKey': item.get('bindingKey', ''),
                     'type': 'query',
-                    'hasDefaultValue': False
+                    'hasDefaultValue': has_default,
+                    'defaultValue': item.get('defaultValue', '') if has_default else ''
                 })
 
             for item in update_items:
@@ -1650,10 +1682,11 @@ def process_single_sheet_import(ws, query_items_data, update_items_data, query_v
             values_str = ', '.join(["'" + str(v).replace("'", "''") + "'" for v in main_values])
             sql = f"SELECT {fields_str} FROM {table_name} WHERE {main_field} IN ({values_str})"
 
-            print("=" * 50)
-            print(f"批量查询补充框数据: {query_key}")
-            print("SQL:", sql)
-            print("=" * 50)
+            # 调试日志已关闭
+            # print("=" * 50)
+            # print(f"批量查询补充框数据: {query_key}")
+            # print("SQL:", sql)
+            # print("=" * 50)
 
             with connection.cursor() as cursor:
                 cursor.execute(sql)
@@ -2001,10 +2034,11 @@ def batch_import(request):
                 values_str = ', '.join(["'" + str(v).replace("'", "''") + "'" for v in main_values])
                 sql = f"SELECT {fields_str} FROM {table_name} WHERE {main_field} IN ({values_str})"
 
-                print("=" * 50)
-                print(f"批量查询补充框数据: {query_key}")
-                print("SQL:", sql)
-                print("=" * 50)
+                # 调试日志已关闭
+                # print("=" * 50)
+                # print(f"批量查询补充框数据: {query_key}")
+                # print("SQL:", sql)
+                # print("=" * 50)
 
                 with connection.cursor() as cursor:
                     cursor.execute(sql)
