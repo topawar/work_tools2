@@ -184,6 +184,7 @@ def generate_update_sql(config, form_values):
     """根据配置生成 SQL UPDATE 语句"""
     forward_sqls = []
     backward_sqls = []
+    missing_field_labels = set()  # 收集所有缺失字段的label（去重）
 
     table_name_list = config.get('tableNameList', [])
     query_items = config.get('queryItems', [])
@@ -208,46 +209,7 @@ def generate_update_sql(config, form_values):
             if table_name in connected_tables:
                 table_query_fields.append(item)
 
-        # 第二步：根据查询模式收集WHERE条件
-        where_conditions = []
-        
-        if query_mode == 'loose':
-            # 宽松模式：只收集有值的字段
-            for item in table_query_fields:
-                binding_key = item.get('bindingKey')
-                value_data = form_values.get(binding_key, {})
-                value = value_data.get('value', '')
-                
-                if value:
-                    where_conditions.append(f"{binding_key} = '{value}'")
-        else:
-            # 严格模式（默认）：要求所有关联字段都有值
-            all_fields_have_value = True
-            
-            for item in table_query_fields:
-                binding_key = item.get('bindingKey')
-                value_data = form_values.get(binding_key, {})
-                value = value_data.get('value', '')
-                
-                if not value:
-                    all_fields_have_value = False
-                    break
-                else:
-                    where_conditions.append(f"{binding_key} = '{value}'")
-            
-            # 严格模式下，如果有字段为空则跳过
-            if not all_fields_have_value:
-                missing_fields = [item.get('bindingKey') for item in table_query_fields
-                                  if not form_values.get(item.get('bindingKey'), {}).get('value', '')]
-                print(f"[SQL生成-表:{table_name}] 跳过(严格模式): 以下字段未填写: {missing_fields}")
-                continue
-
-        # 第三步：至少有一个查询字段有值时才生成SQL
-        if not where_conditions:
-            missing_fields = [item.get('bindingKey') for item in table_query_fields]
-            print(f"[SQL生成-表:{table_name}] 跳过: 所有查询字段均为空: {missing_fields}")
-            continue
-
+        # 第二步：先收集该表所有的SET子句，判断是否真的有更新操作
         forward_set_clauses = []
         backward_set_clauses = []
 
@@ -258,144 +220,147 @@ def generate_update_sql(config, form_values):
             input_type = item.get('inputType', '')
             binding_key = item.get('bindingKey')
 
+            # 如果该表不在此更新字段的关联表中，跳过
+            if table_name not in connected_tables:
+                continue
+
             # 处理计算字段类型
             if input_type == 'calculated':
-                if table_name in connected_tables:
-                    # 获取当前表的表达式
-                    expressions = item.get('expressions', {})
-                    expression = expressions.get(table_name, '').strip()
-                    binding_key = item.get('bindingKey', '')
+                # 获取当前表的表达式
+                expressions = item.get('expressions', {})
+                expression = expressions.get(table_name, '').strip()
+                binding_key = item.get('bindingKey', '')
 
-                    if expression and binding_key:
-                        import re
+                if expression and binding_key:
+                    import re
 
-                        # 查找所有 ${variable} 模式的变量（允许内部有空格）
-                        variables = re.findall(r'\$\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}', expression)
+                    # 查找所有 ${variable} 模式的变量（允许内部有空格）
+                    variables = re.findall(r'\$\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}', expression)
 
-                        forward_expression = expression
-                        backward_expression = expression
-                        has_any_valid_value = False  # 是否至少有一个变量有有效值
-                        all_variables_processed = True  # 是否所有变量都处理成功
+                    forward_expression = expression
+                    backward_expression = expression
+                    has_any_valid_value = False  # 是否至少有一个变量有有效值
+                    all_variables_processed = True  # 是否所有变量都处理成功
 
-                        for var_name in variables:
-                            # 查找这个字段在update_items或query_items中的定义（不区分大小写）
-                            field_item = None
-                            var_name_upper = var_name.upper()
+                    for var_name in variables:
+                        # 查找这个字段在update_items或query_items中的定义（不区分大小写）
+                        field_item = None
+                        var_name_upper = var_name.upper()
 
-                            for ui in update_items:
-                                if ui.get('bindingKey', '').upper() == var_name_upper:
-                                    field_item = ui
+                        for ui in update_items:
+                            if ui.get('bindingKey', '').upper() == var_name_upper:
+                                field_item = ui
+                                break
+
+                        if not field_item:
+                            for qi in query_items:
+                                if qi.get('bindingKey', '').upper() == var_name_upper:
+                                    field_item = qi
                                     break
 
-                            if not field_item:
-                                for qi in query_items:
-                                    if qi.get('bindingKey', '').upper() == var_name_upper:
-                                        field_item = qi
-                                        break
-
-                            if field_item:
-                                field_key = field_item['bindingKey']
-                                field_type = field_item.get('type', 'text')
-                                
-                                # 获取字段的验证规则
-                                if 'value' in form_values.get(field_key, {}):
-                                    # 查询字段：没有验证规则概念，直接使用值
-                                    value_data = form_values.get(field_key, {})
-                                    new_value = value_data.get('value', '')
-                                    origin_value = value_data.get('value', '')
-                                    valid_rule = 'defaultField'  # 查询字段默认为defaultField
-                                else:
-                                    # 更新字段：使用该字段自己配置的验证规则
-                                    value_data = form_values.get(field_key, {})
-                                    new_value = value_data.get('newValue', '')
-                                    origin_value = value_data.get('originValue', '')
-                                    # 关键修复：使用field_item（被引用字段）的验证规则，而不是item（计算字段）的
-                                    valid_rule = field_item.get('newValidRule', 'defaultField')
-
-                                # 判断是否为数值类型
-                                is_number_type = (field_type == 'number')
-
-                                # 处理新值（forward表达式）
-                                if new_value:
-                                    # 有值：正常替换
-                                    has_any_valid_value = True
-                                    if is_number_type:
-                                        forward_expression = re.sub(
-                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
-                                            new_value,
-                                            forward_expression
-                                        )
-                                    else:
-                                        forward_expression = re.sub(
-                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
-                                            f"'{new_value}'",
-                                            forward_expression
-                                        )
-                                else:
-                                    # 没值：根据验证规则决定
-                                    if valid_rule == 'defaultField':
-                                        # defaultField：替换为字段名本身（不加引号）
-                                        forward_expression = re.sub(
-                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
-                                            var_name.upper(),
-                                            forward_expression
-                                        )
-                                    elif valid_rule == 'required':
-                                        # required：标记为无效，整个计算字段不生成
-                                        all_variables_processed = False
-                                        has_any_valid_value = False
-                                        break
-                                    else:
-                                        # optional或其他：替换为空字符串或0
-                                        replacement = '0' if is_number_type else "''"
-                                        forward_expression = re.sub(
-                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
-                                            replacement,
-                                            forward_expression
-                                        )
-
-                                # 处理原值（backward表达式）
-                                if origin_value:
-                                    has_any_valid_value = True
-                                    if is_number_type:
-                                        backward_expression = re.sub(
-                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
-                                            origin_value,
-                                            backward_expression
-                                        )
-                                    else:
-                                        backward_expression = re.sub(
-                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
-                                            f"'{origin_value}'",
-                                            backward_expression
-                                        )
-                                else:
-                                    # 没值：根据验证规则决定
-                                    if valid_rule == 'defaultField':
-                                        backward_expression = re.sub(
-                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
-                                            var_name.upper(),
-                                            backward_expression
-                                        )
-                                    elif valid_rule == 'required':
-                                        all_variables_processed = False
-                                        has_any_valid_value = False
-                                        break
-                                    else:
-                                        replacement = '0' if is_number_type else "''"
-                                        backward_expression = re.sub(
-                                            r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
-                                            replacement,
-                                            backward_expression
-                                        )
+                        if field_item:
+                            field_key = field_item['bindingKey']
+                            field_type = field_item.get('type', 'text')
+                            
+                            # 获取字段的验证规则
+                            if 'value' in form_values.get(field_key, {}):
+                                # 查询字段：没有验证规则概念，直接使用值
+                                value_data = form_values.get(field_key, {})
+                                new_value = value_data.get('value', '')
+                                origin_value = value_data.get('value', '')
+                                valid_rule = 'defaultField'  # 查询字段默认为defaultField
                             else:
-                                # 找不到字段定义，保留原样
-                                print(f"[警告] 计算字段 {binding_key} 的表达式中引用了未定义的变量: {var_name}")
+                                # 更新字段：使用该字段自己配置的验证规则
+                                value_data = form_values.get(field_key, {})
+                                new_value = value_data.get('newValue', '')
+                                origin_value = value_data.get('originValue', '')
+                                # 关键修复：使用field_item（被引用字段）的验证规则，而不是item（计算字段）的
+                                valid_rule = field_item.get('newValidRule', 'defaultField')
 
-                        # 只有当所有变量都处理成功且至少有一个有效值时，才生成SET子句
-                        if all_variables_processed and has_any_valid_value:
-                            forward_set_clauses.append(f"{binding_key} = {forward_expression}")
-                            backward_set_clauses.append(f"{binding_key} = {backward_expression}")
+                            # 判断是否为数值类型
+                            is_number_type = (field_type == 'number')
+
+                            # 处理新值（forward表达式）
+                            if new_value:
+                                # 有值：正常替换
+                                has_any_valid_value = True
+                                if is_number_type:
+                                    forward_expression = re.sub(
+                                        r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                        new_value,
+                                        forward_expression
+                                    )
+                                else:
+                                    forward_expression = re.sub(
+                                        r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                        f"'{new_value}'",
+                                        forward_expression
+                                    )
+                            else:
+                                # 没值：根据验证规则决定
+                                if valid_rule == 'defaultField':
+                                    # defaultField：替换为字段名本身（不加引号）
+                                    forward_expression = re.sub(
+                                        r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                        var_name.upper(),
+                                        forward_expression
+                                    )
+                                elif valid_rule == 'required':
+                                    # required：标记为无效，整个计算字段不生成
+                                    all_variables_processed = False
+                                    has_any_valid_value = False
+                                    break
+                                else:
+                                    # optional或其他：替换为空字符串或0
+                                    replacement = '0' if is_number_type else "''"
+                                    forward_expression = re.sub(
+                                        r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                        replacement,
+                                        forward_expression
+                                    )
+
+                            # 处理原值（backward表达式）
+                            if origin_value:
+                                has_any_valid_value = True
+                                if is_number_type:
+                                    backward_expression = re.sub(
+                                        r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                        origin_value,
+                                        backward_expression
+                                    )
+                                else:
+                                    backward_expression = re.sub(
+                                        r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                        f"'{origin_value}'",
+                                        backward_expression
+                                    )
+                            else:
+                                # 没值：根据验证规则决定
+                                if valid_rule == 'defaultField':
+                                    backward_expression = re.sub(
+                                        r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                        var_name.upper(),
+                                        backward_expression
+                                    )
+                                elif valid_rule == 'required':
+                                    all_variables_processed = False
+                                    has_any_valid_value = False
+                                    break
+                                else:
+                                    replacement = '0' if is_number_type else "''"
+                                    backward_expression = re.sub(
+                                        r'\$\{\s*' + re.escape(var_name) + r'\s*\}',
+                                        replacement,
+                                        backward_expression
+                                    )
+                        else:
+                            # 找不到字段定义，保留原样
+                            print(f"[警告] 计算字段 {binding_key} 的表达式中引用了未定义的变量: {var_name}")
+
+                    # 只有当所有变量都处理成功且至少有一个有效值时，才生成SET子句
+                    if all_variables_processed and has_any_valid_value:
+                        forward_set_clauses.append(f"{binding_key} = {forward_expression}")
+                        backward_set_clauses.append(f"{binding_key} = {backward_expression}")
 
             # 处理补充框类型
             elif input_type == 'supplement':
@@ -453,41 +418,99 @@ def generate_update_sql(config, form_values):
                     if backward_set_value is not None:
                         backward_set_clauses.append(backward_set_value)
 
-        # 只有当有WHERE条件和SET子句时才生成SQL
-        if where_conditions and (forward_set_clauses or backward_set_clauses):
-            where_clause_str = ' AND '.join(where_conditions)
+        # 第三步：如果该表没有任何SET子句，直接跳过，不进行查询字段校验
+        if not forward_set_clauses and not backward_set_clauses:
+            print(f"[SQL生成-表:{table_name}] 跳过: 该表没有有效的更新字段")
+            continue
 
-            if forward_set_clauses:
-                forward_set_clause_str = ', '.join(forward_set_clauses)
-                # 添加操作备注
-                if ops_remark:
-                    forward_set_clause_str += f", ops_remark = '{ops_remark}'"
-                forward_sql = f"UPDATE {table_name} SET {forward_set_clause_str} WHERE {where_clause_str}"
-                # 返回原始SQL和格式化后的SQL
-                forward_sqls.append({
-                    'raw': forward_sql,
-                    'formatted': format_sql(forward_sql)
-                })
-
-            if backward_set_clauses:
-                backward_set_clause_str = ', '.join(backward_set_clauses)
-                # 回退语句的操作备注为空
-                backward_set_clause_str += ", ops_remark = ''"
-                backward_sql = f"UPDATE {table_name} SET {backward_set_clause_str} WHERE {where_clause_str}"
-                # 返回原始SQL和格式化后的SQL
-                backward_sqls.append({
-                    'raw': backward_sql,
-                    'formatted': format_sql(backward_sql)
-                })
+        # 第四步：有SET子句时，才根据查询模式收集WHERE条件
+        where_conditions = []
+        
+        if query_mode == 'loose':
+            # 宽松模式：只收集有值的字段
+            for item in table_query_fields:
+                binding_key = item.get('bindingKey')
+                value_data = form_values.get(binding_key, {})
+                value = value_data.get('value', '')
+                
+                if value:
+                    where_conditions.append(f"{binding_key} = '{value}'")
         else:
-            if not where_conditions:
-                print(f"[SQL生成-表:{table_name}] 警告: WHERE条件为空，跳过SQL生成")
-            if not forward_set_clauses and not backward_set_clauses:
-                print(f"[SQL生成-表:{table_name}] 警告: SET子句为空，跳过SQL生成")
+            # 严格模式（默认）：要求所有关联字段都有值
+            all_fields_have_value = True
+            
+            for item in table_query_fields:
+                binding_key = item.get('bindingKey')
+                value_data = form_values.get(binding_key, {})
+                value = value_data.get('value', '')
+                
+                if not value:
+                    all_fields_have_value = False
+                    break
+                else:
+                    where_conditions.append(f"{binding_key} = '{value}'")
+            
+            # 严格模式下，如果有字段为空则处理
+            if not all_fields_have_value:
+                # 关键逻辑：只有当表有多个查询字段时，才记录缺失字段
+                # 如果只有一个查询字段，静默跳过（不生成SQL即可）
+                if len(table_query_fields) > 1:
+                    for item in table_query_fields:
+                        binding_key = item.get('bindingKey')
+                        label = item.get('label', binding_key)
+                        value_data = form_values.get(binding_key, {})
+                        value = value_data.get('value', '')
+                        if not value:
+                            missing_field_labels.add(label)
+                    print(f"[SQL生成-表:{table_name}] 跳过(严格模式): 存在未填写的查询字段")
+                else:
+                    # 只有一个查询字段且为空，静默跳过
+                    print(f"[SQL生成-表:{table_name}] 跳过(严格模式): 唯一查询字段为空，静默跳过")
+                continue
 
+        # 第五步：至少有一个查询字段有值时才生成SQL
+        if not where_conditions:
+            missing_fields = [item.get('bindingKey') for item in table_query_fields]
+            print(f"[SQL生成-表:{table_name}] 跳过: 所有查询字段均为空: {missing_fields}")
+            continue
+
+        # 第六步：生成SQL语句
+        where_clause_str = ' AND '.join(where_conditions)
+
+        if forward_set_clauses:
+            forward_set_clause_str = ', '.join(forward_set_clauses)
+            # 添加操作备注
+            if ops_remark:
+                forward_set_clause_str += f", ops_remark = '{ops_remark}'"
+            forward_sql = f"UPDATE {table_name} SET {forward_set_clause_str} WHERE {where_clause_str}"
+            # 返回原始SQL和格式化后的SQL
+            forward_sqls.append({
+                'raw': forward_sql,
+                'formatted': format_sql(forward_sql)
+            })
+
+        if backward_set_clauses:
+            backward_set_clause_str = ', '.join(backward_set_clauses)
+            # 回退语句的操作备注为空
+            backward_set_clause_str += ", ops_remark = ''"
+            backward_sql = f"UPDATE {table_name} SET {backward_set_clause_str} WHERE {where_clause_str}"
+            # 返回原始SQL和格式化后的SQL
+            backward_sqls.append({
+                'raw': backward_sql,
+                'formatted': format_sql(backward_sql)
+            })
+
+    # 将收集的缺失字段标签合并为错误信息
+    # 关键逻辑：只有当没有任何SQL生成时，才返回错误信息
+    missing_field_errors = []
+    if missing_field_labels and not forward_sqls and not backward_sqls:
+        for label in sorted(missing_field_labels):
+            missing_field_errors.append(f"{label} 未填写")
+    
     return {
         'forward_sqls': forward_sqls,
-        'backward_sqls': backward_sqls
+        'backward_sqls': backward_sqls,
+        'missing_field_errors': missing_field_errors  # 返回缺失字段错误信息
     }
 
 
@@ -1270,6 +1293,15 @@ def dynamic_submit(request):
 
             sql_result = generate_update_sql(config, form_values)
 
+            # 检查是否有缺失字段的错误（严格模式下）
+            if sql_result.get('missing_field_errors'):
+                error_messages = sql_result['missing_field_errors']
+                return JsonResponse({
+                    'success': False,
+                    'message': f'共有{len(error_messages)}个字段校验错误',
+                    'errors': error_messages
+                }, status=400)
+
             dynamic_no = form_values.get('dynamicNo', {}).get('value', '')
             file_prefix = form_values.get('filePrefix', {}).get('value', '')
 
@@ -1754,7 +1786,14 @@ def process_single_sheet_import(ws, query_items_data, update_items_data, query_v
             else:
                 sql_result = generate_update_sql(config, form_values)
 
-                if sql_result['forward_sqls'] and sql_result['backward_sqls']:
+                # 检查是否有缺失字段的错误（严格模式下）
+                if sql_result.get('missing_field_errors'):
+                    fail_count += 1
+                    fail_reason = '; '.join(sql_result['missing_field_errors'])
+                    ws.cell(row=row_idx, column=fail_column, value=fail_reason)
+                    ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
+                                                                                end_color="FFFFCC", fill_type="solid")
+                elif sql_result['forward_sqls'] and sql_result['backward_sqls']:
                     all_sql_statements.append({
                         'row': row_idx,
                         'forward_sqls': sql_result['forward_sqls'],
@@ -2065,7 +2104,14 @@ def batch_import(request):
                 else:
                     sql_result = generate_update_sql(config, form_values)
 
-                    if sql_result['forward_sqls'] and sql_result['backward_sqls']:
+                    # 检查是否有缺失字段的错误（严格模式下）
+                    if sql_result.get('missing_field_errors'):
+                        fail_count += 1
+                        fail_reason = '; '.join(sql_result['missing_field_errors'])
+                        ws.cell(row=row_idx, column=fail_column, value=fail_reason)
+                        ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
+                                                                                    end_color="FFFFCC", fill_type="solid")
+                    elif sql_result['forward_sqls'] and sql_result['backward_sqls']:
                         # 直接存储完整的sql_result，保留raw和formatted
                         all_sql_statements.append({
                             'row': row_idx,
