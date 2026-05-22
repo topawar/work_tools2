@@ -129,7 +129,8 @@ def batch_import_merge(request):
                         update_items_data, 
                         query_values,
                         config.form_name,
-                        config.table_name_list  # 添加表名列表
+                        config.table_name_list,  # 添加表名列表
+                        config.query_mode  # 添加查询模式（strict/loose）
                     )
                     
                     if result['success']:
@@ -155,10 +156,10 @@ def batch_import_merge(request):
             
             # 合并所有SQL语句
             now = datetime.now()
-            year_month = now.strftime('%Y%m')
-            day = now.strftime('%d')
-            save_dir = f"D:\\临时文件\\{year_month}\\{day}"
-            os.makedirs(save_dir, exist_ok=True)
+            
+            # 使用路径配置获取保存路径
+            save_dir = get_save_path_from_config()
+            print(f"[DEBUG] 表单合并SQL文件保存路径: {save_dir}")
             
             # 获取公共字段值
             dynamic_no = ''

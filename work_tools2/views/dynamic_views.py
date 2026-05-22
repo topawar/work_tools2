@@ -31,36 +31,37 @@ def format_sql(sql):
         )
         
         # 处理 IN 子句：如果值很多，进行换行格式化
-        def format_in_clause(match):
-            """格式化 IN 子句，当值超过3个时换行显示"""
-            field_name = match.group(1)
-            values_str = match.group(2)
-            
-            # 提取所有值
-            values = [v.strip() for v in values_str.split(',')]
-            
-            if len(values) <= 3:
-                # 值不多，保持在一行
-                return f"{field_name} IN ({values_str})"
-            else:
-                # 值很多，换行显示
-                indent = " " * 4  # 基础缩进
-                values_indent = " " * 6  # 值的缩进
-                
-                # 每行显示3个值
-                formatted_values = []
-                for i in range(0, len(values), 3):
-                    chunk = values[i:i+3]
-                    formatted_values.append(f"{values_indent}{', '.join(chunk)}")
-                
-                result = f"{field_name} IN (\n"
-                result += ",\n".join(formatted_values)
-                result += f"\n{indent})"
-                return result
+        # TODO: 暂时注释掉，查看原始格式
+        # def format_in_clause(match):
+        #     """格式化 IN 子句，当值超过3个时换行显示"""
+        #     field_name = match.group(1)
+        #     values_str = match.group(2)
+        #     
+        #     # 提取所有值
+        #     values = [v.strip() for v in values_str.split(',')]
+        #     
+        #     if len(values) <= 3:
+        #         # 值不多，保持在一行
+        #         return f"{field_name} IN ({values_str})"
+        #     else:
+        #         # 值很多，换行显示
+        #         indent = " " * 4  # 基础缩进
+        #         values_indent = " " * 6  # 值的缩进
+        #         
+        #         # 每行显示3个值
+        #         formatted_values = []
+        #         for i in range(0, len(values), 3):
+        #             chunk = values[i:i+3]
+        #             formatted_values.append(f"{values_indent}{', '.join(chunk)}")
+        #         
+        #         result = f"{field_name} IN (\n"
+        #         result += ",\n".join(formatted_values)
+        #         result += f"\n{indent})"
+        #         return result
         
         # 匹配 IN 子句：FIELD IN (value1, value2, ...)
-        in_pattern = r"([A-Z_][A-Z0-9_]*)\s+IN\s*\(([^)]+)\)"
-        formatted = re.sub(in_pattern, format_in_clause, formatted, flags=re.IGNORECASE)
+        # in_pattern = r"([A-Z_][A-Z0-9_]*)\s+IN\s*\(([^)]+)\)"
+        # formatted = re.sub(in_pattern, format_in_clause, formatted, flags=re.IGNORECASE)
         
         # 手动格式化：按关键字分割并重新组织
         lines = []
@@ -518,14 +519,25 @@ def generate_update_sql(config, form_values):
 
 def merge_where_clauses(where_clauses):
     """
-    智能合并WHERE子句
-    - 单字段条件：使用 IN (value1, value2, value3)
-    - 多字段组合条件：提取公共字段，不同字段使用 IN
-    示例：
-      输入: ["BPO_LINE_ID = 'A' AND BPO_VER = '1.0'", 
-             "BPO_LINE_ID = 'B' AND BPO_VER = '1.0'",
-             "BPO_LINE_ID = 'C' AND BPO_VER = '1.0'"]
-      输出: "BPO_LINE_ID IN ('A', 'B', 'C') AND BPO_VER = '1.0'"
+    智能合并WHERE子句 - 使用元组IN子句
+    - 将多个WHERE条件合并为 (field1, field2) IN ((val1, val2), (val3, val4))
+    - 避免笛卡尔积问题，保持精确配对
+    - 多字段时每个元组单独一行，提高可读性
+    
+    示例1（单字段）：
+      输入: ["PURCHASE_SCHEME_NO = 'A'", "PURCHASE_SCHEME_NO = 'B'"]
+      输出: "PURCHASE_SCHEME_NO IN ('A', 'B')"
+    
+    示例2（多字段）：
+      输入: [
+        "PURCHASE_SCHEME_NO = 'A' AND INQ_ID = 'X'",
+        "PURCHASE_SCHEME_NO = 'B' AND INQ_ID = 'Y'"
+      ]
+      输出: |
+        (PURCHASE_SCHEME_NO, INQ_ID) IN (
+            ('A', 'X'),
+            ('B', 'Y')
+        )
     """
     if not where_clauses:
         return ''
@@ -533,66 +545,82 @@ def merge_where_clauses(where_clauses):
     if len(where_clauses) == 1:
         return where_clauses[0]
 
-    # 第一步：解析所有WHERE子句，提取字段和值
-    # conditions_list: [{field: value}, ...]
-    conditions_list = []
-    for where_clause in where_clauses:
-        condition_dict = {}
-        # 分割 AND 条件
-        parts = where_clause.split(' AND ')
-        for part in parts:
-            part = part.strip()
-            if '=' in part:
-                field_value = part.split('=')
-                if len(field_value) == 2:
-                    field = field_value[0].strip()
-                    value = field_value[1].strip()
-                    condition_dict[field] = value
-        conditions_list.append(condition_dict)
+    # 去重并保持顺序
+    unique_clauses = list(dict.fromkeys(where_clauses))
     
-    if not conditions_list:
-        return ' OR '.join([f"({wc})" for wc in where_clauses])
+    if len(unique_clauses) == 1:
+        return unique_clauses[0]
     
-    # 第二步：统计每个字段在所有条件中的值
-    # field_values_map: {field: [value1, value2, ...]}
-    all_fields = set()
-    for cond in conditions_list:
-        all_fields.update(cond.keys())
+    # 解析每个WHERE子句，提取字段和值
+    parsed_conditions = []
+    for clause in unique_clauses:
+        conditions = parse_where_clause(clause)
+        if conditions:
+            parsed_conditions.append(conditions)
     
-    field_values_map = {}
-    for field in all_fields:
-        values = []
-        for cond in conditions_list:
-            if field in cond:
-                values.append(cond[field])
-        field_values_map[field] = values
+    if not parsed_conditions:
+        # 如果无法解析，回退到OR连接
+        return ' OR '.join([f"({wc})" for wc in unique_clauses])
     
-    # 第三步：分类字段
-    # - 公共字段：所有条件中该字段的值都相同
-    # - 差异字段：不同条件中该字段的值不同
-    common_conditions = []  # 公共条件列表
-    diff_conditions = []    # 差异条件列表
+    # 检查所有条件是否包含相同的字段
+    first_fields = set(parsed_conditions[0].keys())
+    all_same_fields = all(set(cond.keys()) == first_fields for cond in parsed_conditions)
     
-    for field, values in field_values_map.items():
-        # 检查是否所有值都相同
-        unique_values = list(dict.fromkeys(values))  # 去重并保持顺序
+    if not all_same_fields:
+        # 字段不一致，回退到OR连接
+        return ' OR '.join([f"({wc})" for wc in unique_clauses])
+    
+    # 所有条件字段一致，可以合并为IN子句
+    fields = list(parsed_conditions[0].keys())
+    
+    if len(fields) == 1:
+        # 单字段：field IN ('val1', 'val2', ...)
+        field = fields[0]
+        values = [cond[field] for cond in parsed_conditions]
+        values_str = ', '.join([f"'{v}'" for v in values])
+        return f"{field} IN ({values_str})"
+    else:
+        # 多字段：(field1, field2) IN (
+        #     ('val1a', 'val1b'),
+        #     ('val2a', 'val2b')
+        # )
+        fields_str = ', '.join(fields)
+        tuples = []
+        for cond in parsed_conditions:
+            tuple_values = ', '.join([f"'{cond[f]}'" for f in fields])
+            tuples.append(f"    ({tuple_values})")
+        tuples_str = ',\n'.join(tuples)
+        return f"({fields_str}) IN (\n{tuples_str}\n)"
+
+
+def parse_where_clause(clause):
+    """
+    解析WHERE子句，提取字段和值的映射
+    例如: "PURCHASE_SCHEME_NO = 'A' AND INQ_ID = 'X'" 
+    返回: {'PURCHASE_SCHEME_NO': 'A', 'INQ_ID': 'X'}
+    """
+    conditions = {}
+    
+    # 按 AND 分割
+    parts = clause.split(' AND ')
+    
+    for part in parts:
+        part = part.strip()
+        # 匹配 field = 'value' 或 field = value
+        import re
+        match = re.match(r"(\w+)\s*=\s*'([^']*)'", part)
+        if not match:
+            match = re.match(r"(\w+)\s*=\s*(\S+)", part)
         
-        if len(unique_values) == 1:
-            # 公共字段：所有条件的值都相同
-            common_conditions.append(f"{field} = {unique_values[0]}")
+        if match:
+            field = match.group(1)
+            value = match.group(2)
+            conditions[field] = value
         else:
-            # 差异字段：使用 IN
-            values_str = ', '.join(unique_values)
-            diff_conditions.append(f"{field} IN ({values_str})")
+            # 无法解析，返回None
+            return None
     
-    # 第四步：生成最终的WHERE子句
-    final_conditions = common_conditions + diff_conditions
-    
-    if not final_conditions:
-        return ' OR '.join([f"({wc})" for wc in where_clauses])
-    
-    # 用 AND 连接所有条件
-    return ' AND '.join(final_conditions)
+    return conditions if conditions else None
 
 
 def merge_sql_statements(all_sql_statements):
@@ -905,43 +933,68 @@ def validate_form_data(config, form_values, query_values=None):
             if (origin_value is None or origin_value == '') and origin_valid_rule == 'required':
                 errors.append(f"原{item.get('label')}不能为空")
 
-        # 补充框校验
-        elif input_type == 'supplement':
-            # 如果 form_values 中没有这个补充框，说明前端没有传输（原值为空），跳过校验
-            if binding_key not in form_values:
-                continue
-
-            main_table = item.get('mainTable', '')
-            main_field = item.get('mainField', '')
-            sub_fields = item.get('subFields', [])
-
-            new_value = value_data.get('newValue')
-            origin_value = value_data.get('originValue')
-
-            # 只校验新值是否在数据库中存在
-            if new_value and new_value != '' and main_table and main_field:
-                from django.db import connection
-                try:
-                    with connection.cursor() as cursor:
-                        sql = f"SELECT COUNT(*) FROM {main_table} WHERE {main_field} = %s"
-                        cursor.execute(sql, [str(new_value)])
-                        count = cursor.fetchone()[0]
-                        if count == 0:
-                            errors.append(f"新{item.get('label')}的值'{new_value}'在数据库中不存在")
-                except Exception as e:
-                    print(f"校验补充框新值失败: {e}")
-
-            # 原值不校验，直接使用用户提供的值或数据库中的值
-
-            # 校验必填
-            new_valid_rule = item.get('newValidRule', '')
-            origin_valid_rule = item.get('originValidRule', '')
-
-            if (new_value is None or new_value == '') and new_valid_rule == 'required':
-                errors.append(f"新{item.get('label')}不能为空")
-
-            if (origin_value is None or origin_value == '') and origin_valid_rule == 'required':
-                errors.append(f"原{item.get('label')}不能为空")
+    # ==================== 补充框特殊校验逻辑 ====================
+    # 收集所有补充框
+    supplement_items = [item for item in update_items if item.get('inputType') == 'supplement']
+    
+    # 检查是否有至少一个补充框有新值或原值
+    has_any_supplement_value = False
+    for item in supplement_items:
+        binding_key = item.get('bindingKey')
+        value_data = form_values.get(binding_key, {})
+        new_value = value_data.get('newValue', '')
+        origin_value = value_data.get('originValue', '')
+        
+        if new_value or origin_value:
+            has_any_supplement_value = True
+            break
+    
+    # 对每个补充框进行校验
+    for item in supplement_items:
+        binding_key = item.get('bindingKey')
+        value_data = form_values.get(binding_key, {})
+        
+        # 如果 form_values 中没有这个补充框，说明前端没有传输（原值为空），跳过校验
+        if binding_key not in form_values:
+            continue
+        
+        main_table = item.get('mainTable', '')
+        main_field = item.get('mainField', '')
+        sub_fields = item.get('subFields', [])
+        
+        new_value = value_data.get('newValue')
+        origin_value = value_data.get('originValue')
+        
+        # 只校验新值是否在数据库中存在
+        if new_value and new_value != '' and main_table and main_field:
+            from django.db import connection
+            try:
+                with connection.cursor() as cursor:
+                    sql = f"SELECT COUNT(*) FROM {main_table} WHERE {main_field} = %s"
+                    cursor.execute(sql, [str(new_value)])
+                    count = cursor.fetchone()[0]
+                    if count == 0:
+                        errors.append(f"新{item.get('label')}的值'{new_value}'在数据库中不存在")
+            except Exception as e:
+                print(f"校验补充框新值失败: {e}")
+        
+        # 原值不校验，直接使用用户提供的值或数据库中的值
+        
+        # 补充框特殊校验：如果所有补充框中至少有一个有值，则跳过必填校验
+        # 这样可以允许同一配置项中的多个补充框只填写部分
+        if has_any_supplement_value:
+            # 整组有至少一个补充框有值，跳过所有补充框的必填校验
+            continue
+        
+        # 如果所有补充框都没有值，才进行必填校验
+        new_valid_rule = item.get('newValidRule', '')
+        origin_valid_rule = item.get('originValidRule', '')
+        
+        if (new_value is None or new_value == '') and new_valid_rule == 'required':
+            errors.append(f"新{item.get('label')}不能为空")
+        
+        if (origin_value is None or origin_value == '') and origin_valid_rule == 'required':
+            errors.append(f"原{item.get('label')}不能为空")
 
         # 普通输入框校验
         elif input_type in ['input', 'text', 'string']:
@@ -1054,11 +1107,11 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
         if label in headers:
             col = headers[label]
             value = ws.cell(row=row_idx, column=col).value
-            value_str = str(value) if value is not None else ''
+            value_str = str(value).strip() if value is not None else ''
             
             # 如果值为空且有默认值，使用默认值
             if not value_str and item.get('defaultValue'):
-                value_str = str(item.get('defaultValue', ''))
+                value_str = str(item.get('defaultValue', '')).strip()
             
             form_values[binding_key] = {
                 'label': label,
@@ -1103,8 +1156,8 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
 
             form_values[binding_key] = {
                 'label': label,
-                'newValue': str(new_value) if new_value is not None else '',
-                'originValue': str(origin_value) if origin_value is not None else '',
+                'newValue': str(new_value).strip() if new_value is not None else '',
+                'originValue': str(origin_value).strip() if origin_value is not None else '',
                 'inputType': 'supplement',
                 'fieldType': 'supplement',
                 'newValidRule': item.get('newValidRule', ''),
@@ -1178,7 +1231,7 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                                         sub_value = row_data.get(db_field, '')
 
                                         form_values[sub_binding_key] = {
-                                            'newValue': str(sub_value) if sub_value is not None else '',
+                                            'newValue': str(sub_value).strip() if sub_value is not None else '',
                                             'originValue': '',
                                             'inputType': 'supplement-sub',
                                             'fieldType': 'supplement-sub',
@@ -1200,11 +1253,11 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                                         # 如果已经有新值的子字段数据，只更新originValue
                                         if sub_binding_key in form_values:
                                             form_values[sub_binding_key]['originValue'] = str(
-                                                sub_value) if sub_value is not None else ''
+                                                sub_value).strip() if sub_value is not None else ''
                                         else:
                                             form_values[sub_binding_key] = {
                                                 'newValue': '',
-                                                'originValue': str(sub_value) if sub_value is not None else '',
+                                                'originValue': str(sub_value).strip() if sub_value is not None else '',
                                                 'inputType': 'supplement-sub',
                                                 'fieldType': 'supplement-sub',
                                                 'parentKey': binding_key,
@@ -1236,8 +1289,8 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                         origin_sub_value = ws.cell(row=row_idx, column=col).value
 
                     form_values[sub_binding_key] = {
-                        'newValue': str(new_sub_value) if new_sub_value is not None else '',
-                        'originValue': str(origin_sub_value) if origin_sub_value is not None else '',
+                        'newValue': str(new_sub_value).strip() if new_sub_value is not None else '',
+                        'originValue': str(origin_sub_value).strip() if origin_sub_value is not None else '',
                         'inputType': 'supplement-sub',
                         'fieldType': 'supplement-sub',
                         'parentKey': binding_key,
@@ -1279,14 +1332,14 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                     missing_columns.append(origin_label)
 
                 # 如果值为空且有默认值，使用默认值
-                new_value_str = str(new_value) if new_value is not None else ''
-                origin_value_str = str(origin_value) if origin_value is not None else ''
+                new_value_str = str(new_value).strip() if new_value is not None else ''
+                origin_value_str = str(origin_value).strip() if origin_value is not None else ''
                 
                 if not new_value_str and item.get('newDefaultValue'):
-                    new_value_str = str(item.get('newDefaultValue', ''))
+                    new_value_str = str(item.get('newDefaultValue', '')).strip()
                 
                 if not origin_value_str and item.get('originDefaultValue'):
-                    origin_value_str = str(item.get('originDefaultValue', ''))
+                    origin_value_str = str(item.get('originDefaultValue', '')).strip()
 
                 form_values[binding_key] = {
                     'label': label,
@@ -1547,7 +1600,7 @@ def download_template(request):
     return JsonResponse({'success': False, 'message': '仅支持 POST 请求'}, status=405)
 
 
-def process_single_sheet_import(ws, query_items_data, update_items_data, query_values, form_name, table_name_list=None):
+def process_single_sheet_import(ws, query_items_data, update_items_data, query_values, form_name, table_name_list=None, query_mode='strict'):
     """处理单个Sheet的导入（用于多Sheet批量导入）"""
     try:
 
@@ -1555,7 +1608,8 @@ def process_single_sheet_import(ws, query_items_data, update_items_data, query_v
             'formName': form_name,
             'tableNameList': table_name_list or [],  # 添加表名列表
             'queryItems': query_items_data,
-            'updateItems': update_items_data
+            'updateItems': update_items_data,
+            'queryMode': query_mode  # 添加查询模式（strict/loose）
         }
 
         # 读取表头
@@ -1732,21 +1786,13 @@ def process_single_sheet_import(ws, query_items_data, update_items_data, query_v
             # ==================== 添加公共字段到form_values ====================
             # 将query_values中的公共字段添加到form_values中，以便校验通过
             if query_values:
-                for field_name in ['filePrefix', 'onesLink', 'dynamicNo']:
+                for field_name in ['filePrefix', 'onesLink', 'dynamicNo', 'ops_remark']:
                     if field_name in query_values:
                         value_data = query_values[field_name]
                         if isinstance(value_data, dict):
                             form_values[field_name] = value_data
                         else:
                             form_values[field_name] = {'value': str(value_data)}
-
-                # 处理操作备注（如果存在）
-                if 'ops_remark' in query_values:
-                    ops_remark_data = query_values['ops_remark']
-                    if isinstance(ops_remark_data, dict):
-                        form_values['ops_remark'] = ops_remark_data
-                    else:
-                        form_values['ops_remark'] = {'value': str(ops_remark_data)}
 
             # ==================== 使用缓存的补充框数据填充子字段 ====================
             for item in update_items_data:
@@ -1774,7 +1820,7 @@ def process_single_sheet_import(ws, query_items_data, update_items_data, query_v
                                         sub_value = row_data.get(db_field, '')
 
                                         form_values[sub_binding_key] = {
-                                            'newValue': str(sub_value) if sub_value is not None else '',
+                                            'newValue': str(sub_value).strip() if sub_value is not None else '',
                                             'originValue': '',
                                             'inputType': 'supplement-sub',
                                             'fieldType': 'supplement-sub',
@@ -1796,11 +1842,11 @@ def process_single_sheet_import(ws, query_items_data, update_items_data, query_v
                                         # 如果已经有新值的子字段数据，只更新originValue
                                         if sub_binding_key in form_values:
                                             form_values[sub_binding_key]['originValue'] = str(
-                                                sub_value) if sub_value is not None else ''
+                                                sub_value).strip() if sub_value is not None else ''
                                         else:
                                             form_values[sub_binding_key] = {
                                                 'newValue': '',
-                                                'originValue': str(sub_value) if sub_value is not None else '',
+                                                'originValue': str(sub_value).strip() if sub_value is not None else '',
                                                 'inputType': 'supplement-sub',
                                                 'fieldType': 'supplement-sub',
                                                 'parentKey': parent_key,
@@ -2068,6 +2114,17 @@ def batch_import(request):
                                                                                 end_color="FFFFCC", fill_type="solid")
                     continue
 
+                # ==================== 将查询字段中的公共字段添加到 form_values ====================
+                # 包括 ops_remark、filePrefix、onesLink、dynamicNo
+                if query_values:
+                    for field_name in ['filePrefix', 'onesLink', 'dynamicNo', 'ops_remark']:
+                        if field_name in query_values:
+                            value_data = query_values[field_name]
+                            if isinstance(value_data, dict):
+                                form_values[field_name] = value_data
+                            else:
+                                form_values[field_name] = {'value': str(value_data)}
+
                 # ==================== 使用缓存的补充框数据填充子字段 ====================
                 for item in update_items:
                     if item.get('inputType') == 'supplement':
@@ -2173,16 +2230,24 @@ def batch_import(request):
                 bold=True)
 
             dynamic_no = ''
+            file_prefix = form_name  # 默认使用配置中的表单名称
             if query_values:
                 dynamic_no_data = query_values.get('dynamicNo', '')
                 if isinstance(dynamic_no_data, dict):
                     dynamic_no = dynamic_no_data.get('value', '')
                 elif isinstance(dynamic_no_data, str):
                     dynamic_no = dynamic_no_data
+                
+                # 获取用户输入的文件名前缀
+                file_prefix_data = query_values.get('filePrefix', '')
+                if isinstance(file_prefix_data, dict):
+                    file_prefix = file_prefix_data.get('value', '') or form_name
+                elif isinstance(file_prefix_data, str) and file_prefix_data.strip():
+                    file_prefix = file_prefix_data.strip()
 
             # 使用路径配置获取保存路径
             save_dir = get_save_path_from_config()
-            print(f"[DEBUG BATCH] 批量导入SQL文件保存路径: {save_dir}")
+            # print(f"[DEBUG BATCH] 批量导入SQL文件保存路径: {save_dir}")
 
             os.makedirs(save_dir, exist_ok=True)
 
@@ -2191,7 +2256,7 @@ def batch_import(request):
             sql_file_path = None
             if all_success and all_sql_statements:
                 # 文件名格式：编号_文件名.sql
-                sql_filename = f"{dynamic_no}_{form_name}.sql"
+                sql_filename = f"{dynamic_no}_{file_prefix}.sql"
                 sql_filepath = os.path.join(save_dir, sql_filename)
 
                 # ==================== 第四步：合并相同修改条件的SQL ====================

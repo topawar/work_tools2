@@ -312,7 +312,7 @@
             // 1. 获取查询字段的值（动态生成的）
             gQueryItems.forEach(function (item) {
                 const queryId = item.bindingKey;
-                const queryVal = $('#' + queryId).val() || '';
+                const queryVal = ($('#' + queryId).val() || '').trim();
 
                 result[item.bindingKey] = {
                     label: item.label,
@@ -325,7 +325,7 @@
 
             // 2. 获取公用字段的值（硬编码的三个输入框）
             // 文件名
-            const filePrefixVal = $('#filePrefix').val() || '';
+            const filePrefixVal = ($('#filePrefix').val() || '').trim();
             result['filePrefix'] = {
                 value: filePrefixVal,
                 inputType: 'common',
@@ -333,7 +333,7 @@
             };
 
             // OnesLink
-            const onesLinkVal = $('#onesLink').val() || '';
+            const onesLinkVal = ($('#onesLink').val() || '').trim();
             result['onesLink'] = {
                 value: onesLinkVal,
                 inputType: 'common',
@@ -341,7 +341,7 @@
             };
 
             // 动态编号
-            const dynamicNoVal = $('#dynamicNo').val() || '';
+            const dynamicNoVal = ($('#dynamicNo').val() || '').trim();
             result['dynamicNo'] = {
                 value: dynamicNoVal,
                 inputType: 'common',
@@ -349,7 +349,7 @@
             };
 
             // 操作备注
-            const opsRemarkVal = $('#ops_remark').val() || '';
+            const opsRemarkVal = ($('#ops_remark').val() || '').trim();
             result['ops_remark'] = {
                 value: opsRemarkVal,
                 inputType: 'common',
@@ -363,8 +363,8 @@
                 const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
 
                 // 使用 jQuery 直接获取 select 的选中值
-                const newVal = $('#' + newId).val() || '';
-                const originVal = $('#' + originId).val() || '';
+                const newVal = ($('#' + newId).val() || '').trim();
+                const originVal = ($('#' + originId).val() || '').trim();
 
                 {#console.log("newId", newId);#}
                 {#console.log("newVal", newVal);#}
@@ -388,10 +388,10 @@
 
                 // 获取选中的单选框值（新值）
                 const checkedRadio = $('input[name="' + newId + '"]:checked');
-                const newVal = checkedRadio.length > 0 ? checkedRadio.val() : '';
+                const newVal = checkedRadio.length > 0 ? (checkedRadio.val() || '').trim() : '';
                 
                 // 原值从只读输入框中获取（已经由 handleRadioChange 自动更新）
-                const originVal = $('#' + originId).val() || '';
+                const originVal = ($('#' + originId).val() || '').trim();
 
                 result[item.bindingKey] = {
                     label: item.label,
@@ -407,8 +407,8 @@
                 const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                 const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
 
-                const newVal = $('#' + newId).val() || '';
-                const originVal = $('#' + originId).val() || '';
+                const newVal = ($('#' + newId).val() || '').trim();
+                const originVal = ($('#' + originId).val() || '').trim();
 
                 result[item.bindingKey] = {
                     label: item.label,
@@ -427,8 +427,8 @@
                 const mainNewId = `newMain${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                 const mainOriginId = `originMain${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
 
-                const mainNewVal = $('#' + mainNewId).val() || '';
-                const mainOriginVal = $('#' + mainOriginId).val() || '';
+                const mainNewVal = ($('#' + mainNewId).val() || '').trim();
+                const mainOriginVal = ($('#' + mainOriginId).val() || '').trim();
 
                 // 只有当原值有值时，才传输该补充框的数据
                 if (mainOriginVal) {
@@ -446,8 +446,8 @@
                         const subNewId = `newSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
                         const subOriginId = `originSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
 
-                        const subNewVal = $('#' + subNewId).val() || '';
-                        const subOriginVal = $('#' + subOriginId).val() || '';
+                        const subNewVal = ($('#' + subNewId).val() || '').trim();
+                        const subOriginVal = ($('#' + subOriginId).val() || '').trim();
 
                         result[subField.bindingKey] = {
                             newValue: subNewVal,
@@ -473,13 +473,14 @@
             // 获取动态生成的查询字段
             gQueryItems.forEach(function (item) {
                 const queryId = `query${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
-                result[item.bindingKey] = $('#' + queryId).val() || '';
+                result[item.bindingKey] = ($('#' + queryId).val() || '').trim();
             });
 
             // 获取硬编码的公用字段
-            result['filePrefix'] = $('#filePrefix').val() || '';
-            result['onesLink'] = $('#onesLink').val() || '';
-            result['dynamicNo'] = $('#dynamicNo').val() || '';
+            result['filePrefix'] = ($('#filePrefix').val() || '').trim();
+            result['onesLink'] = ($('#onesLink').val() || '').trim();
+            result['dynamicNo'] = ($('#dynamicNo').val() || '').trim();
+            result['ops_remark'] = ($('#ops_remark').val() || '').trim();
 
             console.log('查询字段值:', result);
             return result;
