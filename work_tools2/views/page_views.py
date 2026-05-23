@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.middleware.csrf import get_token
 
 
 def home(request):
@@ -13,7 +14,10 @@ def form_merge(request):
 
 def table_config(request):
     """Runoob tutorial page."""
-    return render(request, "table_config.html", {"active_page": "table_config"})
+    # 确保设置 CSRF cookie
+    response = render(request, "table_config.html", {"active_page": "table_config"})
+    get_token(request)  # 这会强制设置 CSRF cookie
+    return response
 
 
 def dashboard(request):

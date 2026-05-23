@@ -5,6 +5,10 @@ from .form_config_views import (
     get_form_config_detail,
     save_form_config,
     delete_form_config,
+    duplicate_form_config,
+    export_form_config,
+    batch_export_form_configs,
+    import_form_config,
     get_menu_list,
     create_or_get_menu,
     get_database_tables,
@@ -70,6 +74,7 @@ from .page_views import file_path_config
 __all__ = [
     'home', 'form_merge', 'table_config', 'dashboard', 'dynamic',
     'get_form_configs', 'get_form_config_detail', 'save_form_config', 'delete_form_config',
+    'duplicate_form_config', 'export_form_config', 'batch_export_form_configs', 'import_form_config',
     'get_menu_list', 'create_or_get_menu', 'get_database_tables', 'get_table_fields',
     'dynamic_submit', 'download_template', 'batch_import', 'download_failed_file', 'component_config',
     'get_components', 'get_component_detail', 'save_component', 'delete_component', 'get_component_usage',

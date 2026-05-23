@@ -20,7 +20,7 @@ def format_sql(sql):
     try:
         import sqlparse
         import re
-        
+
         # 先使用 sqlparse 进行基本格式化，但不重新缩进
         formatted = sqlparse.format(
             sql,
@@ -29,68 +29,118 @@ def format_sql(sql):
             identifier_case='upper',
             strip_comments=True
         )
-        
+
         # 处理 IN 子句：如果值很多，进行换行格式化
-        # TODO: 暂时注释掉，查看原始格式
-        # def format_in_clause(match):
-        #     """格式化 IN 子句，当值超过3个时换行显示"""
-        #     field_name = match.group(1)
-        #     values_str = match.group(2)
-        #     
-        #     # 提取所有值
-        #     values = [v.strip() for v in values_str.split(',')]
-        #     
-        #     if len(values) <= 3:
-        #         # 值不多，保持在一行
-        #         return f"{field_name} IN ({values_str})"
-        #     else:
-        #         # 值很多，换行显示
-        #         indent = " " * 4  # 基础缩进
-        #         values_indent = " " * 6  # 值的缩进
-        #         
-        #         # 每行显示3个值
-        #         formatted_values = []
-        #         for i in range(0, len(values), 3):
-        #             chunk = values[i:i+3]
-        #             formatted_values.append(f"{values_indent}{', '.join(chunk)}")
-        #         
-        #         result = f"{field_name} IN (\n"
-        #         result += ",\n".join(formatted_values)
-        #         result += f"\n{indent})"
-        #         return result
+        def format_in_clause(match):
+            """格式化 IN 子句，当值超过3个时换行显示"""
+            field_name = match.group(1)
+            values_str = match.group(2)
+
+            # 提取所有值（需要处理元组格式）
+            values = []
+            current_value = ""
+            paren_depth = 0
+            
+            for char in values_str:
+                if char == '(':
+                    paren_depth += 1
+                    current_value += char
+                elif char == ')':
+                    paren_depth -= 1
+                    current_value += char
+                elif char == ',' and paren_depth == 0:
+                    # 只有在括号外层的逗号才分割
+                    if current_value.strip():
+                        values.append(current_value.strip())
+                    current_value = ""
+                else:
+                    current_value += char
+            
+            # 添加最后一个值
+            if current_value.strip():
+                values.append(current_value.strip())
+
+            if len(values) <= 3:
+                # 值不多，保持在一行
+                return f"{field_name} IN ({values_str})"
+            else:
+                # 值很多，换行显示
+                indent = " " * 4  # 基础缩进
+                values_indent = " " * 6  # 值的缩进
+
+                # 每行显示3个值
+                formatted_values = []
+                for i in range(0, len(values), 3):
+                    chunk = values[i:i+3]
+                    formatted_values.append(f"{values_indent}{', '.join(chunk)}")
+
+                result = f"{field_name} IN (\n"
+                result += ",\n".join(formatted_values)
+                result += f"\n{indent})"
+                return result
+
+        # 匹配 IN 子句：支持单字段和联合条件，以及嵌套括号
+        # 使用非贪婪匹配和手动处理嵌套括号
+        def find_in_clauses(text):
+            """查找所有 IN 子句，支持嵌套括号"""
+            results = []
+            pattern = r'(\([A-Z_,\s]+\)|[A-Z_][A-Z0-9_]*)\s+IN\s*\('
+            
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                start_pos = match.end()  # IN ( 之后的位置
+                field_name = match.group(1)
+                
+                # 手动查找匹配的右括号
+                paren_depth = 1
+                pos = start_pos
+                while pos < len(text) and paren_depth > 0:
+                    if text[pos] == '(':
+                        paren_depth += 1
+                    elif text[pos] == ')':
+                        paren_depth -= 1
+                    pos += 1
+                
+                if paren_depth == 0:
+                    values_str = text[start_pos:pos-1]
+                    results.append((match.start(), pos, field_name, values_str))
+            
+            return results
         
-        # 匹配 IN 子句：FIELD IN (value1, value2, ...)
-        # in_pattern = r"([A-Z_][A-Z0-9_]*)\s+IN\s*\(([^)]+)\)"
-        # formatted = re.sub(in_pattern, format_in_clause, formatted, flags=re.IGNORECASE)
-        
+        # 查找并替换所有 IN 子句
+        in_clauses = find_in_clauses(formatted)
+        # 从后往前替换，避免位置偏移
+        for start, end, field_name, values_str in reversed(in_clauses):
+            replacement = format_in_clause(type('obj', (object,), {'group': lambda self, x: field_name if x == 1 else values_str})())
+            formatted = formatted[:start] + replacement + formatted[end:]
+
         # 手动格式化：按关键字分割并重新组织
         lines = []
-        
+
         # 将SQL按关键字分割（注意：IN 子句可能已经包含换行）
         # 先按行分割，再处理每行
         raw_lines = formatted.split('\n')
-        
+
         in_set_clause = False  # 标记是否在 SET 子句中
-        
+
         for line in raw_lines:
             stripped = line.strip()
             if not stripped:
                 continue
-            
+
             # 如果这一行已经是 IN 子句的一部分（以 ) 结尾且前面有 IN），直接保留
             if stripped.startswith(')') or (stripped.endswith(',') and '(' in line):
                 lines.append(line)
                 continue
-            
+
             # 处理普通行
             parts = stripped.split()
             i = 0
             current_line = ""
-            
+
             while i < len(parts):
                 word = parts[i]
                 word_upper = word.upper()
-                
+
                 # UPDATE 关键字：新起一行
                 if word_upper == 'UPDATE':
                     if current_line:
@@ -99,7 +149,7 @@ def format_sql(sql):
                     in_set_clause = False
                     i += 1
                     continue
-                
+
                 # SET 关键字：新起一行，缩进
                 if word_upper == 'SET':
                     if current_line:
@@ -108,7 +158,7 @@ def format_sql(sql):
                     in_set_clause = True
                     i += 1
                     continue
-                
+
                 # WHERE 关键字：新起一行
                 if word_upper == 'WHERE':
                     if current_line:
@@ -117,7 +167,7 @@ def format_sql(sql):
                     in_set_clause = False
                     i += 1
                     continue
-                
+
                 # OR 关键字：新起一行，增加缩进
                 if word_upper == 'OR':
                     if current_line:
@@ -125,7 +175,7 @@ def format_sql(sql):
                     current_line = f"    {word}"
                     i += 1
                     continue
-                
+
                 # 如果在 SET 子句中，遇到逗号说明是下一个字段，需要换行
                 if in_set_clause and word.endswith(','):
                     # 添加当前字段（带逗号）
@@ -134,16 +184,16 @@ def format_sql(sql):
                     current_line = "    "  # 下一行缩进
                     i += 1
                     continue
-                
+
                 # 其他内容：添加到当前行
                 current_line += f" {word}"
                 i += 1
-            
+
             if current_line:
                 lines.append(current_line)
-        
+
         return '\n'.join(lines)
-        
+
     except ImportError:
         # 如果 sqlparse 未安装，返回原始SQL
         return sql
@@ -190,9 +240,12 @@ def generate_update_sql(config, form_values):
     table_name_list = config.get('tableNameList', [])
     query_items = config.get('queryItems', [])
     update_items = config.get('updateItems', [])
-    
+
     # 获取查询模式：strict(严格) 或 loose(宽松)
     query_mode = config.get('queryMode', 'strict')
+    
+    # 获取是否拼接操作备注的配置，默认为 True
+    append_ops_remark = config.get('appendOpsRemark', True)
 
     # 获取操作备注
     ops_remark = form_values.get('ops_remark', '')
@@ -262,7 +315,7 @@ def generate_update_sql(config, form_values):
                         if field_item:
                             field_key = field_item['bindingKey']
                             field_type = field_item.get('type', 'text')
-                            
+
                             # 获取字段的验证规则
                             if 'value' in form_values.get(field_key, {}):
                                 # 查询字段：没有验证规则概念，直接使用值
@@ -406,7 +459,22 @@ def generate_update_sql(config, form_values):
             # 处理普通字段类型
             else:
                 binding_key = item.get('bindingKey')
-                value_data = form_values.get(binding_key, {})
+
+                # 关键修复：对于同名字段绑定不同表的情况，需要从 form_values 中查找正确的值
+                # 优先尝试 bindingKey_tableName 格式，然后尝试原始的 bindingKey
+                value_data = None
+                if connected_tables:
+                    # 先尝试 bindingKey_tableName 格式
+                    for table in connected_tables:
+                        unique_key = f"{binding_key}_{table}"
+                        if unique_key in form_values:
+                            value_data = form_values[unique_key]
+                            break
+
+                # 如果没找到，使用原始的 bindingKey（向后兼容）
+                if value_data is None:
+                    value_data = form_values.get(binding_key, {})
+
                 new_value = value_data.get('newValue', '')
                 origin_value = value_data.get('originValue', '')
 
@@ -426,31 +494,57 @@ def generate_update_sql(config, form_values):
 
         # 第四步：有SET子句时，才根据查询模式收集WHERE条件
         where_conditions = []
-        
+
         if query_mode == 'loose':
             # 宽松模式：只收集有值的字段
             for item in table_query_fields:
                 binding_key = item.get('bindingKey')
-                value_data = form_values.get(binding_key, {})
-                value = value_data.get('value', '')
+                connected_tables = item.get('connectedTable', [])
                 
+                # 关键修复：对于同名字段绑定不同表的情况，需要从 form_values 中查找正确的值
+                value_data = None
+                if connected_tables:
+                    for table in connected_tables:
+                        unique_key = f"{binding_key}_{table}"
+                        if unique_key in form_values:
+                            value_data = form_values[unique_key]
+                            break
+                
+                if value_data is None:
+                    value_data = form_values.get(binding_key, {})
+                
+                value = value_data.get('value', '')
+
                 if value:
                     where_conditions.append(f"{binding_key} = '{value}'")
         else:
             # 严格模式（默认）：要求所有关联字段都有值
             all_fields_have_value = True
-            
+
             for item in table_query_fields:
                 binding_key = item.get('bindingKey')
-                value_data = form_values.get(binding_key, {})
-                value = value_data.get('value', '')
+                connected_tables = item.get('connectedTable', [])
                 
+                # 关键修复：对于同名字段绑定不同表的情况，需要从 form_values 中查找正确的值
+                value_data = None
+                if connected_tables:
+                    for table in connected_tables:
+                        unique_key = f"{binding_key}_{table}"
+                        if unique_key in form_values:
+                            value_data = form_values[unique_key]
+                            break
+                
+                if value_data is None:
+                    value_data = form_values.get(binding_key, {})
+                
+                value = value_data.get('value', '')
+
                 if not value:
                     all_fields_have_value = False
                     break
                 else:
                     where_conditions.append(f"{binding_key} = '{value}'")
-            
+
             # 严格模式下，如果有字段为空则处理
             if not all_fields_have_value:
                 # 关键逻辑：只有当表有多个查询字段时，才记录缺失字段
@@ -458,8 +552,21 @@ def generate_update_sql(config, form_values):
                 if len(table_query_fields) > 1:
                     for item in table_query_fields:
                         binding_key = item.get('bindingKey')
+                        connected_tables = item.get('connectedTable', [])
                         label = item.get('label', binding_key)
-                        value_data = form_values.get(binding_key, {})
+                        
+                        # 关键修复：对于同名字段绑定不同表的情况，需要从 form_values 中查找正确的值
+                        value_data = None
+                        if connected_tables:
+                            for table in connected_tables:
+                                unique_key = f"{binding_key}_{table}"
+                                if unique_key in form_values:
+                                    value_data = form_values[unique_key]
+                                    break
+                        
+                        if value_data is None:
+                            value_data = form_values.get(binding_key, {})
+                        
                         value = value_data.get('value', '')
                         if not value:
                             missing_field_labels.add(label)
@@ -482,8 +589,8 @@ def generate_update_sql(config, form_values):
 
         if forward_set_clauses:
             forward_set_clause_str = ', '.join(forward_set_clauses)
-            # 添加操作备注
-            if ops_remark:
+            # 根据配置决定是否添加操作备注
+            if append_ops_remark and ops_remark:
                 forward_set_clause_str += f", ops_remark = '{ops_remark}'"
             forward_sql = f"UPDATE {table_name} SET {forward_set_clause_str} WHERE {where_clause_str}"
             # 返回原始SQL和格式化后的SQL
@@ -494,8 +601,9 @@ def generate_update_sql(config, form_values):
 
         if backward_set_clauses:
             backward_set_clause_str = ', '.join(backward_set_clauses)
-            # 回退语句的操作备注为空
-            backward_set_clause_str += ", ops_remark = ''"
+            # 回退语句：根据配置决定是否清空操作备注
+            if append_ops_remark:
+                backward_set_clause_str += ", ops_remark = ''"
             backward_sql = f"UPDATE {table_name} SET {backward_set_clause_str} WHERE {where_clause_str}"
             # 返回原始SQL和格式化后的SQL
             backward_sqls.append({
@@ -509,7 +617,7 @@ def generate_update_sql(config, form_values):
     if missing_field_labels and not forward_sqls and not backward_sqls:
         for label in sorted(missing_field_labels):
             missing_field_errors.append(f"{label} 未填写")
-    
+
     return {
         'forward_sqls': forward_sqls,
         'backward_sqls': backward_sqls,
@@ -547,32 +655,32 @@ def merge_where_clauses(where_clauses):
 
     # 去重并保持顺序
     unique_clauses = list(dict.fromkeys(where_clauses))
-    
+
     if len(unique_clauses) == 1:
         return unique_clauses[0]
-    
+
     # 解析每个WHERE子句，提取字段和值
     parsed_conditions = []
     for clause in unique_clauses:
         conditions = parse_where_clause(clause)
         if conditions:
             parsed_conditions.append(conditions)
-    
+
     if not parsed_conditions:
         # 如果无法解析，回退到OR连接
         return ' OR '.join([f"({wc})" for wc in unique_clauses])
-    
+
     # 检查所有条件是否包含相同的字段
     first_fields = set(parsed_conditions[0].keys())
     all_same_fields = all(set(cond.keys()) == first_fields for cond in parsed_conditions)
-    
+
     if not all_same_fields:
         # 字段不一致，回退到OR连接
         return ' OR '.join([f"({wc})" for wc in unique_clauses])
-    
+
     # 所有条件字段一致，可以合并为IN子句
     fields = list(parsed_conditions[0].keys())
-    
+
     if len(fields) == 1:
         # 单字段：field IN ('val1', 'val2', ...)
         field = fields[0]
@@ -600,10 +708,10 @@ def parse_where_clause(clause):
     返回: {'PURCHASE_SCHEME_NO': 'A', 'INQ_ID': 'X'}
     """
     conditions = {}
-    
+
     # 按 AND 分割
     parts = clause.split(' AND ')
-    
+
     for part in parts:
         part = part.strip()
         # 匹配 field = 'value' 或 field = value
@@ -611,7 +719,7 @@ def parse_where_clause(clause):
         match = re.match(r"(\w+)\s*=\s*'([^']*)'", part)
         if not match:
             match = re.match(r"(\w+)\s*=\s*(\S+)", part)
-        
+
         if match:
             field = match.group(1)
             value = match.group(2)
@@ -619,7 +727,7 @@ def parse_where_clause(clause):
         else:
             # 无法解析，返回None
             return None
-    
+
     return conditions if conditions else None
 
 
@@ -682,7 +790,7 @@ def merge_sql_statements(all_sql_statements):
             item = items[0]
             sql = f"UPDATE {item['table_name']} SET {item['set_clause']} WHERE {item['where_clause']}"
             formatted_sql = format_sql(sql)
-            
+
             # 判断是否为汇总SQL：如果包含SELECT SUM等聚合函数，则为汇总SQL
             if _is_summary_sql(item['set_clause']):
                 merged_forward_summary.append(formatted_sql)
@@ -692,13 +800,13 @@ def merge_sql_statements(all_sql_statements):
             # 多个条件，需要智能合并
             # 先对WHERE子句去重（完全相同的WHERE只保留一个）
             unique_where_clauses = list(dict.fromkeys([item['where_clause'] for item in items]))
-            
+
             if len(unique_where_clauses) == 1:
                 # 所有WHERE条件都相同，说明是重复的汇总SQL，只生成一条
                 item = items[0]
                 sql = f"UPDATE {item['table_name']} SET {item['set_clause']} WHERE {unique_where_clauses[0]}"
                 formatted_sql = format_sql(sql)
-                
+
                 # 汇总SQL放到最后
                 if _is_summary_sql(item['set_clause']):
                     merged_forward_summary.append(formatted_sql)
@@ -709,7 +817,7 @@ def merge_sql_statements(all_sql_statements):
                 merged_where = merge_where_clauses(unique_where_clauses)
                 sql = f"UPDATE {items[0]['table_name']} SET {items[0]['set_clause']} WHERE {merged_where}"
                 formatted_sql = format_sql(sql)
-                
+
                 # 判断是否为汇总SQL
                 if _is_summary_sql(items[0]['set_clause']):
                     merged_forward_summary.append(formatted_sql)
@@ -722,7 +830,7 @@ def merge_sql_statements(all_sql_statements):
             item = items[0]
             sql = f"UPDATE {item['table_name']} SET {item['set_clause']} WHERE {item['where_clause']}"
             formatted_sql = format_sql(sql)
-            
+
             # 判断是否为汇总SQL
             if _is_summary_sql(item['set_clause']):
                 merged_backward_summary.append(formatted_sql)
@@ -731,13 +839,13 @@ def merge_sql_statements(all_sql_statements):
         else:
             # 先对WHERE子句去重
             unique_where_clauses = list(dict.fromkeys([item['where_clause'] for item in items]))
-            
+
             if len(unique_where_clauses) == 1:
                 # 所有WHERE条件都相同，只生成一条
                 item = items[0]
                 sql = f"UPDATE {item['table_name']} SET {item['set_clause']} WHERE {unique_where_clauses[0]}"
                 formatted_sql = format_sql(sql)
-                
+
                 if _is_summary_sql(item['set_clause']):
                     merged_backward_summary.append(formatted_sql)
                 else:
@@ -747,7 +855,7 @@ def merge_sql_statements(all_sql_statements):
                 merged_where = merge_where_clauses(unique_where_clauses)
                 sql = f"UPDATE {items[0]['table_name']} SET {items[0]['set_clause']} WHERE {merged_where}"
                 formatted_sql = format_sql(sql)
-                
+
                 if _is_summary_sql(items[0]['set_clause']):
                     merged_backward_summary.append(formatted_sql)
                 else:
@@ -770,14 +878,14 @@ def _is_summary_sql(set_clause):
     """
     if not set_clause:
         return False
-    
+
     set_upper = set_clause.upper()
     summary_keywords = ['SELECT SUM', 'SELECT COUNT', 'SELECT AVG', 'SELECT MAX', 'SELECT MIN']
-    
+
     for keyword in summary_keywords:
         if keyword in set_upper:
             return True
-    
+
     return False
 
 
@@ -821,11 +929,30 @@ def validate_form_data(config, form_values, query_values=None):
 
     query_items = config.get('queryItems', [])
     update_items = config.get('updateItems', [])
+    
+    # 辅助函数：根据 bindingKey 和 connectedTable 从 form_values 中查找值
+    def get_value_data(binding_key, connected_tables):
+        """从 form_values 中查找字段值，支持 bindingKey_tableName 格式"""
+        value_data = None
+        if connected_tables:
+            # 先尝试 bindingKey_tableName 格式
+            for table in connected_tables:
+                unique_key = f"{binding_key}_{table}"
+                if unique_key in form_values:
+                    value_data = form_values[unique_key]
+                    break
+        
+        # 如果没找到，使用原始的 bindingKey（向后兼容）
+        if value_data is None:
+            value_data = form_values.get(binding_key, {})
+        
+        return value_data
 
     # 校验更新字段
     for item in update_items:
         binding_key = item.get('bindingKey')
-        value_data = form_values.get(binding_key, {})
+        connected_tables = item.get('connectedTable', [])
+        value_data = get_value_data(binding_key, connected_tables)
         input_type = item.get('inputType', '')
         field_type = item.get('type', 'text')
 
@@ -936,35 +1063,48 @@ def validate_form_data(config, form_values, query_values=None):
     # ==================== 补充框特殊校验逻辑 ====================
     # 收集所有补充框
     supplement_items = [item for item in update_items if item.get('inputType') == 'supplement']
-    
+
     # 检查是否有至少一个补充框有新值或原值
     has_any_supplement_value = False
     for item in supplement_items:
         binding_key = item.get('bindingKey')
-        value_data = form_values.get(binding_key, {})
+        connected_tables = item.get('connectedTable', [])
+        value_data = get_value_data(binding_key, connected_tables)
         new_value = value_data.get('newValue', '')
         origin_value = value_data.get('originValue', '')
-        
+
         if new_value or origin_value:
             has_any_supplement_value = True
             break
-    
+
     # 对每个补充框进行校验
     for item in supplement_items:
         binding_key = item.get('bindingKey')
-        value_data = form_values.get(binding_key, {})
-        
+        connected_tables = item.get('connectedTable', [])
+        value_data = get_value_data(binding_key, connected_tables)
+
         # 如果 form_values 中没有这个补充框，说明前端没有传输（原值为空），跳过校验
-        if binding_key not in form_values:
-            continue
+        # 需要检查多种可能的键名
+        found_key = None
+        if connected_tables:
+            for table in connected_tables:
+                unique_key = f"{binding_key}_{table}"
+                if unique_key in form_values:
+                    found_key = unique_key
+                    break
+        if found_key is None and binding_key in form_values:
+            found_key = binding_key
         
+        if found_key is None:
+            continue
+
         main_table = item.get('mainTable', '')
         main_field = item.get('mainField', '')
         sub_fields = item.get('subFields', [])
-        
+
         new_value = value_data.get('newValue')
         origin_value = value_data.get('originValue')
-        
+
         # 只校验新值是否在数据库中存在
         if new_value and new_value != '' and main_table and main_field:
             from django.db import connection
@@ -977,22 +1117,22 @@ def validate_form_data(config, form_values, query_values=None):
                         errors.append(f"新{item.get('label')}的值'{new_value}'在数据库中不存在")
             except Exception as e:
                 print(f"校验补充框新值失败: {e}")
-        
+
         # 原值不校验，直接使用用户提供的值或数据库中的值
-        
+
         # 补充框特殊校验：如果所有补充框中至少有一个有值，则跳过必填校验
         # 这样可以允许同一配置项中的多个补充框只填写部分
         if has_any_supplement_value:
             # 整组有至少一个补充框有值，跳过所有补充框的必填校验
             continue
-        
+
         # 如果所有补充框都没有值，才进行必填校验
         new_valid_rule = item.get('newValidRule', '')
         origin_valid_rule = item.get('originValidRule', '')
-        
+
         if (new_value is None or new_value == '') and new_valid_rule == 'required':
             errors.append(f"新{item.get('label')}不能为空")
-        
+
         if (origin_value is None or origin_value == '') and origin_valid_rule == 'required':
             errors.append(f"原{item.get('label')}不能为空")
 
@@ -1023,7 +1163,22 @@ def validate_form_data(config, form_values, query_values=None):
     # 校验查询字段
     for item in query_items:
         binding_key = item.get('bindingKey')
-        value_data = form_values.get(binding_key, {})
+        connected_tables = item.get('connectedTable', [])
+        
+        # 关键修复：对于同名字段绑定不同表的情况，需要从 form_values 中查找正确的值
+        value_data = None
+        if connected_tables:
+            # 先尝试 bindingKey_tableName 格式
+            for table in connected_tables:
+                unique_key = f"{binding_key}_{table}"
+                if unique_key in form_values:
+                    value_data = form_values[unique_key]
+                    break
+        
+        # 如果没找到，使用原始的 bindingKey（向后兼容）
+        if value_data is None:
+            value_data = form_values.get(binding_key, {})
+        
         value = value_data.get('value')
         valid_rule = item.get('ValidRule', '')
 
@@ -1047,10 +1202,28 @@ def validate_form_data(config, form_values, query_values=None):
             errors.append(f"{field_name}不能为空")
 
     # 校验查询字段至少填写一个
-    query_field_values = [
-        form_values.get(item.get('bindingKey'), {}).get('value')
-        for item in query_items
-    ]
+    query_field_values = []
+    for item in query_items:
+        binding_key = item.get('bindingKey')
+        connected_tables = item.get('connectedTable', [])
+        
+        # 关键修复：对于同名字段绑定不同表的情况，需要从 form_values 中查找正确的值
+        value_data = None
+        if connected_tables:
+            # 先尝试 bindingKey_tableName 格式
+            for table in connected_tables:
+                unique_key = f"{binding_key}_{table}"
+                if unique_key in form_values:
+                    value_data = form_values[unique_key]
+                    break
+        
+        # 如果没找到，使用原始的 bindingKey（向后兼容）
+        if value_data is None:
+            value_data = form_values.get(binding_key, {})
+        
+        value = value_data.get('value')
+        query_field_values.append(value)
+    
     has_non_empty_query = any(v is not None and v != '' for v in query_field_values)
 
     if query_items and not has_non_empty_query:
@@ -1061,7 +1234,22 @@ def validate_form_data(config, form_values, query_values=None):
     for item in update_items:
         binding_key = item.get('bindingKey')
         input_type = item.get('inputType', '')
-        value_data = form_values.get(binding_key, {})
+        connected_tables = item.get('connectedTable', [])
+        
+        # 关键修复：对于同名字段绑定不同表的情况，需要从 form_values 中查找正确的值
+        # 优先尝试 bindingKey_tableName 格式，然后尝试原始的 bindingKey
+        value_data = None
+        if connected_tables:
+            # 先尝试 bindingKey_tableName 格式
+            for table in connected_tables:
+                unique_key = f"{binding_key}_{table}"
+                if unique_key in form_values:
+                    value_data = form_values[unique_key]
+                    break
+        
+        # 如果没找到，使用原始的 bindingKey（向后兼容）
+        if value_data is None:
+            value_data = form_values.get(binding_key, {})
 
         if input_type == 'supplement':
             # 补充框：检查主字段的新值或原值
@@ -1108,11 +1296,11 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
             col = headers[label]
             value = ws.cell(row=row_idx, column=col).value
             value_str = str(value).strip() if value is not None else ''
-            
+
             # 如果值为空且有默认值，使用默认值
             if not value_str and item.get('defaultValue'):
                 value_str = str(item.get('defaultValue', '')).strip()
-            
+
             form_values[binding_key] = {
                 'label': label,
                 'value': value_str,
@@ -1334,10 +1522,10 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                 # 如果值为空且有默认值，使用默认值
                 new_value_str = str(new_value).strip() if new_value is not None else ''
                 origin_value_str = str(origin_value).strip() if origin_value is not None else ''
-                
+
                 if not new_value_str and item.get('newDefaultValue'):
                     new_value_str = str(item.get('newDefaultValue', '')).strip()
-                
+
                 if not origin_value_str and item.get('originDefaultValue'):
                     origin_value_str = str(item.get('originDefaultValue', '')).strip()
 
@@ -1509,7 +1697,7 @@ def download_template(request):
                     # 主字段：新值和原值都需要用户填写
                     has_new_default = bool(item.get('newDefaultValue'))
                     has_origin_default = bool(item.get('originDefaultValue'))
-                    
+
                     headers.append({
                         'label': f'新{parent_label}',
                         'bindingKey': parent_binding_key,
@@ -1562,7 +1750,7 @@ def download_template(request):
                 cell = ws.cell(row=1, column=col_num, value=header['label'])
                 cell.font = header_font
                 cell.alignment = header_alignment
-                
+
                 # 如果有默认值，使用黄色背景
                 if header.get('hasDefaultValue'):
                     cell.fill = default_value_fill
@@ -1600,7 +1788,8 @@ def download_template(request):
     return JsonResponse({'success': False, 'message': '仅支持 POST 请求'}, status=405)
 
 
-def process_single_sheet_import(ws, query_items_data, update_items_data, query_values, form_name, table_name_list=None, query_mode='strict'):
+def process_single_sheet_import(ws, query_items_data, update_items_data, query_values, form_name, table_name_list=None,
+                                query_mode='strict', append_ops_remark=True):
     """处理单个Sheet的导入（用于多Sheet批量导入）"""
     try:
 
@@ -1609,7 +1798,8 @@ def process_single_sheet_import(ws, query_items_data, update_items_data, query_v
             'tableNameList': table_name_list or [],  # 添加表名列表
             'queryItems': query_items_data,
             'updateItems': update_items_data,
-            'queryMode': query_mode  # 添加查询模式（strict/loose）
+            'queryMode': query_mode,  # 添加查询模式（strict/loose）
+            'appendOpsRemark': append_ops_remark  # 添加操作备注配置
         }
 
         # 读取表头
@@ -2201,7 +2391,8 @@ def batch_import(request):
                         fail_reason = '; '.join(sql_result['missing_field_errors'])
                         ws.cell(row=row_idx, column=fail_column, value=fail_reason)
                         ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
-                                                                                    end_color="FFFFCC", fill_type="solid")
+                                                                                    end_color="FFFFCC",
+                                                                                    fill_type="solid")
                     elif sql_result['forward_sqls'] and sql_result['backward_sqls']:
                         # 直接存储完整的sql_result，保留raw和formatted
                         all_sql_statements.append({
@@ -2237,7 +2428,7 @@ def batch_import(request):
                     dynamic_no = dynamic_no_data.get('value', '')
                 elif isinstance(dynamic_no_data, str):
                     dynamic_no = dynamic_no_data
-                
+
                 # 获取用户输入的文件名前缀
                 file_prefix_data = query_values.get('filePrefix', '')
                 if isinstance(file_prefix_data, dict):

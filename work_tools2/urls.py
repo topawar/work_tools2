@@ -21,6 +21,11 @@ urlpatterns = [
     path("file_path_config/", views.file_path_config, name="file_path_config"),
     path("api/form-config/save/", views.save_form_config, name="save_form_config"),
     path("api/form-config/delete/<str:form_id>/", views.delete_form_config, name="delete_form_config"),
+    path("api/form-config/duplicate/<str:form_id>/", views.duplicate_form_config, name="duplicate_form_config"),
+    path("api/form-config/export/<str:form_id>/", views.export_form_config, name="export_form_config"),
+    path("api/form-config/import/", views.import_form_config, name="import_form_config"),
+    # 批量导出（放在通用路由之前）
+    path("api/form-config/batch-export/", views.batch_export_form_configs, name="batch_export_form_configs"),
     path("api/form-config/<str:form_id>/", views.get_form_config_detail, name="get_form_config_detail"),
     path("api/menu-list/", views.get_menu_list, name="get_menu_list"),
     path("api/menu/create-or-get/", views.create_or_get_menu, name="create_or_get_menu"),

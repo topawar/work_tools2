@@ -52,7 +52,14 @@
                     
                     <!-- 已选中标签展示区 -->
                     <div id="selectedTagsContainer" class="mb-3" style="display: none;">
-                        <small class="text-muted d-block mb-2">已选中：</small>
+                        <div class="d-flex align-items-center mb-2">
+                            <small class="text-muted me-2">请选择要合并的表单（至少选择一个）：</small>
+                            <span class="text-primary fw-bold" id="selectedCount">0</span>
+                            <small class="text-muted ms-1">个表单已选中</small>
+                            <button class="btn btn-sm btn-outline-danger ms-3" onclick="clearAllSelection()" title="清除所有选择">
+                                <i class="bi bi-x-circle"></i> 清除选择
+                            </button>
+                        </div>
                         <div id="selectedTags" class="d-flex flex-wrap gap-2">
                             <!-- 动态生成选中标签 -->
                         </div>
@@ -68,9 +75,26 @@
                         </button>
                     </div>
                     
+                    <!-- 模块筛选下拉框 -->
+                    <div class="mb-3" style="max-width: 300px;">
+                        <select class="form-select form-select-sm" id="moduleFilterSelect" onchange="filterFormsByModule()">
+                            <option value="">全部模块</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 全部展开/折叠按钮 -->
+                    <div class="mb-3">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="toggleAllModules(true)" title="展开全部模块">
+                            <i class="bi bi-arrows-expand"></i> 全部展开
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="toggleAllModules(false)" title="折叠全部模块">
+                            <i class="bi bi-arrows-collapse"></i> 全部折叠
+                        </button>
+                    </div>
+                    
                     <!-- 表单选择网格 -->
                     <div id="formSelectionContainer" class="border rounded p-3"
-                         style="max-height: 400px; overflow-y: auto;">
+                         style="max-height: 500px; overflow-y: auto;">
                         <!-- 动态加载表单列表 -->
                         <div class="text-muted">加载中...</div>
                     </div>
@@ -122,13 +146,13 @@
     <style>
         /* 表单选择卡片样式 */
         .form-check-card {
-            padding: 12px;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
+            padding: 8px 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
             background-color: #fff;
             transition: all 0.2s;
             cursor: pointer;
-            min-height: 60px;
+            min-height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -138,19 +162,30 @@
         .form-check-card:hover {
             background-color: #f8f9fa;
             border-color: #adb5bd;
-            transform: translateY(-2px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
         }
         
         .form-check-card input[type="checkbox"] {
-            display: none;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 1;
+        }
+        
+        .form-check-card input[type="checkbox"]:checked + .form-check-label {
+            color: white;
         }
         
         .form-check-card:has(input[type="checkbox"]:checked) {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-color: #667eea;
             color: white;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.25);
         }
         
         .form-check-label {
@@ -161,7 +196,8 @@
             white-space: nowrap;
             width: 100%;
             font-weight: 500;
-            font-size: 14px;
+            font-size: 13px;
+            pointer-events: none;
         }
         
         /* 已选中标签样式 */
@@ -349,6 +385,8 @@
         let formList = [];
         // 存储表单的拼音映射
         let formPinyinMap = {};
+        // 当前筛选的模块
+        let currentModuleFilter = '';
 
         /**
          * 加载表单列表
@@ -361,6 +399,8 @@
                         formList = data.data;
                         // 生成拼音映射
                         generateFormPinyin();
+                        // 初始化模块筛选器
+                        initModuleFilter();
                         renderFormSelection();
                         updateSelectedTags();
                     } else {
@@ -399,6 +439,34 @@
         }
 
         /**
+         * 初始化模块筛选器
+         */
+        function initModuleFilter() {
+            const moduleSet = new Set();
+            formList.forEach(form => {
+                if (form.parent_menu_name) {
+                    moduleSet.add(form.parent_menu_name);
+                }
+            });
+            
+            const select = document.getElementById('moduleFilterSelect');
+            // 清空现有选项（保留“全部模块”）
+            select.innerHTML = '<option value="">全部模块</option>';
+            
+            // 按字母顺序排序模块名称
+            const sortedModules = Array.from(moduleSet).sort();
+            
+            sortedModules.forEach(module => {
+                const option = document.createElement('option');
+                option.value = module;
+                option.textContent = module;
+                select.appendChild(option);
+            });
+            
+            console.log('模块筛选器初始化完成，共', sortedModules.length, '个模块');
+        }
+
+        /**
          * 渲染表单选择列表
          */
         function renderFormSelection(filteredForms = null) {
@@ -410,25 +478,63 @@
                 return;
             }
 
-            let html = '<div class="row g-2">';
+            // 按模块分组
+            const groupedForms = {};
             formsToRender.forEach(form => {
-                const isChecked = selectedFormIds.includes(form.id) ? 'checked' : '';
+                const moduleName = form.parent_menu_name || '未分类';
+                if (!groupedForms[moduleName]) {
+                    groupedForms[moduleName] = [];
+                }
+                groupedForms[moduleName].push(form);
+            });
+
+            let html = '';
+            
+            // 按模块名称排序
+            const sortedModules = Object.keys(groupedForms).sort();
+            
+            sortedModules.forEach(moduleName => {
+                const moduleForms = groupedForms[moduleName];
+                const moduleId = 'module_' + moduleName.replace(/\s+/g, '_');
+                
+                // 添加模块标题（可点击折叠）
                 html += `
-                    <div class="col-md-2 col-sm-4 col-6">
-                        <div class="form-check form-check-card">
-                            <input class="form-check-input" type="checkbox" 
-                                   id="form_${form.id}" 
-                                   value="${form.id}"
-                                   ${isChecked}
-                                   onchange="toggleFormSelection(${form.id})">
-                            <label class="form-check-label" for="form_${form.id}" title="${form.form_name}">
-                                ${form.form_name}
-                            </label>
+                    <div class="mb-3">
+                        <h6 class="text-primary border-bottom pb-2 d-flex justify-content-between align-items-center" 
+                            style="cursor: pointer; user-select: none;" 
+                            onclick="toggleModule('${moduleId}')">
+                            <span>
+                                <i class="bi bi-folder" id="icon_${moduleId}"></i> 
+                                ${moduleName} (${moduleForms.length})
+                            </span>
+                            <i class="bi bi-chevron-down" id="arrow_${moduleId}" style="transition: transform 0.2s;"></i>
+                        </h6>
+                        <div class="row g-2" id="${moduleId}">
+                `;
+                
+                moduleForms.forEach(form => {
+                    const isChecked = selectedFormIds.includes(form.id) ? 'checked' : '';
+                    html += `
+                        <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                            <div class="form-check form-check-card" style="position: relative;">
+                                <input class="form-check-input" type="checkbox" 
+                                       id="form_${form.id}" 
+                                       value="${form.id}"
+                                       ${isChecked}
+                                       onchange="toggleFormSelection(${form.id})">
+                                <label class="form-check-label" for="form_${form.id}" title="${form.form_name}">
+                                    ${form.form_name}
+                                </label>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
                         </div>
                     </div>
                 `;
             });
-            html += '</div>';
 
             container.innerHTML = html;
         }
@@ -439,27 +545,32 @@
         window.filterForms = function() {
             const searchText = document.getElementById('formSearchInput').value.trim().toLowerCase();
             
-            if (!searchText) {
-                renderFormSelection();
-                return;
+            let filtered = formList;
+            
+            // 先按模块筛选
+            if (currentModuleFilter) {
+                filtered = filtered.filter(form => form.parent_menu_name === currentModuleFilter);
             }
             
-            const filtered = formList.filter(form => {
-                // 中文匹配
-                if (form.form_name.toLowerCase().includes(searchText)) {
-                    return true;
-                }
-                
-                // 拼音匹配
-                const pinyinData = formPinyinMap[form.id];
-                if (pinyinData) {
-                    if (pinyinData.full.includes(searchText) || pinyinData.first.includes(searchText)) {
+            // 再按文本搜索
+            if (searchText) {
+                filtered = filtered.filter(form => {
+                    // 中文匹配
+                    if (form.form_name.toLowerCase().includes(searchText)) {
                         return true;
                     }
-                }
-                
-                return false;
-            });
+                    
+                    // 拼音匹配
+                    const pinyinData = formPinyinMap[form.id];
+                    if (pinyinData) {
+                        if (pinyinData.full.includes(searchText) || pinyinData.first.includes(searchText)) {
+                            return true;
+                        }
+                    }
+                    
+                    return false;
+                });
+            }
             
             renderFormSelection(filtered);
         };
@@ -470,6 +581,64 @@
         window.clearFormSearch = function() {
             document.getElementById('formSearchInput').value = '';
             renderFormSelection();
+        };
+
+        /**
+         * 按模块筛选表单
+         */
+        window.filterFormsByModule = function() {
+            currentModuleFilter = document.getElementById('moduleFilterSelect').value;
+            filterForms();
+        };
+
+        /**
+         * 切换模块折叠状态
+         */
+        window.toggleModule = function(moduleId) {
+            const content = document.getElementById(moduleId);
+            const arrow = document.getElementById('arrow_' + moduleId);
+            const icon = document.getElementById('icon_' + moduleId);
+            
+            if (!content || !arrow) return;
+            
+            const isHidden = content.style.display === 'none';
+            
+            if (isHidden) {
+                // 展开
+                content.style.display = 'flex';
+                arrow.style.transform = 'rotate(0deg)';
+                icon.className = 'bi bi-folder';
+            } else {
+                // 折叠
+                content.style.display = 'none';
+                arrow.style.transform = 'rotate(-90deg)';
+                icon.className = 'bi bi-folder2-open';
+            }
+        };
+
+        /**
+         * 全部展开或折叠所有模块
+         */
+        window.toggleAllModules = function(expand) {
+            const allContents = document.querySelectorAll('[id^="module_"]');
+            const allArrows = document.querySelectorAll('[id^="arrow_module_"]');
+            const allIcons = document.querySelectorAll('[id^="icon_module_"]');
+            
+            allContents.forEach((content, index) => {
+                if (expand) {
+                    content.style.display = 'flex';
+                } else {
+                    content.style.display = 'none';
+                }
+            });
+            
+            allArrows.forEach((arrow) => {
+                arrow.style.transform = expand ? 'rotate(0deg)' : 'rotate(-90deg)';
+            });
+            
+            allIcons.forEach((icon) => {
+                icon.className = expand ? 'bi bi-folder' : 'bi bi-folder2-open';
+            });
         };
 
         /**
@@ -497,6 +666,7 @@
         function updateSelectedTags() {
             const container = document.getElementById('selectedTagsContainer');
             const tagsDiv = document.getElementById('selectedTags');
+            const countSpan = document.getElementById('selectedCount');
             
             if (selectedFormIds.length === 0) {
                 container.style.display = 'none';
@@ -504,6 +674,7 @@
             }
             
             container.style.display = 'block';
+            countSpan.textContent = selectedFormIds.length;
             
             let html = '';
             selectedFormIds.forEach(formId => {
@@ -539,6 +710,32 @@
                     checkbox.checked = false;
                 }
             }
+        };
+
+        /**
+         * 清除所有选择
+         */
+        window.clearAllSelection = function() {
+            if (selectedFormIds.length === 0) {
+                return;
+            }
+            
+            // 取消所有复选框
+            selectedFormIds.forEach(formId => {
+                const checkbox = document.getElementById(`form_${formId}`);
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+            });
+            
+            // 清空选中列表
+            selectedFormIds = [];
+            
+            // 更新UI
+            updateSelectedTags();
+            filterForms();
+            
+            layui.layer.msg('已清除所有选择', {icon: 1});
         };
 
         /**

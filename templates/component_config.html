@@ -3,7 +3,7 @@
 {% block title %}表单配置项{% endblock %}
 
 {% block main_content %}
-<div class="container-fluid p-4">
+<div class="container-fluid p-3">
     <div class="row mb-4">
         <div class="col-md-12">
             <h4>表单配置项管理</h4>
@@ -38,16 +38,25 @@
             </button>
         </div>
         <div class="card-body">
-            <!-- 搜索栏 -->
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <div class="input-group">
+            <!-- 搜索和筛选控制 -->
+            <div class="row mb-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label form-label-sm text-muted">文本搜索</label>
+                    <div class="input-group input-group-sm">
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
                         <input type="text" class="form-control" id="searchInput" placeholder="搜索配置项名称..." onkeyup="handleSearch()">
                         <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">
                             <i class="bi bi-x-lg"></i>
                         </button>
                     </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label form-label-sm text-muted">类型筛选</label>
+                    <select class="form-select form-select-sm" id="typeFilter" onchange="handleSearch()">
+                        <option value="">全部类型</option>
+                        <option value="select">下拉框</option>
+                        <option value="radio">单选框</option>
+                    </select>
                 </div>
                 <div class="col-md-6 text-end">
                     <small class="text-muted" id="searchResultInfo"></small>
@@ -73,22 +82,27 @@
             </table>
 
             <!-- 分页控制 -->
-            <div class="d-flex justify-content-between align-items-center mt-3">
-                <div class="d-flex align-items-center">
-                    <small class="text-muted me-2">每页显示：</small>
-                    <select class="form-select form-select-sm" id="pageSizeSelect" style="width: 80px;" onchange="changePageSize(this.value)">
-                        <option value="5" selected>5条</option>
-                        <option value="10">10条</option>
+            <div class="row mb-3 align-items-center">
+                <div class="col-md-6">
+                    <small class="text-muted" id="searchResultInfo"></small>
+                </div>
+                <div class="col-md-6 text-end">
+                    <span class="text-muted small me-2">每页显示:</span>
+                    <select class="form-select form-select-sm d-inline-block" style="width: auto;"
+                            id="pageSizeSelect" onchange="changePageSize(this.value)">
+                        <option value="5">5条</option>
+                        <option value="10" selected>10条</option>
                         <option value="20">20条</option>
                         <option value="50">50条</option>
                     </select>
+                    <span id="paginationInfo" class="ms-3 text-muted small">共 0 条，第 0/0 页</span>
                 </div>
-                <nav aria-label="配置项分页" class="mb-0">
-                    <ul class="pagination mb-0" id="paginationContainer">
-                    </ul>
-                </nav>
             </div>
-            <div class="text-center text-muted small mt-1" id="paginationInfo"></div>
+            
+            <!-- 分页导航 -->
+            <nav id="componentPagination" class="mt-3">
+                <ul class="pagination pagination-sm justify-content-center mb-0"></ul>
+            </nav>
         </div>
     </div>
 </div>
@@ -138,22 +152,27 @@
                     </table>
 
                     <!-- 分页控制 -->
-                    <div class="d-flex justify-content-between align-items-center mt-3">
-                        <div class="d-flex align-items-center">
-                            <small class="text-muted me-2">每页显示：</small>
-                            <select class="form-select form-select-sm" id="dbIpPageSizeSelect" style="width: 80px;" onchange="changeDbIpPageSize(this.value)">
-                                <option value="5" selected>5条</option>
-                                <option value="10">10条</option>
+                    <div class="row mb-3 align-items-center">
+                        <div class="col-md-6">
+                            <small class="text-muted" id="dbIpSearchResultInfo"></small>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <span class="text-muted small me-2">每页显示:</span>
+                            <select class="form-select form-select-sm d-inline-block" style="width: auto;"
+                                    id="dbIpPageSizeSelect" onchange="changeDbIpPageSize(this.value)">
+                                <option value="5">5条</option>
+                                <option value="10" selected>10条</option>
                                 <option value="20">20条</option>
                                 <option value="50">50条</option>
                             </select>
+                            <span id="dbIpPaginationInfo" class="ms-3 text-muted small">共 0 条，第 0/0 页</span>
                         </div>
-                        <nav aria-label="数据库IP配置分页" class="mb-0">
-                            <ul class="pagination mb-0" id="dbIpPaginationContainer">
-                            </ul>
-                        </nav>
                     </div>
-                    <div class="text-center text-muted small mt-1" id="dbIpPaginationInfo"></div>
+                    
+                    <!-- 分页导航 -->
+                    <nav id="dbIpPagination" class="mt-3">
+                        <ul class="pagination pagination-sm justify-content-center mb-0"></ul>
+                    </nav>
                 </div>
             </div>
         </div>
@@ -357,7 +376,9 @@ let optionsSortable = null;
 let allComponents = [];
 let filteredComponents = [];
 let currentPage = 1;
-let pageSize = 5;
+let pageSize = 10;  // 默认每页10条，与动态表单配置管理保持一致
+let totalComponentsCount = 0;  // 总记录数
+let totalPagesCount = 0;       // 总页数
 
 // 选项相关变量
 let allOptions = [];
@@ -568,17 +589,22 @@ function initSortable() {
  */
 function loadComponentList() {
     const searchTerm = document.getElementById('searchInput').value.trim();
+    const typeFilter = document.getElementById('typeFilter').value;
 
-    fetch(`/api/components/?page=${currentPage}&page_size=${pageSize}&search=${encodeURIComponent(searchTerm)}`)
+    fetch(`/api/components/?page=${currentPage}&page_size=${pageSize}&search=${encodeURIComponent(searchTerm)}&type=${encodeURIComponent(typeFilter)}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 allComponents = data.data;
-                filteredComponents = [...allComponents];
+                // 保存后端返回的总数和总页数
+                totalComponentsCount = data.total || 0;
+                totalPagesCount = data.total_pages || 1;
+                currentPage = data.page || 1;
+                
                 renderComponentList();
 
                 // 更新分页信息
-                if (searchTerm) {
+                if (searchTerm || typeFilter) {
                     document.getElementById('searchResultInfo').textContent = `找到 ${data.total} 条结果`;
                 } else {
                     document.getElementById('searchResultInfo').textContent = '';
@@ -600,18 +626,17 @@ function loadComponentList() {
 function renderComponentList() {
     const tbody = document.getElementById('componentListBody');
 
-    if (filteredComponents.length === 0) {
+    if (allComponents.length === 0 && totalComponentsCount === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center">暂无数据</td></tr>';
         document.getElementById('paginationContainer').innerHTML = '';
         document.getElementById('paginationInfo').textContent = '';
         return;
     }
 
-    // 计算分页
-    const totalPages = Math.ceil(filteredComponents.length / pageSize);
+    // 使用后端返回的数据
+    const pageData = allComponents;
     const startIndex = (currentPage - 1) * pageSize;
-    const endIndex = Math.min(startIndex + pageSize, filteredComponents.length);
-    const pageData = filteredComponents.slice(startIndex, endIndex);
+    const endIndex = Math.min(startIndex + pageData.length, totalComponentsCount);
 
     tbody.innerHTML = pageData.map(component => `
         <tr>
@@ -638,21 +663,22 @@ function renderComponentList() {
         </tr>
     `).join('');
 
-    // 渲染分页控件
-    renderPagination(totalPages);
+    // 渲染分页控件（使用后端返回的totalPages）
+    renderPagination(totalPagesCount);
 
     // 更新分页信息
     document.getElementById('paginationInfo').textContent =
-        `显示 ${startIndex + 1}-${endIndex} 条，共 ${filteredComponents.length} 条`;
+        `显示 ${startIndex + 1}-${endIndex} 条，共 ${totalComponentsCount} 条`;
 }
 
 /**
  * 渲染分页控件
  */
 function renderPagination(totalPages) {
-    const paginationContainer = document.getElementById('paginationContainer');
+    const paginationContainer = document.getElementById('componentPagination').querySelector('ul');
 
-    if (totalPages <= 1) {
+    // 如枟没有数据，不显示分页
+    if (totalPages === 0) {
         paginationContainer.innerHTML = '';
         return;
     }
@@ -696,18 +722,17 @@ function renderPagination(totalPages) {
 /**
  * 切换页码
  */
-function changePage(page) {
-    const totalPages = Math.ceil(filteredComponents.length / pageSize);
-    if (page < 1 || page > totalPages) return;
+window.changePage = function(page) {
+    if (page < 1 || page > totalPagesCount) return;
 
     currentPage = page;
-    renderComponentList();
+    loadComponentList();
 }
 
 /**
  * 改变每页显示条数（配置项列表）
  */
-function changePageSize(size) {
+window.changePageSize = function(size) {
     pageSize = parseInt(size);
     currentPage = 1; // 重置到第一页
     loadComponentList();
@@ -716,7 +741,7 @@ function changePageSize(size) {
 /**
  * 改变每页显示条数（选项）
  */
-function changeOptionPageSize(size) {
+window.changeOptionPageSize = function(size) {
     optionPageSize = parseInt(size);
     currentOptionPage = 1; // 重置到第一页
     renderOptionsWithPagination();
@@ -735,6 +760,7 @@ function handleSearch() {
  */
 function clearSearch() {
     document.getElementById('searchInput').value = '';
+    document.getElementById('typeFilter').value = '';
     handleSearch();
 }
 
@@ -1293,7 +1319,7 @@ function renderOptionPagination(totalPages) {
 /**
  * 切换选项页码
  */
-function changeOptionPage(page) {
+window.changeOptionPage = function(page) {
     const totalPages = Math.ceil(filteredOptions.length / optionPageSize);
     if (page < 1 || page > totalPages) return;
 
@@ -1388,7 +1414,7 @@ function saveComponent() {
 let allDatabaseIpConfigs = [];
 let filteredDatabaseIpConfigs = [];
 let dbIpCurrentPage = 1;
-let dbIpPageSize = 5;
+let dbIpPageSize = 10;  // 默认每页10条，与动态表单配置管理保持一致
 let currentEditingDbIpId = null;
 
 /**
@@ -1466,9 +1492,10 @@ function renderDatabaseIpConfigList() {
  * 渲染数据库IP配置分页控件
  */
 function renderDbIpPagination(totalPages) {
-    const paginationContainer = document.getElementById('dbIpPaginationContainer');
+    const paginationContainer = document.getElementById('dbIpPagination').querySelector('ul');
     
-    if (totalPages <= 1) {
+    // 如果没有数据，不显示分页
+    if (totalPages === 0) {
         paginationContainer.innerHTML = '';
         return;
     }
@@ -1512,7 +1539,7 @@ function renderDbIpPagination(totalPages) {
 /**
  * 切换数据库IP配置页码
  */
-function changeDbIpPage(page) {
+window.changeDbIpPage = function(page) {
     const totalPages = Math.ceil(filteredDatabaseIpConfigs.length / dbIpPageSize);
     if (page < 1 || page > totalPages) return;
     
@@ -1523,7 +1550,7 @@ function changeDbIpPage(page) {
 /**
  * 改变每页显示条数（数据库IP配置）
  */
-function changeDbIpPageSize(size) {
+window.changeDbIpPageSize = function(size) {
     dbIpPageSize = parseInt(size);
     dbIpCurrentPage = 1;
     renderDatabaseIpConfigList();

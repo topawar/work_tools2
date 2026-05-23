@@ -14,8 +14,9 @@ def get_components(request):
     """获取组件配置列表（支持分页和搜索）"""
     try:
         page = int(request.GET.get('page', 1))
-        page_size = int(request.GET.get('page_size', 5))
+        page_size = int(request.GET.get('page_size', 10))
         search_term = request.GET.get('search', '').strip()
+        type_filter = request.GET.get('type', '').strip()
 
         # 构建查询集
         queryset = ComponentConfig.objects.all()
@@ -23,6 +24,10 @@ def get_components(request):
         # 如果有关键词搜索
         if search_term:
             queryset = queryset.filter(name__icontains=search_term)
+        
+        # 如果有类型筛选
+        if type_filter:
+            queryset = queryset.filter(component_type=type_filter)
 
         # 分页
         paginator = Paginator(queryset, page_size)

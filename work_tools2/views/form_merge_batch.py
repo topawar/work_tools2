@@ -130,7 +130,8 @@ def batch_import_merge(request):
                         query_values,
                         config.form_name,
                         config.table_name_list,  # 添加表名列表
-                        config.query_mode  # 添加查询模式（strict/loose）
+                        config.query_mode,  # 添加查询模式（strict/loose）
+                        config.append_ops_remark  # 添加操作备注配置
                     )
                     
                     if result['success']:

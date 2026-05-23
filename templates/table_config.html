@@ -14,15 +14,24 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span>表单列表</span>
-                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal"
-                        data-bs-target="#configModal" onclick="showAddFormModal()">
-                    <i class="bi bi-plus-lg"></i> 新增表单
-                </button>
+                <div>
+                    <button type="button" class="btn btn-success btn-sm me-2" onclick="showImportModal()">
+                        <i class="bi bi-upload"></i> 导入配置
+                    </button>
+                    <button type="button" class="btn btn-info btn-sm me-2" id="batchExportBtn" onclick="batchExportForms()" disabled>
+                        <i class="bi bi-download"></i> 导出选中 (<span id="selectedCount">0</span>)
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal"
+                            data-bs-target="#configModal" onclick="showAddFormModal()">
+                        <i class="bi bi-plus-lg"></i> 新增表单
+                    </button>
+                </div>
             </div>
             <div class="card-body">
-                <!-- 搜索和分页控制 -->
-                <div class="row mb-3 align-items-center">
-                    <div class="col-md-6">
+                <!-- 搜索和筛选控制 -->
+                <div class="row mb-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label form-label-sm text-muted">文本搜索</label>
                         <div class="input-group input-group-sm">
                             <span class="input-group-text"><i class="bi bi-search"></i></span>
                             <input type="text" class="form-control" id="formSearchInput"
@@ -32,6 +41,41 @@
                                 <i class="bi bi-x-lg"></i>
                             </button>
                         </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label form-label-sm text-muted">所属主菜单</label>
+                        <select class="form-select form-select-sm" id="parentMenuFilter" onchange="filterForms()">
+                            <option value="">全部主菜单</option>
+                            <!-- 动态生成主菜单选项 -->
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label form-label-sm text-muted">查询模式</label>
+                        <select class="form-select form-select-sm" id="queryModeFilter" onchange="filterForms()">
+                            <option value="">全部模式</option>
+                            <option value="strict">严格模式</option>
+                            <option value="loose">宽松模式</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label form-label-sm text-muted">操作备注</label>
+                        <select class="form-select form-select-sm" id="appendOpsRemarkFilter" onchange="filterForms()">
+                            <option value="">全部</option>
+                            <option value="true">拼接ops_remark</option>
+                            <option value="false">不拼接</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 text-end">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="clearAllFilters()">
+                            <i class="bi bi-x-circle"></i> 清除筛选
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 分页控制 -->
+                <div class="row mb-3 align-items-center">
+                    <div class="col-md-6">
+                        <span class="text-muted small" id="filterInfo">显示全部表单</span>
                     </div>
                     <div class="col-md-6 text-end">
                         <span class="text-muted small me-2">每页显示:</span>
@@ -49,6 +93,9 @@
                 <table class="table table-hover">
                     <thead>
                     <tr>
+                        <th style="width: 40px;">
+                            <input type="checkbox" id="selectAllForms" onchange="toggleSelectAllForms()">
+                        </th>
                         <th>表单名称</th>
                         <th>表名列表</th>
                         <th>创建时间</th>
@@ -57,7 +104,7 @@
                     </thead>
                     <tbody id="formListBody">
                     <tr>
-                        <td colspan="4" class="text-center">加载中...</td>
+                        <td colspan="5" class="text-center">加载中...</td>
                     </tr>
                     </tbody>
                 </table>
@@ -109,6 +156,17 @@
                             <small class="text-muted d-block mt-1">
                                 <span class="text-info"><strong>严格模式：</strong>所有关联字段必须有值才生成SQL</span><br>
                                 <span class="text-success"><strong>宽松模式：</strong>至少一个字段有值就生成SQL</span>
+                            </small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">操作备注</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="appendOpsRemarkSwitch" checked>
+                                <label class="form-check-label" for="appendOpsRemarkSwitch">拼接 ops_remark</label>
+                            </div>
+                            <small class="text-muted d-block mt-1">
+                                <span class="text-success"><strong>开启：</strong>在SQL中拼接操作备注字段</span><br>
+                                <span class="text-warning"><strong>关闭：</strong>不拼接操作备注字段</span>
                             </small>
                         </div>
                     </div>
@@ -414,6 +472,8 @@
 
     <!-- 引入 Layui 样式 -->
     <link rel="stylesheet" href="/static/layui/css/layui.css">
+    <!-- 引入 Layui JS -->
+    <script src="/static/layui/layui.js"></script>
     <!-- 引入 SortableJS -->
     <script src="/static/js/Sortable.min.js"></script>
 
@@ -456,6 +516,7 @@
         let formFilteredData = [];  // 过滤后的表单数据
         let formCurrentPage = 1;
         let formPageSize = 10;  // 默认每页10条
+        let selectedFormIds = new Set(); // 保存所有选中的表单ID（跨页保持）
 
 
         document.addEventListener('DOMContentLoaded', function () {
@@ -524,6 +585,11 @@
                         allForms = data.data;  // 保存所有数据
                         formFilteredData = [...allForms];  // 初始化过滤数据
                         formCurrentPage = 1;  // 重置到第一页
+                        selectedFormIds.clear(); // 清空选中状态
+                        
+                        // 加载主菜单选项到筛选下拉框
+                        loadParentMenuFilterOptions();
+                        
                         renderFormPage();  // 渲染分页
                     } else {
                         alert('加载失败：' + data.message);
@@ -534,17 +600,45 @@
                     alert('加载失败');
                 });
         }
+        
+        /**
+         * 加载主菜单选项到筛选下拉框
+         */
+        function loadParentMenuFilterOptions() {
+            // 从所有表单中提取唯一的主菜单名称
+            const parentMenus = new Set();
+            allForms.forEach(form => {
+                if (form.parent_menu_name) {
+                    parentMenus.add(form.parent_menu_name);
+                }
+            });
+            
+            const filterSelect = document.getElementById('parentMenuFilter');
+            // 保留第一个选项（全部主菜单）
+            filterSelect.innerHTML = '<option value="">全部主菜单</option>';
+            
+            // 按字母顺序排序并添加选项
+            Array.from(parentMenus).sort().forEach(menuName => {
+                const option = document.createElement('option');
+                option.value = menuName;
+                option.textContent = menuName;
+                filterSelect.appendChild(option);
+            });
+        }
 
         function renderFormList(configs) {
             const tbody = document.getElementById('formListBody');
 
             if (configs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center">暂无数据</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center">暂无数据</td></tr>';
                 return;
             }
 
             tbody.innerHTML = configs.map(config => `
         <tr>
+            <td>
+                <input type="checkbox" class="form-check-input form-checkbox" value="${config.id}" ${selectedFormIds.has(config.id.toString()) ? 'checked' : ''} onchange="updateExportButtonState()">
+            </td>
             <td>${config.form_name}</td>
             <td>
                 ${config.table_name_list.map(name => `<span class="badge bg-info me-1">${name}</span>`).join('')}
@@ -553,6 +647,9 @@
             <td>
                 <button class="btn btn-sm btn-outline-primary me-1" onclick="editForm(${config.id})" data-bs-toggle="modal" data-bs-target="#configModal">
                     <i class="bi bi-pencil"></i> 编辑
+                </button>
+                <button class="btn btn-sm btn-outline-success me-1" onclick="duplicateForm(${config.id})">
+                    <i class="bi bi-files"></i> 复制
                 </button>
                 <button class="btn btn-sm btn-outline-danger" onclick="deleteForm(${config.id})">
                     <i class="bi bi-trash"></i> 删除
@@ -581,12 +678,21 @@
             // 渲染表格
             renderFormList(currentPageData);
             
+            // 重置全选框状态（因为翻页后需要重新判断）
+            const selectAll = document.getElementById('selectAllForms');
+            if (selectAll) {
+                selectAll.checked = false; // 默认不勾选
+            }
+            
             // 更新分页信息
             document.getElementById('formPageInfo').textContent = 
                 `共 ${formFilteredData.length} 条，第 ${formCurrentPage}/${totalPages} 页`;
             
             // 渲染分页按钮
             renderFormPagination(totalPages);
+            
+            // 更新导出按钮状态（同步当前页的选中状态）
+            updateExportButtonState();
         }
         
         /**
@@ -643,22 +749,49 @@
         }
         
         /**
-         * 过滤表单列表
+         * 过滤表单列表（支持多条件筛选）
          */
         function filterForms() {
             const searchText = document.getElementById('formSearchInput').value.trim().toLowerCase();
+            const parentMenuFilter = document.getElementById('parentMenuFilter').value;
+            const queryModeFilter = document.getElementById('queryModeFilter').value;
+            const appendOpsRemarkFilter = document.getElementById('appendOpsRemarkFilter').value;
             
-            if (!searchText) {
-                // 没有搜索文本，显示所有数据
-                formFilteredData = [...allForms];
-            } else {
-                // 根据表单名称或表名过滤
-                formFilteredData = allForms.filter(form => {
+            // 应用所有筛选条件
+            formFilteredData = allForms.filter(form => {
+                // 1. 文本搜索（表单名称或表名）
+                let matchSearch = true;
+                if (searchText) {
                     const formName = form.form_name.toLowerCase();
                     const tableNames = form.table_name_list.join(' ').toLowerCase();
-                    return formName.includes(searchText) || tableNames.includes(searchText);
-                });
-            }
+                    matchSearch = formName.includes(searchText) || tableNames.includes(searchText);
+                }
+                
+                // 2. 主菜单筛选
+                let matchParentMenu = true;
+                if (parentMenuFilter) {
+                    matchParentMenu = form.parent_menu_name === parentMenuFilter;
+                }
+                
+                // 3. 查询模式筛选
+                let matchQueryMode = true;
+                if (queryModeFilter) {
+                    matchQueryMode = form.query_mode === queryModeFilter;
+                }
+                
+                // 4. 是否拼接ops_remark筛选
+                let matchAppendOpsRemark = true;
+                if (appendOpsRemarkFilter !== '') {
+                    const appendOpsRemark = form.append_ops_remark !== false; // 默认为true
+                    matchAppendOpsRemark = appendOpsRemark === (appendOpsRemarkFilter === 'true');
+                }
+                
+                // 所有条件都必须满足
+                return matchSearch && matchParentMenu && matchQueryMode && matchAppendOpsRemark;
+            });
+            
+            // 更新筛选信息显示
+            updateFilterInfo();
             
             // 重置到第一页
             formCurrentPage = 1;
@@ -666,11 +799,44 @@
         }
         
         /**
-         * 清除表单搜索
+         * 更新筛选信息显示
+         */
+        function updateFilterInfo() {
+            const searchText = document.getElementById('formSearchInput').value.trim();
+            const parentMenuFilter = document.getElementById('parentMenuFilter').value;
+            const queryModeFilter = document.getElementById('queryModeFilter').value;
+            const appendOpsRemarkFilter = document.getElementById('appendOpsRemarkFilter').value;
+            
+            const filters = [];
+            if (searchText) filters.push(`搜索: "${searchText}"`);
+            if (parentMenuFilter) filters.push(`主菜单: ${parentMenuFilter}`);
+            if (queryModeFilter) filters.push(`模式: ${queryModeFilter === 'strict' ? '严格' : '宽松'}`);
+            if (appendOpsRemarkFilter !== '') filters.push(`ops_remark: ${appendOpsRemarkFilter === 'true' ? '拼接' : '不拼接'}`);
+            
+            const filterInfo = document.getElementById('filterInfo');
+            if (filters.length > 0) {
+                filterInfo.innerHTML = `<span class="text-primary"><i class="bi bi-funnel-fill"></i> ${filters.join(' | ')}</span> - 共 ${formFilteredData.length} 条结果`;
+            } else {
+                filterInfo.textContent = '显示全部表单';
+            }
+        }
+        
+        /**
+         * 清除所有筛选条件
+         */
+        function clearAllFilters() {
+            document.getElementById('formSearchInput').value = '';
+            document.getElementById('parentMenuFilter').value = '';
+            document.getElementById('queryModeFilter').value = '';
+            document.getElementById('appendOpsRemarkFilter').value = '';
+            filterForms();
+        }
+        
+        /**
+         * 清除表单搜索（已废弃，使用 clearAllFilters）
          */
         function clearFormSearch() {
-            document.getElementById('formSearchInput').value = '';
-            filterForms();
+            clearAllFilters();
         }
 
         function editForm(formId) {
@@ -690,6 +856,9 @@
                         
                         // 设置查询模式
                         document.getElementById('queryModeSelect').value = config.queryMode || 'strict';
+                        
+                        // 设置操作备注配置（默认为 true）
+                        document.getElementById('appendOpsRemarkSwitch').checked = config.appendOpsRemark !== false;
 
                         tableNameList = config.tableNameList || [];
                         renderTableTags();
@@ -878,6 +1047,7 @@
             document.getElementById('formName').value = '';
             document.getElementById('parentMenuInput').value = '';
             document.getElementById('queryModeSelect').value = 'strict';  // 默认严格模式
+            document.getElementById('appendOpsRemarkSwitch').checked = true;  // 默认拼接操作备注
             tableNameList = [];
             renderTableTags();
 
@@ -1035,11 +1205,16 @@
                 return `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
             }).join('');
 
+            // 为新值默认值添加lay-filter，以便监听change事件
+            const layFilter = fieldName === 'update-new-default-value' ? `lay-filter="${fieldName}"` : '';
+
             return `
-        <select class="form-select ${fieldName}">
-            <option value="">请选择...</option>
-            ${optionsHtml}
-        </select>
+        <div class="layui-form">
+            <select class="${fieldName}" lay-search ${layFilter}>
+                <option value="">请选择...</option>
+                ${optionsHtml}
+            </select>
+        </div>
     `;
         }
 
@@ -1072,7 +1247,9 @@
             if (oppositeOption) {
                 const originDefaultInput = card.querySelector('.update-origin-default-value');
                 if (originDefaultInput) {
-                    originDefaultInput.value = oppositeOption.value;
+                    // 显示label而不是value
+                    originDefaultInput.value = oppositeOption.label;
+                    originDefaultInput.setAttribute('data-origin-value', oppositeOption.value);
                 }
             }
         }
@@ -1251,17 +1428,37 @@
                             newInput.style.cursor = '';
                         }
                     }
+                    
+                    // 重新渲染Layui表单元素
+                    if (typeof layui !== 'undefined') {
+                        setTimeout(() => {
+                            layui.use(['form'], function() {
+                                var form = layui.form;
+                                form.render('select');
+                            });
+                        }, 50);
+                    }
                 } else if (fieldType === 'radio') {
                     const newWrapper = card.querySelector('.new-default-value-wrapper');
                     if (newWrapper) {
                         const currentNewValue = card.querySelector('.update-new-default-value')?.value || '';
                         newWrapper.innerHTML = generateComponentOptionsSelect(componentName, currentNewValue, 'update-new-default-value');
 
-                        const newSelect = newWrapper.querySelector('.update-new-default-value');
-                        if (newSelect) {
-                            newSelect.addEventListener('change', function () {
-                                handleRadioNewValueChange(card, component);
-                            });
+                        // 使用Layui的事件监听
+                        if (typeof layui !== 'undefined') {
+                            setTimeout(() => {
+                                layui.use(['form'], function() {
+                                    var form = layui.form;
+                                    // 获取select元素的lay-filter属性
+                                    const newSelect = newWrapper.querySelector('.update-new-default-value');
+                                    if (newSelect && newSelect.getAttribute('lay-filter')) {
+                                        const filterName = newSelect.getAttribute('lay-filter');
+                                        form.on('select(' + filterName + ')', function(data) {
+                                            handleRadioNewValueChange(card, component);
+                                        });
+                                    }
+                                });
+                            }, 100);
                         }
                     }
 
@@ -1277,6 +1474,16 @@
                             originInput.style.backgroundColor = '#e9ecef';
                             originInput.style.cursor = 'not-allowed';
                         }
+                    }
+                    
+                    // 重新渲染Layui表单元素
+                    if (typeof layui !== 'undefined') {
+                        setTimeout(() => {
+                            layui.use(['form'], function() {
+                                var form = layui.form;
+                                form.render('select');
+                            });
+                        }, 50);
                     }
                 }
             } else {
@@ -1408,13 +1615,15 @@
 
                 <div class="col-md-6 component-selector" style="display: ${(fieldType === 'select' || fieldType === 'radio') ? 'block' : 'none'};">
                     <label class="form-label">引用配置项</label>
-                    <select class="form-select update-component-name" onchange="handleComponentNameChange(this)">
-                        <option value="">请选择配置项...</option>
-                        ${componentList.filter(comp => comp.type === fieldType).map(comp =>
-                               `<option value="${comp.name}" ${comp.name === componentName ? 'selected' : ''}>${comp.name} (${comp.type === 'select' ? '下拉框' : '单选框'})</option>`
-                           ).join('')}
-                    </select>
-                    <small class="text-muted">仅显示与当前字段类型匹配的配置项</small>
+                    <div class="layui-form">
+                        <select class="update-component-name" lay-search lay-filter="componentSelect_${index}" onchange="handleComponentNameChange(this)">
+                            <option value="">请选择配置项...</option>
+                            ${componentList.filter(comp => comp.type === fieldType).map(comp =>
+                                   `<option value="${comp.name}" ${comp.name === componentName ? 'selected' : ''}>${comp.name} (${comp.type === 'select' ? '下拉框' : '单选框'})</option>`
+                               ).join('')}
+                        </select>
+                    </div>
+                    <small class="text-muted">仅显示与当前字段类型匹配的配置项，支持搜索</small>
                 </div>
 
 
@@ -1425,12 +1634,12 @@
                     </div>
                 </div>
 
-                 <div class="col-md-3 origin-default-value-container" style="display: ${(fieldType === 'supplement' || fieldType === 'calculated' || fieldType === 'radio') ? 'none' : 'block'};">
+                 <div class="col-md-3 origin-default-value-container" style="display: ${(fieldType === 'supplement' || fieldType === 'calculated') ? 'none' : 'block'};">
                     <label class="form-label">原值默认值</label>
                     ${fieldType === 'radio' ? `
                         <input type="text" class="form-control update-origin-default-value" value="${data?.originDefaultValue || ''}" readonly disabled placeholder="将根据新值自动取反" style="background-color: #e9ecef; cursor: not-allowed;">
                         <small class="text-muted">原值将自动与新值相反（不可编辑）</small>
-                    ` : (fieldType === 'select' || fieldType === 'radio') ? `
+                    ` : fieldType === 'select' ? `
                         <div class="origin-default-value-wrapper">
                             ${generateComponentOptionsSelect(componentName, data?.originDefaultValue, 'update-origin-default-value')}
                         </div>
@@ -1524,10 +1733,21 @@
                 }, 0);
             }
 
+            // 重新渲染Layui表单元素，使lay-search生效
+            if (typeof layui !== 'undefined') {
+                setTimeout(() => {
+                    layui.use(['form'], function() {
+                        var form = layui.form;
+                        form.render('select');
+                    });
+                }, 100);
+            }
+
             if (fieldType === 'radio' && componentName && data?.newDefaultValue) {
                 setTimeout(() => {
                     const component = componentList.find(c => c.name === componentName);
                     if (component && component.options && component.options.length === 2) {
+                        // 先触发新值变化，自动设置原值
                         handleRadioNewValueChange(div, component);
                         const originInput = div.querySelector('.update-origin-default-value');
                         if (originInput) {
@@ -1536,7 +1756,7 @@
                             originInput.style.cursor = 'not-allowed';
                         }
                     }
-                }, 100);
+                }, 150);
             }
 
             if (fieldType === 'supplement' && data?.mainTable) {
@@ -1710,6 +1930,16 @@
 
                     renderOriginAndNewValueControls(card, fieldType, componentSelect.value);
                     handleComponentNameChange(componentSelect);
+                    
+                    // 重新渲染Layui表单元素
+                    if (typeof layui !== 'undefined') {
+                        setTimeout(() => {
+                            layui.use(['form'], function() {
+                                var form = layui.form;
+                                form.render('select');
+                            });
+                        }, 50);
+                    }
                 }
             } else {
                 componentSelectorDiv.style.display = 'none';
@@ -2898,6 +3128,7 @@
                     tableNameList: tableNameList,
                     parentMenuId: parentMenuId,
                     queryMode: document.getElementById('queryModeSelect').value,  // 添加查询模式
+                    appendOpsRemark: document.getElementById('appendOpsRemarkSwitch').checked,  // 添加操作备注配置
                     queryItems: queryItems,
                     updateItems: updateItems,
                     databaseIpIds: selectedDatabaseIpIds,  // 添加数据库IP配置ID列表
@@ -3462,4 +3693,350 @@
             font-weight: 500;
         }
     </style>
+
+    <!-- 导入配置模态框 -->
+    <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="importModalLabel">导入表单配置</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">选择配置文件</label>
+                        <input type="file" class="form-control" id="importFileInput" accept=".json,.zip">
+                        <small class="text-muted">支持 JSON 格式（单个）或 ZIP 格式（批量）</small>
+                    </div>
+                    <div class="alert alert-info">
+                        <strong>提示：</strong>
+                        <ul class="mb-0 mt-2">
+                            <li><strong>JSON文件：</strong>导入单个表单配置</li>
+                            <li><strong>ZIP文件：</strong>批量导入多个表单配置（包含多个JSON文件）</li>
+                            <li>导入将创建新的表单配置</li>
+                            <li>如果表单名称已存在，该表单将跳过</li>
+                            <li>关联的数据库配置和组件配置将自动创建（如不存在）</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- 导入结果显示区域 -->
+                    <div id="importResults" style="display: none; max-height: 300px; overflow-y: auto;">
+                        <h6 class="mb-2">导入结果：</h6>
+                        <div id="importResultsContent"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" id="confirmImportBtn" onclick="confirmImport()">
+                        <i class="bi bi-upload"></i> 开始导入
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 复制、导出、导入功能 ====================
+
+        /**
+         * 复制表单配置
+         */
+        function duplicateForm(formId) {
+            if (!confirm('确定要复制此表单配置吗？')) {
+                return;
+            }
+
+            fetch(`/api/form-config/duplicate/${formId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 使用 Toast 提示
+                    if (window.showSuccessToast) {
+                        window.showSuccessToast(`复制成功！新表单：${data.new_form_name}`);
+                    } else {
+                        alert(`复制成功！新表单：${data.new_form_name}`);
+                    }
+                    
+                    // 重新加载列表
+                    loadFormList();
+                    
+                    // 刷新侧边栏菜单
+                    if (window.loadSidebarMenu) {
+                        window.loadSidebarMenu();
+                    }
+                } else {
+                    alert('复制失败：' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('复制失败：' + error.message);
+            });
+        }
+
+        /**
+         * 全选/取消全选表单
+         */
+        function toggleSelectAllForms() {
+            const selectAll = document.getElementById('selectAllForms');
+            const checkboxes = document.querySelectorAll('#formListBody .form-checkbox');
+            
+            if (selectAll.checked) {
+                // 全选：将当前页的所有ID添加到选中集合
+                checkboxes.forEach(cb => {
+                    selectedFormIds.add(cb.value);
+                    cb.checked = true;
+                });
+            } else {
+                // 取消全选：从选中集合中移除当前页的所有ID
+                checkboxes.forEach(cb => {
+                    selectedFormIds.delete(cb.value);
+                    cb.checked = false;
+                });
+            }
+            
+            updateExportButtonState();
+        }
+
+        /**
+         * 更新导出按钮状态
+         */
+        function updateExportButtonState() {
+            const checkboxes = document.querySelectorAll('#formListBody .form-checkbox');
+            
+            // 同步当前页的复选框状态到全局集合
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    selectedFormIds.add(cb.value);
+                } else {
+                    selectedFormIds.delete(cb.value);
+                }
+            });
+            
+            const count = selectedFormIds.size;
+            document.getElementById('selectedCount').textContent = count;
+            document.getElementById('batchExportBtn').disabled = count === 0;
+            
+            // 更新全选框状态（只考虑当前页）
+            const allCheckboxes = document.querySelectorAll('#formListBody .form-checkbox');
+            const checkedCheckboxes = Array.from(allCheckboxes).filter(cb => cb.checked);
+            const selectAll = document.getElementById('selectAllForms');
+            if (allCheckboxes.length > 0) {
+                selectAll.checked = checkedCheckboxes.length === allCheckboxes.length;
+            }
+        }
+
+        /**
+         * 批量导出表单配置
+         */
+        function batchExportForms() {
+            const formIds = Array.from(selectedFormIds).map(id => parseInt(id));
+            
+            if (formIds.length === 0) {
+                alert('请至少选择一个表单配置');
+                return;
+            }
+            
+            console.log('准备导出表单IDs:', formIds); // 调试信息
+            
+            if (formIds.length === 1) {
+                // 单个导出，直接下载
+                exportSingleForm(formIds[0]);
+            } else {
+                // 多个导出，打包成ZIP
+                exportMultipleForms(formIds);
+            }
+        }
+
+        /**
+         * 导出单个表单
+         */
+        function exportSingleForm(formId) {
+            fetch(`/api/form-config/export/${formId}/`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('导出失败');
+                    }
+                    return response.blob().then(blob => ({ blob, response }));
+                })
+                .then(({ blob, response }) => {
+                    // 创建下载链接
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    // 从响应头获取文件名
+                    const disposition = response.headers.get('Content-Disposition');
+                    let filename = `form_config_${formId}.json`;
+                    if (disposition && disposition.indexOf('filename=') !== -1) {
+                        const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                        if (matches != null && matches[1]) {
+                            filename = matches[1].replace(/['\"]/g, '');
+                        }
+                    }
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    if (window.showSuccessToast) {
+                        window.showSuccessToast('导出成功！');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('导出失败：' + error.message);
+                });
+        }
+
+        /**
+         * 导出多个表单（打包成ZIP）
+         */
+        function exportMultipleForms(formIds) {
+            // 使用 GET 请求，将 formIds 作为 URL 参数传递
+            const formIdsStr = formIds.join(',');
+            const url = `/api/form-config/batch-export/?form_ids=${formIdsStr}`;
+            
+            console.log('批量导出URL:', url);
+            
+            // 直接使用 window.location.href 下载文件
+            window.location.href = url;
+            
+            if (window.showSuccessToast) {
+                window.showSuccessToast(`正在导出 ${formIds.length} 个配置文件...`);
+            }
+        }
+
+        /**
+         * 导出表单配置
+         */
+        function exportForm(formId) {
+            // 直接下载文件
+            window.location.href = `/api/form-config/export/${formId}/`;
+        }
+
+        /**
+         * 显示导入模态框
+         */
+        function showImportModal() {
+            document.getElementById('importFileInput').value = '';
+            document.getElementById('importResults').style.display = 'none';
+            document.getElementById('importResultsContent').innerHTML = '';
+            document.getElementById('confirmImportBtn').disabled = false;
+            const modal = new bootstrap.Modal(document.getElementById('importModal'));
+            modal.show();
+        }
+
+        /**
+         * 确认导入
+         */
+        function confirmImport() {
+            const fileInput = document.getElementById('importFileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('请选择要导入的文件');
+                return;
+            }
+            
+            // 检查文件类型
+            if (!file.name.endsWith('.json') && !file.name.endsWith('.zip')) {
+                alert('请选择 JSON 或 ZIP 格式的配置文件');
+                return;
+            }
+            
+            // 禁用按钮，防止重复提交
+            document.getElementById('confirmImportBtn').disabled = true;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            fetch('/api/form-config/import/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // 显示导入结果
+                    displayImportResults(data);
+                    
+                    // 如果有成功的导入，刷新列表
+                    if (data.success_count > 0) {
+                        // 重新加载列表（会自动清空选中状态）
+                        loadFormList();
+                        
+                        // 刷新侧边栏菜单
+                        if (window.loadSidebarMenu) {
+                            window.loadSidebarMenu();
+                        }
+                    }
+                } else {
+                    alert('导入失败：' + data.message);
+                    document.getElementById('confirmImportBtn').disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('导入失败：' + error.message);
+                document.getElementById('confirmImportBtn').disabled = false;
+            });
+        }
+        
+        /**
+         * 显示导入结果
+         */
+        function displayImportResults(data) {
+            const resultsDiv = document.getElementById('importResults');
+            const contentDiv = document.getElementById('importResultsContent');
+            
+            let html = `
+                <div class="alert alert-success mb-3">
+                    <strong>${data.message}</strong>
+                </div>
+            `;
+            
+            if (data.results && data.results.length > 0) {
+                html += '<div class="list-group">';
+                
+                data.results.forEach((result, index) => {
+                    if (result.success) {
+                        html += `
+                            <div class="list-group-item list-group-item-success d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    <strong>${result.filename}</strong>
+                                    <br>
+                                    <small>表单名称：${result.form_name || 'N/A'}</small>
+                                </div>
+                                <span class="badge bg-success rounded-pill">成功</span>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="list-group-item list-group-item-danger d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-x-circle-fill"></i>
+                                    <strong>${result.filename}</strong>
+                                    <br>
+                                    <small class="text-danger">${result.message}</small>
+                                </div>
+                                <span class="badge bg-danger rounded-pill">失败</span>
+                            </div>
+                        `;
+                    }
+                });
+                
+                html += '</div>';
+            }
+            
+            contentDiv.innerHTML = html;
+            resultsDiv.style.display = 'block';
+        }
+    </script>
 {% endblock %}
