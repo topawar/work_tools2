@@ -78,13 +78,13 @@ def get_file_path_config(request, config_id):
 
 
 @csrf_exempt
-def save_file_path_config(request):
+def save_file_path_config(request, config_id=None):
     """保存文件路径配置"""
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
             
-            config_id = data.get('id')
+            config_id = config_id or data.get('id')
             name = data.get('name', '').strip()
             base_path = data.get('base_path', '').strip()
             save_mode = data.get('save_mode', 'single')

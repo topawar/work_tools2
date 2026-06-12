@@ -564,7 +564,7 @@
             supplementInputTimers[timerKey] = setTimeout(() => {
                 console.log('防抖触发查询');
                 supplementContainerChange(bindingKey, element);
-            }, 1000);
+            }, 500);
         };
         
         /**
@@ -610,7 +610,24 @@
             const value = element.value;
             const fieldType = element.getAttribute('data-field-type');
 
-            console.log('=== 补充框值变化 ===');
+            // 新查询开始前，先关闭之前未关闭的弹出表格
+            if (typeof layui !== 'undefined' && tableLayerIndex !== null) {
+                layui.layer.close(tableLayerIndex);
+                tableLayerIndex = null;
+                window.currentTableLayerIndex = null;
+                layui.$(document).off('keydown.tablePicker');
+                layui.$(document).off('mousemove.tablePickerDrag');
+                layui.$(document).off('mouseup.tablePickerDrag');
+            }
+
+            // 直接开始查询
+            startSupplementQuery(bindingKey, element, value, fieldType);
+        };
+
+        /**
+         * 执行补充框查询逻辑（抽离为独立函数）
+         */
+        function startSupplementQuery(bindingKey, element, value, fieldType) {
             console.log('bindingKey:', bindingKey);
             console.log('value:', value);
             console.log('fieldType:', fieldType);
@@ -647,9 +664,21 @@
             // 确定主字段名称（支持配置或默认）
             const mainField = currentSupplementItem.mainField || 'main_value';
             
-            // 直接显示表格选择框（使用服务端分页）
-            console.log('显示表格选择框');
-            showTablePicker(bindingKey, value, fieldType);
+            // 先查询数据，判断是否需要弹出表格
+            querySupplementData(currentSupplementItem, value).then(function(resultData) {
+                if (resultData && resultData.length === 1) {
+                    // 只有一条数据，直接填充，不弹出表格
+                    console.log('只查到一条数据，直接填充:', resultData[0]);
+                    fillInputWithData(resultData[0], currentSupplementItem, element);
+                } else {
+                    // 多条或无数据，弹出表格选择器
+                    console.log('查到 ' + (resultData ? resultData.length : 0) + ' 条数据，弹出表格选择框');
+                    showTablePicker(bindingKey, value, fieldType);
+                }
+            }).catch(function(error) {
+                console.error('查询失败，弹出表格选择框:', error);
+                showTablePicker(bindingKey, value, fieldType);
+            });
         };
 
 
@@ -659,24 +688,13 @@
                 const mainField = supplementItem.mainField;
                 const subFields = supplementItem.subFields || [];
 
-                console.log('=== 补充框查询参数 ===');
-                console.log('supplementItem:', supplementItem);
-                console.log('tableName:', tableName);
-                console.log('mainField:', mainField);
-                console.log('subFields:', subFields);
-                console.log('searchValue:', searchValue);
-                console.log('=====================');
-
                 if (!tableName || !mainField) {
                     console.error('补充框配置不完整：缺少表名或主字段');
-                    console.error('请检查表单配置中是否正确设置了补充框的主表和主字段');
                     resolve([]);
                     return;
                 }
 
-                // 将subFields转换为JSON字符串，避免Layui序列化问题
-                const subFieldsStr = JSON.stringify(subFields);
-
+                // 快速检查模式：只查 LIMIT 2，判断是否只有1条数据
                 fetch('/api/supplement/query/', {
                     method: 'POST',
                     headers: {
@@ -686,25 +704,19 @@
                         tableName: tableName,
                         mainField: mainField,
                         subFields: subFields,
-                        searchValue: searchValue || ''
+                        searchValue: searchValue || '',
+                        quickCheck: true  // 快速检查模式，只查 LIMIT 2
                     })
                 })
-                    .then(response => {
-                        console.log('响应状态:', response.status);
-                        return response.json();
-                    })
+                    .then(response => response.json())
                     .then(data => {
-                        console.log('响应数据:', data);
                         if (data.success) {
-                            console.log(`从后端获取到 ${data.count} 条数据`);
                             resolve(data.data);
                         } else {
-                            console.error('查询失败：', data.message);
                             reject(new Error(data.message));
                         }
                     })
                     .catch(error => {
-                        console.error('请求失败：', error);
                         reject(error);
                     });
             });
@@ -751,11 +763,7 @@
                 return;
             }
 
-            // 关闭之前的弹出层（如果有）
-            if (tableLayerIndex !== null) {
-                layer.close(tableLayerIndex);
-            }
-
+            // 外部已关闭旧弹出层，此处无需再关
             // 根据当前编辑的字段动态生成表头
             var currentSupplementItem = gSupplementItems.find(item => item.bindingKey === bindingKey);
 
@@ -778,7 +786,7 @@
             colsConfig.push({
                 field: mainField,
                 title: currentSupplementItem.label,
-                width: 'auto',  // 自适应宽度
+                minWidth: 120,
                 sort: true
             });
 
@@ -787,7 +795,7 @@
                 colsConfig.push({
                     field: subField.dbField || subField.bindingKey,
                     title: subField.label,
-                    width: 'auto',  // 自适应宽度
+                    minWidth: 100,
                     sort: true
                 });
             });
@@ -828,7 +836,11 @@
             // 估算表格高度（每行约 38px，最多显示 5 行）
             var estimatedTableHeight = 5 * 38 + 40;
             var popupHeight = estimatedTableHeight + 10;
-            var popupWidth = 600;
+            // 根据列数计算合适的弹出层宽度
+            // radio列50px + 主字段列~150px + 子字段列每列~120px + 内边距
+            var colCount = colsConfig.length;
+            var calculatedWidth = 50 + 150 + (colCount - 2) * 120 + 40;  // 40为padding等
+            popupWidth = Math.max(Math.min(calculatedWidth, 800), 400);
 
             // 计算下方可用空间（考虑按钮位置）
             var windowHeight = window.innerHeight;
@@ -882,18 +894,18 @@
             // 使用 layer.open 创建弹出层
             tableLayerIndex = layer.open({
                 type: 1,
+                title: '数据选择',
                 content: containerHtml,
-                area: ['auto', 'auto'],
+                area: [popupWidth + 'px', 'auto'],
                 offset: [top + 'px', left + 'px'],
-                skin: 'layui-layer-content',
                 shade: false,
-                closeBtn: 0,
-                move: false,
+                closeBtn: 1,
+                move: false,  // 不使用 Layui 内置拖拽，改用自定义实现
                 resize: false,
                 zIndex: 999999,
                 scrollbar: false,
                 background: '#FFFFFF',
-                fixed: true,
+                fixed: false,  // fixed:false 才能让 offset 像素定位生效并可拖拽
                 success: function (layero, index) {
                     console.log('弹出层打开成功，layero:', layero);
 
@@ -905,6 +917,37 @@
                         'box-shadow': '0 2px 8px rgba(0,0,0,0.15)',
                         'z-index': '999999'
                     });
+
+                    // 自定义拖拽功能：通过标题栏拖拽移动弹出层
+                    var titleBar = layero.find('.layui-layer-title');
+                    if (titleBar.length) {
+                        titleBar.css('cursor', 'move');
+                        var dragStartX, dragStartY, layerStartLeft, layerStartTop;
+                        var isDragging = false;
+
+                        titleBar.on('mousedown', function(e) {
+                            isDragging = true;
+                            dragStartX = e.clientX;
+                            dragStartY = e.clientY;
+                            layerStartLeft = parseInt(layero.css('left')) || 0;
+                            layerStartTop = parseInt(layero.css('top')) || 0;
+                            e.preventDefault();
+                        });
+
+                        $(document).on('mousemove.tablePickerDrag', function(e) {
+                            if (!isDragging) return;
+                            var dx = e.clientX - dragStartX;
+                            var dy = e.clientY - dragStartY;
+                            layero.css({
+                                'left': (layerStartLeft + dx) + 'px',
+                                'top': (layerStartTop + dy) + 'px'
+                            });
+                        });
+
+                        $(document).on('mouseup.tablePickerDrag', function(e) {
+                            isDragging = false;
+                        });
+                    }
 
                     // 使用服务端分页
                     table.render({
@@ -948,6 +991,17 @@
                     // 保存初始模糊搜索值，用于清空二次搜索时恢复
                     window.initialSearchValue = currentValue;
 
+                    // ESC 键关闭弹出层
+                    $(document).on('keydown.tablePicker', function(e) {
+                        if (e.keyCode === 27) {  // ESC
+                            console.log('ESC键关闭弹出层');
+                            layer.close(tableLayerIndex);
+                            tableLayerIndex = null;
+                            window.currentTableLayerIndex = null;
+                            $(document).off('keydown.tablePicker');
+                        }
+                    });
+
                     // 二次搜索功能：监听搜索框输入
                     var searchTimer = null;
                     $('#searchInput_' + bindingKey).on('input', function() {
@@ -961,6 +1015,7 @@
                         // 防抖500ms后重新加载表格
                         searchTimer = setTimeout(function() {
                             console.log('二次搜索:', searchValue ? '精确匹配' : '恢复模糊搜索');
+                            // 清除之前的radio选择状态
                             table.reload('ID-table-picker-' + bindingKey, {
                                 where: {
                                     tableName: currentSupplementItem.mainTable,
@@ -976,6 +1031,7 @@
                         }, 500);
                     });
 
+                    // radio 事件：手动选择数据时触发
                     table.on('radio(tablePickerFilter)', function (obj) {
                         var data = obj.data;
 
@@ -986,10 +1042,12 @@
                         // 填充数据
                         fillInputWithData(data, currentSupplementItem, element);
 
-                        console.log('准备关闭弹出层，索引:', window.currentTableLayerIndex);
-                        layer.close(window.currentTableLayerIndex);
+                        // 使用闭包中的 tableLayerIndex 确保关闭正确的弹出层
+                        console.log('准备关闭弹出层，索引:', tableLayerIndex);
+                        layer.close(tableLayerIndex);
                         tableLayerIndex = null;
                         window.currentTableLayerIndex = null;
+                        $(document).off('keydown.tablePicker');
                         console.log('弹出层已关闭');
                     });
 
@@ -998,6 +1056,11 @@
                     console.log('弹出层关闭');
                     tableLayerIndex = null;
                     window.currentTableLayerIndex = null;
+                    // 清除 ESC 键监听
+                    $(document).off('keydown.tablePicker');
+                    // 清除拖拽监听
+                    $(document).off('mousemove.tablePickerDrag');
+                    $(document).off('mouseup.tablePickerDrag');
                 }
             });
             console.log('弹出层索引:', tableLayerIndex);
@@ -1914,10 +1977,10 @@
             errors.forEach(function(errorMsg) {
                 let elementId = null;
                 
-                // 解析错误信息，提取字段名称
-                const newMatch = errorMsg.match(/^新(.+?)不能为空$/);
-                const originMatch = errorMsg.match(/^原(.+?)不能为空$/);
-                const normalMatch = errorMsg.match(/^(.+?)不能为空$/);
+                // 解析错误信息，提取字段名称（支持"不能为空"和"未填写"两种格式）
+                const newMatch = errorMsg.match(/^新(.+?)(?:不能为空|未填写)$/);
+                const originMatch = errorMsg.match(/^原(.+?)(?:不能为空|未填写)$/);
+                const normalMatch = errorMsg.match(/^(.+?)(?:不能为空|未填写)$/);
                 
                 if (newMatch) {
                     // 新值错误
@@ -2122,10 +2185,7 @@
                     layui.layer.close(loadingIndex);
 
                     if (response.data.success) {
-                        // 成功：先弹出提示框
                         layui.layer.msg('SQL 文件生成成功！', {icon: 1, time: 2000});
-                        
-                        // 然后显示详细结果
                         showSubmitResult(true, response.data.message || 'SQL 文件生成成功', {
                             filePath: response.data.filePath || ''
                         }, false);

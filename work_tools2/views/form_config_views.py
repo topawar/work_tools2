@@ -634,7 +634,14 @@ def query_supplement_data(request):
             is_exact_search = is_exact_search_raw.lower() == 'true'
         else:
             is_exact_search = bool(is_exact_search_raw)
-        
+
+        # 是否是快速检查模式（只判断是否只有1条数据）
+        is_quick_check_raw = data.get('quickCheck', False)
+        if isinstance(is_quick_check_raw, str):
+            is_quick_check = is_quick_check_raw.lower() == 'true'
+        else:
+            is_quick_check = bool(is_quick_check_raw)
+
         # 处理subFields可能是JSON字符串的情况
         if isinstance(sub_fields, str) and sub_fields:
             try:
@@ -671,10 +678,35 @@ def query_supplement_data(request):
             else:
                 # 模糊搜索（初始查询）
                 where_clause = " WHERE " + main_field + " LIKE '%" + search_value.replace("'", "''") + "%'"
-        
+
+        # 判断查询模式：quickCheck 只需判断是否只有1条数据
+        if is_quick_check:
+            # 快速检查模式：只查 LIMIT 2，不需要 COUNT
+            # 返回0条=无数据，1条=唯一数据，2条=多条数据
+            query_sql = base_sql + where_clause + " ORDER BY " + main_field + " LIMIT 2"
+
+            with connection.cursor() as cursor:
+                cursor.execute(query_sql)
+                rows = cursor.fetchall()
+
+                result = []
+                for row in rows:
+                    row_dict = {}
+                    for idx, field in enumerate(select_fields):
+                        row_dict[field] = row[idx]
+                    result.append(row_dict)
+
+            return JsonResponse({
+                'success': True,
+                'data': result,
+                'count': len(result),  # 快速检查模式返回实际条数
+                'quickCheck': True
+            })
+
+        # 正常分页查询模式（表格选择器使用）
         # 构建总数查询SQL（不带LIMIT）
         count_sql = "SELECT COUNT(*) FROM " + table_name + where_clause
-        
+
         # 构建分页查询SQL
         offset = (page - 1) * limit
         query_sql = base_sql + where_clause + " ORDER BY " + main_field + " LIMIT " + str(limit) + " OFFSET " + str(offset)
@@ -684,7 +716,7 @@ def query_supplement_data(request):
             # 先查询总数
             cursor.execute(count_sql)
             total_count = cursor.fetchone()[0]
-            
+
             # 再查询分页数据
             cursor.execute(query_sql)
             rows = cursor.fetchall()
@@ -875,8 +907,8 @@ def duplicate_form_config(request, form_id):
                 )
             
             # 创建新的菜单
-            from pypinyin import pinyin, Style
             try:
+                from pypinyin import pinyin, Style
                 pinyin_list = pinyin(new_form_name, style=Style.NORMAL)
                 pinyin_str = ''.join([item[0] for item in pinyin_list])
             except ImportError:
@@ -950,6 +982,18 @@ def export_form_config(request, form_id):
             # 获取表单配置
             config = FormConfig.objects.get(id=form_id)
             
+            # 获取父级菜单名称
+            parent_menu_name = ''
+            menu_url = f'/dynamic/{form_id}'
+            menu = Menu.objects.filter(url=menu_url).first()
+            if menu and menu.parent_id:
+                parent_menu = Menu.objects.filter(id=menu.parent_id).first()
+                if parent_menu:
+                    parent_menu_name = parent_menu.name
+            elif menu:
+                # 一级菜单没有parent_id，使用group_name
+                parent_menu_name = menu.group_name or '主菜单'
+
             # 构建导出数据
             export_data = {
                 'version': '1.0',
@@ -957,6 +1001,7 @@ def export_form_config(request, form_id):
                 'formConfig': {
                     'formName': config.form_name,
                     'tableNameList': config.table_name_list,
+                    'parentMenuName': parent_menu_name,
                     'queryMode': config.query_mode,
                     'appendOpsRemark': config.append_ops_remark,
                     'isActive': config.is_active,
@@ -1084,6 +1129,17 @@ def batch_export_form_configs(request):
                     try:
                         config = FormConfig.objects.get(id=form_id)
                         
+                        # 获取父级菜单名称
+                        parent_menu_name = ''
+                        menu_url = f'/dynamic/{form_id}'
+                        menu = Menu.objects.filter(url=menu_url).first()
+                        if menu and menu.parent_id:
+                            parent_menu = Menu.objects.filter(id=menu.parent_id).first()
+                            if parent_menu:
+                                parent_menu_name = parent_menu.name
+                        elif menu:
+                            parent_menu_name = menu.group_name or '主菜单'
+
                         # 构建导出数据（与单个导出相同）
                         export_data = {
                             'version': '1.0',
@@ -1091,6 +1147,7 @@ def batch_export_form_configs(request):
                             'formConfig': {
                                 'formName': config.form_name,
                                 'tableNameList': config.table_name_list,
+                                'parentMenuName': parent_menu_name,
                                 'queryMode': config.query_mode,
                                 'appendOpsRemark': config.append_ops_remark,
                                 'isActive': config.is_active,
@@ -1198,6 +1255,7 @@ def import_form_config(request):
     if request.method == 'POST':
         try:
             from work_tools2.models import ComponentConfig, DatabaseIPConfig
+            import json
             import zipfile
             import io
             
@@ -1242,7 +1300,6 @@ def import_form_config(request):
                             })
             else:
                 # JSON文件 - 单个导入
-                import json
                 file_content = file.read().decode('utf-8')
                 import_data = json.loads(file_content)
                 
@@ -1389,24 +1446,49 @@ def _import_single_config(import_data, filename='unknown.json'):
                 expressions=item_data.get('expressions', {}),
             )
         
+        # 获取或创建父级菜单
+        parent_menu_name = form_config_data.get('parentMenuName', '')
+        parent_menu_id = None
+        if parent_menu_name:
+            # 查找是否已存在同名的一级菜单
+            parent_menu = Menu.objects.filter(
+                name=parent_menu_name,
+                parent_id__isnull=True
+            ).first()
+            if not parent_menu:
+                # 创建新的父级菜单
+                parent_menu = Menu.objects.create(
+                    name=parent_menu_name,
+                    url='#',
+                    parent_id=None,
+                    icon='bi-folder',
+                    pinyin='',
+                    sort_order=Menu.objects.filter(parent_id__isnull=True).count(),
+                    is_visible=True,
+                    group_name='主菜单',
+                )
+            parent_menu_id = parent_menu.id
+        else:
+            parent_menu_name = '主菜单'
+
         # 创建菜单
-        from pypinyin import pinyin, Style
         try:
+            from pypinyin import pinyin, Style
             pinyin_list = pinyin(form_name, style=Style.NORMAL)
             pinyin_str = ''.join([item[0] for item in pinyin_list])
         except ImportError:
             pinyin_str = ''
-        
+
         menu_url = f'/dynamic/{new_config.id}'
         Menu.objects.create(
             name=form_name,
             url=menu_url,
-            parent_id=None,
+            parent_id=parent_menu_id,
             icon='bi-file-earmark-text',
             pinyin=pinyin_str,
             sort_order=0,
             is_visible=True,
-            group_name='主菜单',
+            group_name=parent_menu_name,
         )
         
         # 重新计算配置项的使用次数

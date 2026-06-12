@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import sqlparse
 from datetime import datetime
 from io import BytesIO
@@ -236,6 +237,7 @@ def generate_update_sql(config, form_values):
     forward_sqls = []
     backward_sqls = []
     missing_field_labels = set()  # 收集所有缺失字段的label（去重）
+    missing_update_table_labels = {}  # 查询条件满足但无有效更新字段的表: {table_name: [labels]}
 
     table_name_list = config.get('tableNameList', [])
     query_items = config.get('queryItems', [])
@@ -316,16 +318,26 @@ def generate_update_sql(config, form_values):
                             field_key = field_item['bindingKey']
                             field_type = field_item.get('type', 'text')
 
-                            # 获取字段的验证规则
-                            if 'value' in form_values.get(field_key, {}):
-                                # 查询字段：没有验证规则概念，直接使用值
+                            # 获取字段值：支持 bindingKey_tableName 格式查找
+                            field_connected_tables = field_item.get('connectedTable', [])
+                            value_data = None
+                            if field_connected_tables:
+                                for table in field_connected_tables:
+                                    unique_key = f"{field_key}_{table}"
+                                    if unique_key in form_values:
+                                        value_data = form_values[unique_key]
+                                        break
+                            if value_data is None:
                                 value_data = form_values.get(field_key, {})
+
+                            # 获取字段的验证规则
+                            if 'value' in value_data:
+                                # 查询字段：没有验证规则概念，直接使用值
                                 new_value = value_data.get('value', '')
                                 origin_value = value_data.get('value', '')
                                 valid_rule = 'defaultField'  # 查询字段默认为defaultField
                             else:
                                 # 更新字段：使用该字段自己配置的验证规则
-                                value_data = form_values.get(field_key, {})
                                 new_value = value_data.get('newValue', '')
                                 origin_value = value_data.get('originValue', '')
                                 # 关键修复：使用field_item（被引用字段）的验证规则，而不是item（计算字段）的
@@ -420,11 +432,23 @@ def generate_update_sql(config, form_values):
             elif input_type == 'supplement':
                 parent_key = item.get('bindingKey')
 
+                # 关键修复：对于同名字段绑定不同表的情况，需要从 form_values 中查找正确的值
+                value_data = None
+                if connected_tables:
+                    for table in connected_tables:
+                        unique_key = f"{parent_key}_{table}"
+                        if unique_key in form_values:
+                            value_data = form_values[unique_key]
+                            break
+                
+                # 如果没找到，使用原始的 parent_key（向后兼容）
+                if value_data is None:
+                    value_data = form_values.get(parent_key, {})
+
                 # 如果 form_values 中没有这个补充框，说明前端没有传输（原值为空），跳过
-                if parent_key not in form_values:
+                if not value_data:
                     continue
 
-                value_data = form_values.get(parent_key, {})
                 new_value = value_data.get('newValue', '')
                 origin_value = value_data.get('originValue', '')
 
@@ -437,9 +461,27 @@ def generate_update_sql(config, form_values):
                     backward_set_clauses.append(backward_set_value)
 
                 sub_fields = item.get('subFields', [])
+                main_table_for_sub = item.get('mainTable', '')
                 for sub_field in sub_fields:
                     sub_binding_key = sub_field.get('bindingKey')
-                    sub_value_data = form_values.get(sub_binding_key, {})
+                    
+                    # 子字段使用 main_table 查找（数据来自 main_table）
+                    sub_value_data = None
+                    if main_table_for_sub:
+                        sub_unique_key = f"{sub_binding_key}_{main_table_for_sub}"
+                        sub_value_data = form_values.get(sub_unique_key)
+                    
+                    # 回退：尝试 connected_tables
+                    if sub_value_data is None and connected_tables:
+                        for table in connected_tables:
+                            unique_key = f"{sub_binding_key}_{table}"
+                            if unique_key in form_values:
+                                sub_value_data = form_values[unique_key]
+                                break
+                    
+                    if sub_value_data is None:
+                        sub_value_data = form_values.get(sub_binding_key, {})
+                    
                     sub_new_value = sub_value_data.get('newValue', '')
                     sub_origin_value = sub_value_data.get('originValue', '')
 
@@ -487,9 +529,15 @@ def generate_update_sql(config, form_values):
                     if backward_set_value is not None:
                         backward_set_clauses.append(backward_set_value)
 
-        # 第三步：如果该表没有任何SET子句，直接跳过，不进行查询字段校验
+        # 第三步：如果该表没有任何SET子句，记录并跳过
         if not forward_set_clauses and not backward_set_clauses:
-            print(f"[SQL生成-表:{table_name}] 跳过: 该表没有有效的更新字段")
+            # 收集该表关联的更新字段标签
+            table_update_labels = []
+            for item in update_items:
+                if table_name in item.get('connectedTable', []):
+                    table_update_labels.append(item.get('label', item.get('bindingKey', '')))
+            labels_str = '、'.join(table_update_labels) if table_update_labels else '无'
+            missing_update_table_labels[table_name] = table_update_labels
             continue
 
         # 第四步：有SET子句时，才根据查询模式收集WHERE条件
@@ -553,9 +601,8 @@ def generate_update_sql(config, form_values):
                     for item in table_query_fields:
                         binding_key = item.get('bindingKey')
                         connected_tables = item.get('connectedTable', [])
-                        label = item.get('label', binding_key)
                         
-                        # 关键修复：对于同名字段绑定不同表的情况，需要从 form_values 中查找正确的值
+                        # 查找值
                         value_data = None
                         if connected_tables:
                             for table in connected_tables:
@@ -567,21 +614,18 @@ def generate_update_sql(config, form_values):
                         if value_data is None:
                             value_data = form_values.get(binding_key, {})
                         
+                        label = item.get('label', binding_key)
                         value = value_data.get('value', '')
                         if not value:
                             missing_field_labels.add(label)
-                    # 调试日志已关闭
-                    # print(f"[SQL生成-表:{table_name}] 跳过(严格模式): 存在未填写的查询字段")
                 else:
                     # 只有一个查询字段且为空，静默跳过
-                    # print(f"[SQL生成-表:{table_name}] 跳过(严格模式): 唯一查询字段为空，静默跳过")
                     pass
                 continue
 
         # 第五步：至少有一个查询字段有值时才生成SQL
+        # 宽松模式：如果没有任何查询字段有值，静默跳过
         if not where_conditions:
-            missing_fields = [item.get('bindingKey') for item in table_query_fields]
-            print(f"[SQL生成-表:{table_name}] 跳过: 所有查询字段均为空: {missing_fields}")
             continue
 
         # 第六步：生成SQL语句
@@ -611,17 +655,25 @@ def generate_update_sql(config, form_values):
                 'formatted': format_sql(backward_sql)
             })
 
+    # 返回结果
+    has_sql = bool(forward_sqls or backward_sqls)
+    
     # 将收集的缺失字段标签合并为错误信息
     # 关键逻辑：只有当没有任何SQL生成时，才返回错误信息
     missing_field_errors = []
-    if missing_field_labels and not forward_sqls and not backward_sqls:
-        for label in sorted(missing_field_labels):
-            missing_field_errors.append(f"{label} 未填写")
+    if missing_field_labels and not has_sql:
+        missing_field_errors = [f"{label}未填写" for label in missing_field_labels]
+    
+    # 添加无更新字段的表的错误信息
+    if not has_sql:
+        for table_name, labels in missing_update_table_labels.items():
+            labels_str = '、'.join(labels) if labels else '无'
+            missing_field_errors.append(f"表 {table_name} 无有效更新字段（关联字段: {labels_str}）")
 
     return {
         'forward_sqls': forward_sqls,
         'backward_sqls': backward_sqls,
-        'missing_field_errors': missing_field_errors  # 返回缺失字段错误信息
+        'missing_field_errors': missing_field_errors
     }
 
 
@@ -738,6 +790,8 @@ def merge_sql_statements(all_sql_statements):
     - 不同字段的条件使用 OR
     - 完全相同的语句（包括WHERE）进行去重
     - 汇总表更新语句（多条明细共用一个汇总条件）放置在最后
+    
+    关键修复：对于包含子查询的SET子句，需要提取其结构特征而非完整内容作为分组键
     """
     if not all_sql_statements:
         return []
@@ -755,8 +809,18 @@ def merge_sql_statements(all_sql_statements):
             table_name = extract_table_name(raw_sql)
             set_clause = extract_set_clause(raw_sql)
             where_clause = extract_where_clause(raw_sql)
+            
+            # 关键修复：对于汇总SQL，使用规范化后的SET子句作为分组键
+            # 对于普通SQL，使用完整的SET子句作为分组键（包含具体值）
+            is_summary = _is_summary_sql(set_clause)
+            if is_summary:
+                # 汇总SQL：使用结构特征作为分组键
+                set_key = _normalize_set_clause_for_grouping(set_clause)
+            else:
+                # 普通SQL：使用完整的SET子句作为分组键（确保相同值的才能合并）
+                set_key = set_clause
 
-            key = f"{table_name}|{set_clause}"
+            key = f"{table_name}|{set_key}"
             forward_groups[key].append({
                 'table_name': table_name,
                 'set_clause': set_clause,
@@ -770,8 +834,15 @@ def merge_sql_statements(all_sql_statements):
             table_name = extract_table_name(raw_sql)
             set_clause = extract_set_clause(raw_sql)
             where_clause = extract_where_clause(raw_sql)
+            
+            # 同样处理回退语句
+            is_summary = _is_summary_sql(set_clause)
+            if is_summary:
+                set_key = _normalize_set_clause_for_grouping(set_clause)
+            else:
+                set_key = set_clause
 
-            key = f"{table_name}|{set_clause}"
+            key = f"{table_name}|{set_key}"
             backward_groups[key].append({
                 'table_name': table_name,
                 'set_clause': set_clause,
@@ -813,15 +884,25 @@ def merge_sql_statements(all_sql_statements):
                 else:
                     merged_forward_normal.append(formatted_sql)
             else:
-                # 不同的WHERE条件，需要合并
-                merged_where = merge_where_clauses(unique_where_clauses)
-                sql = f"UPDATE {items[0]['table_name']} SET {items[0]['set_clause']} WHERE {merged_where}"
-                formatted_sql = format_sql(sql)
-
-                # 判断是否为汇总SQL
-                if _is_summary_sql(items[0]['set_clause']):
-                    merged_forward_summary.append(formatted_sql)
+                # 关键修复：检查是否为汇总SQL
+                is_summary = _is_summary_sql(items[0]['set_clause'])
+                
+                if is_summary:
+                    # 汇总SQL：不能合并！因为每个合同的SET子句中的子查询使用了不同的合同号
+                    # 必须为每个合同生成独立的UPDATE语句，但需要去重
+                    seen_sqls = set()  # 用于去重
+                    for item in items:
+                        sql = f"UPDATE {item['table_name']} SET {item['set_clause']} WHERE {item['where_clause']}"
+                        formatted_sql = format_sql(sql)
+                        # 只有未出现过的SQL才添加
+                        if formatted_sql not in seen_sqls:
+                            seen_sqls.add(formatted_sql)
+                            merged_forward_summary.append(formatted_sql)
                 else:
+                    # 普通SQL：可以合并WHERE条件
+                    merged_where = merge_where_clauses(unique_where_clauses)
+                    sql = f"UPDATE {items[0]['table_name']} SET {items[0]['set_clause']} WHERE {merged_where}"
+                    formatted_sql = format_sql(sql)
                     merged_forward_normal.append(formatted_sql)
 
     # 合并回退语句
@@ -851,14 +932,25 @@ def merge_sql_statements(all_sql_statements):
                 else:
                     merged_backward_normal.append(formatted_sql)
             else:
-                # 不同的WHERE条件，需要合并
-                merged_where = merge_where_clauses(unique_where_clauses)
-                sql = f"UPDATE {items[0]['table_name']} SET {items[0]['set_clause']} WHERE {merged_where}"
-                formatted_sql = format_sql(sql)
-
-                if _is_summary_sql(items[0]['set_clause']):
-                    merged_backward_summary.append(formatted_sql)
+                # 关键修复：检查是否为汇总SQL
+                is_summary = _is_summary_sql(items[0]['set_clause'])
+                
+                if is_summary:
+                    # 汇总SQL：不能合并！因为每个合同的SET子句中的子查询使用了不同的合同号
+                    # 必须为每个合同生成独立的UPDATE语句，但需要去重
+                    seen_sqls = set()  # 用于去重
+                    for item in items:
+                        sql = f"UPDATE {item['table_name']} SET {item['set_clause']} WHERE {item['where_clause']}"
+                        formatted_sql = format_sql(sql)
+                        # 只有未出现过的SQL才添加
+                        if formatted_sql not in seen_sqls:
+                            seen_sqls.add(formatted_sql)
+                            merged_backward_summary.append(formatted_sql)
                 else:
+                    # 普通SQL：可以合并WHERE条件
+                    merged_where = merge_where_clauses(unique_where_clauses)
+                    sql = f"UPDATE {items[0]['table_name']} SET {items[0]['set_clause']} WHERE {merged_where}"
+                    formatted_sql = format_sql(sql)
                     merged_backward_normal.append(formatted_sql)
 
     # 合并结果：普通SQL在前，汇总SQL在后
@@ -889,24 +981,95 @@ def _is_summary_sql(set_clause):
     return False
 
 
+def _normalize_set_clause_for_grouping(set_clause):
+    """
+    规范化SET子句用于分组，将具体的值替换为占位符，保留结构特征
+    
+    例如：
+    - BPO_QTY = '10', BPO_PRICE = '100' -> BPO_QTY = ?, BPO_PRICE = ?
+    - BPO_AMT = (SELECT SUM(BPO_AMT) FROM tphct02 WHERE BPO_ID = 'xxx' ...) 
+      -> BPO_AMT = (SELECT SUM(BPO_AMT) FROM tphct02 WHERE BPO_ID = ? ...)
+    
+    这样可以确保相同结构的SET子句被分到同一组，即使具体值不同
+    """
+    import re
+    
+    if not set_clause:
+        return ''
+    
+    # 匹配引号包裹的字符串值，替换为 ?
+    normalized = re.sub(r"'[^']*'", '?', set_clause)
+    
+    # 匹配数字值（独立存在的数字），替换为 ?
+    # 注意：不要替换字段名中的数字
+    normalized = re.sub(r'\b(\d+)\b', '?', normalized)
+    
+    return normalized
+
+
 def extract_set_clause(sql):
-    """从SQL中提取SET子句"""
+    """
+    从 SQL 中提取SET子句
+    关键修复：需要正确处理子查询中的WHERE关键字
+    """
     sql_upper = sql.upper()
     set_start = sql_upper.find(' SET ')
-    where_start = sql_upper.find(' WHERE ')
-
-    if set_start != -1 and where_start != -1:
+    
+    if set_start == -1:
+        return ''
+    
+    # 从 SET 之后开始查找外层的 WHERE
+    # 需要跳过子查询中的 WHERE（通过括号层级判断）
+    where_start = _find_outer_where(sql, set_start + 5)
+    
+    if where_start != -1:
         return sql[set_start + 5:where_start].strip()
-    elif set_start != -1:
+    else:
         return sql[set_start + 5:].strip()
-    return ''
+
+
+def _find_outer_where(sql, start_pos):
+    """
+    从指定位置开始查找外层的 WHERE 关键字
+    跳过括号内的 WHERE（子查询中的WHERE）
+    
+    返回 WHERE 的位置，如果没找到返回 -1
+    """
+    paren_depth = 0
+    i = start_pos
+    sql_upper = sql.upper()
+    
+    while i < len(sql_upper):
+        char = sql_upper[i]
+        
+        if char == '(':
+            paren_depth += 1
+        elif char == ')':
+            paren_depth -= 1
+        elif paren_depth == 0 and sql_upper[i:i+7] == ' WHERE ':
+            # 只有在括号外层（paren_depth == 0）的 WHERE 才是外层的
+            return i
+        
+        i += 1
+    
+    return -1
 
 
 def extract_where_clause(sql):
-    """从SQL中提取WHERE子句"""
+    """
+    从 SQL 中提取WHERE子句
+    关键修复：需要正确处理子查询中的WHERE关键字
+    """
     sql_upper = sql.upper()
-    where_start = sql_upper.find(' WHERE ')
-
+    
+    # 先找到 SET 的位置
+    set_start = sql_upper.find(' SET ')
+    if set_start == -1:
+        return ''
+    
+    # 从 SET 之后查找外层的 WHERE
+    where_start = _find_outer_where(sql, set_start + 5)
+    
     if where_start != -1:
         return sql[where_start + 7:].strip()
     return ''
@@ -962,6 +1125,15 @@ def validate_form_data(config, form_values, query_values=None):
             origin_value = value_data.get('originValue')
             options = item.get('options', [])
 
+            # 确定 form_values 中实际的键名（支持 bindingKey_tableName 格式）
+            actual_key = binding_key
+            if connected_tables:
+                for table in connected_tables:
+                    unique_key = f"{binding_key}_{table}"
+                    if unique_key in form_values:
+                        actual_key = unique_key
+                        break
+
             # 构建 label -> value 的映射
             label_to_value = {}
             valid_values = set()
@@ -977,7 +1149,9 @@ def validate_form_data(config, form_values, query_values=None):
                 # 如果是label，转换为value
                 if new_value_str in label_to_value:
                     # 将label转换为value存储
-                    form_values[binding_key]['newValue'] = label_to_value[new_value_str]
+                    if actual_key in form_values:
+                        form_values[actual_key]['newValue'] = label_to_value[new_value_str]
+                    new_value = label_to_value[new_value_str]
                 elif new_value_str not in valid_values:
                     errors.append(f"新{item.get('label')}的值'{new_value}'不在可选范围内")
 
@@ -985,13 +1159,16 @@ def validate_form_data(config, form_values, query_values=None):
             if origin_value and origin_value != '':
                 origin_value_str = str(origin_value)
                 if origin_value_str in label_to_value:
-                    form_values[binding_key]['originValue'] = label_to_value[origin_value_str]
+                    if actual_key in form_values:
+                        form_values[actual_key]['originValue'] = label_to_value[origin_value_str]
+                    origin_value = label_to_value[origin_value_str]
                 elif origin_value_str not in valid_values:
                     errors.append(f"原{item.get('label')}的值'{origin_value}'不在可选范围内")
 
             # 重新获取转换后的值进行必填校验
-            new_value = form_values[binding_key].get('newValue')
-            origin_value = form_values[binding_key].get('originValue')
+            actual_value_data = form_values.get(actual_key, {})
+            new_value = actual_value_data.get('newValue')
+            origin_value = actual_value_data.get('originValue')
 
             # 校验必填
             new_valid_rule = item.get('newValidRule', '')
@@ -1153,7 +1330,20 @@ def validate_form_data(config, form_values, query_values=None):
     for item in update_items:
         if item.get('inputType') == 'radio':
             binding_key = item.get('bindingKey')
-            value_data = form_values.get(binding_key, {})
+            connected_tables = item.get('connectedTable', [])
+            
+            # 关键修复：使用 connected_tables 查找值，支持 bindingKey_tableName 格式
+            value_data = None
+            if connected_tables:
+                for table in connected_tables:
+                    unique_key = f"{binding_key}_{table}"
+                    if unique_key in form_values:
+                        value_data = form_values[unique_key]
+                        break
+            
+            if value_data is None:
+                value_data = form_values.get(binding_key, {})
+            
             new_value = value_data.get('newValue')
             valid_rule = item.get('newValidRule', '')
 
@@ -1284,13 +1474,18 @@ def validate_form_data(config, form_values, query_values=None):
 
 
 def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items):
-    """从 Excel 行构建表单值"""
+    """从 Excel 行构建表单值
+    
+    关键：对于有 connectedTable 的字段，使用 bindingKey_tableName 作为 key，
+    确保同名字段关联不同表时能正确查找。
+    """
     form_values = {}
     missing_columns = []
 
     for item in query_items:
         label = item.get('label', '')
         binding_key = item.get('bindingKey', '')
+        connected_tables = item.get('connectedTable', [])
 
         if label in headers:
             col = headers[label]
@@ -1301,7 +1496,7 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
             if not value_str and item.get('defaultValue'):
                 value_str = str(item.get('defaultValue', '')).strip()
 
-            form_values[binding_key] = {
+            value_dict = {
                 'label': label,
                 'value': value_str,
                 'inputType': 'query',
@@ -1311,7 +1506,7 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
             }
         else:
             missing_columns.append(label)
-            form_values[binding_key] = {
+            value_dict = {
                 'label': label,
                 'value': '',
                 'inputType': 'query',
@@ -1319,10 +1514,18 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                 'ValidRule': item.get('ValidRule', '')
             }
 
+        # 使用 bindingKey_tableName 格式存储
+        if connected_tables:
+            for table in connected_tables:
+                form_values[f"{binding_key}_{table}"] = value_dict
+        else:
+            form_values[binding_key] = value_dict
+
     for item in update_items:
         label = item.get('label', '')
         binding_key = item.get('bindingKey', '')
         input_type = item.get('inputType', '')
+        connected_tables = item.get('connectedTable', [])
 
         if input_type == 'supplement':
             sub_fields = item.get('subFields', [])
@@ -1342,7 +1545,7 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                 col = headers[origin_label]
                 origin_value = ws.cell(row=row_idx, column=col).value
 
-            form_values[binding_key] = {
+            supplement_value = {
                 'label': label,
                 'newValue': str(new_value).strip() if new_value is not None else '',
                 'originValue': str(origin_value).strip() if origin_value is not None else '',
@@ -1351,6 +1554,15 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                 'newValidRule': item.get('newValidRule', ''),
                 'originValidRule': item.get('originValidRule', '')
             }
+
+            # 使用 bindingKey_tableName 格式存储补充框主字段
+            if connected_tables:
+                supplement_unique_keys = [f"{binding_key}_{table}" for table in connected_tables]
+                for unique_key in supplement_unique_keys:
+                    form_values[unique_key] = supplement_value
+            else:
+                supplement_unique_keys = [binding_key]
+                form_values[binding_key] = supplement_value
 
             # ==================== 自动填充补充框子字段 ====================
             # 如果新值或原值不为空，从数据库查询对应的子字段值
@@ -1386,12 +1598,6 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                     values_str = ', '.join(["'" + str(v).replace("'", "''") + "'" for v in query_values])
                     sql = f"SELECT {fields_str} FROM {main_table} WHERE {main_field} IN ({values_str})"
 
-                    # 调试日志已关闭
-                    # print("=" * 50)
-                    # print(f"批量导入-自动查询补充框子字段: {binding_key}")
-                    # print("SQL:", sql)
-                    # print("=" * 50)
-
                     try:
                         with connection.cursor() as cursor:
                             cursor.execute(sql)
@@ -1407,9 +1613,13 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                                 main_val = row_dict.get(main_field, '')
                                 data_map[main_val] = row_dict
 
+                        # 填充子字段（使用 connected_tables 作为 key，与 generate_update_sql 查找一致）
+                        parent_value_data = form_values.get(supplement_unique_keys[0], {})
+
                         # 填充新值的子字段
-                        if new_value and str(new_value).strip():
-                            new_val_str = str(new_value).strip()
+                        new_val_str = parent_value_data.get('newValue', '')
+                        if new_val_str and str(new_val_str).strip():
+                            new_val_str = str(new_val_str).strip()
                             if new_val_str in data_map:
                                 row_data = data_map[new_val_str]
                                 for sub_field in sub_fields:
@@ -1418,18 +1628,31 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                                         db_field = sub_field.get('dbField') or sub_binding_key
                                         sub_value = row_data.get(db_field, '')
 
-                                        form_values[sub_binding_key] = {
-                                            'newValue': str(sub_value).strip() if sub_value is not None else '',
-                                            'originValue': '',
-                                            'inputType': 'supplement-sub',
-                                            'fieldType': 'supplement-sub',
-                                            'parentKey': binding_key,
-                                            'label': sub_field.get('label', '')
-                                        }
+                                        # 按 connected_tables 存储，与 generate_update_sql 查找一致
+                                        if connected_tables:
+                                            for table in connected_tables:
+                                                form_values[f"{sub_binding_key}_{table}"] = {
+                                                    'newValue': str(sub_value).strip() if sub_value is not None else '',
+                                                    'originValue': '',
+                                                    'inputType': 'supplement-sub',
+                                                    'fieldType': 'supplement-sub',
+                                                    'parentKey': supplement_unique_keys[0],
+                                                    'label': sub_field.get('label', '')
+                                                }
+                                        else:
+                                            form_values[sub_binding_key] = {
+                                                'newValue': str(sub_value).strip() if sub_value is not None else '',
+                                                'originValue': '',
+                                                'inputType': 'supplement-sub',
+                                                'fieldType': 'supplement-sub',
+                                                'parentKey': supplement_unique_keys[0],
+                                                'label': sub_field.get('label', '')
+                                            }
 
                         # 填充原值的子字段
-                        if origin_value and str(origin_value).strip():
-                            origin_val_str = str(origin_value).strip()
+                        origin_val_str = parent_value_data.get('originValue', '')
+                        if origin_val_str and str(origin_val_str).strip():
+                            origin_val_str = str(origin_val_str).strip()
                             if origin_val_str in data_map:
                                 row_data = data_map[origin_val_str]
                                 for sub_field in sub_fields:
@@ -1438,19 +1661,34 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                                         db_field = sub_field.get('dbField') or sub_binding_key
                                         sub_value = row_data.get(db_field, '')
 
-                                        # 如果已经有新值的子字段数据，只更新originValue
-                                        if sub_binding_key in form_values:
-                                            form_values[sub_binding_key]['originValue'] = str(
-                                                sub_value).strip() if sub_value is not None else ''
+                                        if connected_tables:
+                                            for table in connected_tables:
+                                                sub_unique_key = f"{sub_binding_key}_{table}"
+                                                if sub_unique_key in form_values:
+                                                    form_values[sub_unique_key]['originValue'] = str(
+                                                        sub_value).strip() if sub_value is not None else ''
+                                                else:
+                                                    form_values[sub_unique_key] = {
+                                                        'newValue': '',
+                                                        'originValue': str(sub_value).strip() if sub_value is not None else '',
+                                                        'inputType': 'supplement-sub',
+                                                        'fieldType': 'supplement-sub',
+                                                        'parentKey': supplement_unique_keys[0],
+                                                        'label': sub_field.get('label', '')
+                                                    }
                                         else:
-                                            form_values[sub_binding_key] = {
-                                                'newValue': '',
-                                                'originValue': str(sub_value).strip() if sub_value is not None else '',
-                                                'inputType': 'supplement-sub',
-                                                'fieldType': 'supplement-sub',
-                                                'parentKey': binding_key,
-                                                'label': sub_field.get('label', '')
-                                            }
+                                            if sub_binding_key in form_values:
+                                                form_values[sub_binding_key]['originValue'] = str(
+                                                    sub_value).strip() if sub_value is not None else ''
+                                            else:
+                                                form_values[sub_binding_key] = {
+                                                    'newValue': '',
+                                                    'originValue': str(sub_value).strip() if sub_value is not None else '',
+                                                    'inputType': 'supplement-sub',
+                                                    'fieldType': 'supplement-sub',
+                                                    'parentKey': supplement_unique_keys[0],
+                                                    'label': sub_field.get('label', '')
+                                                }
 
                     except Exception as e:
                         print(f"查询补充框子字段失败: {e}")
@@ -1476,14 +1714,26 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                         col = headers[origin_sub_label]
                         origin_sub_value = ws.cell(row=row_idx, column=col).value
 
-                    form_values[sub_binding_key] = {
-                        'newValue': str(new_sub_value).strip() if new_sub_value is not None else '',
-                        'originValue': str(origin_sub_value).strip() if origin_sub_value is not None else '',
-                        'inputType': 'supplement-sub',
-                        'fieldType': 'supplement-sub',
-                        'parentKey': binding_key,
-                        'label': sub_label
-                    }
+                    # 子字段也使用 bindingKey_tableName 格式
+                    if connected_tables:
+                        for table in connected_tables:
+                            form_values[f"{sub_binding_key}_{table}"] = {
+                                'newValue': str(new_sub_value).strip() if new_sub_value is not None else '',
+                                'originValue': str(origin_sub_value).strip() if origin_sub_value is not None else '',
+                                'inputType': 'supplement-sub',
+                                'fieldType': 'supplement-sub',
+                                'parentKey': f"{binding_key}_{table}",
+                                'label': sub_label
+                            }
+                    else:
+                        form_values[sub_binding_key] = {
+                            'newValue': str(new_sub_value).strip() if new_sub_value is not None else '',
+                            'originValue': str(origin_sub_value).strip() if origin_sub_value is not None else '',
+                            'inputType': 'supplement-sub',
+                            'fieldType': 'supplement-sub',
+                            'parentKey': binding_key,
+                            'label': sub_label
+                        }
         else:
             # 处理普通字段和计算字段
             new_label = f'新{label}'
@@ -1495,7 +1745,7 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
             # 如果是计算字段，不需要从Excel读取，直接初始化为空
             if input_type == 'calculated':
                 # 计算字段的值会在generate_update_sql中通过表达式计算
-                form_values[binding_key] = {
+                calc_value = {
                     'label': label,
                     'newValue': '',
                     'originValue': '',
@@ -1505,6 +1755,11 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                     'originValidRule': item.get('originValidRule', ''),
                     'expressions': item.get('expressions', {})  # 保留表达式配置
                 }
+                if connected_tables:
+                    for table in connected_tables:
+                        form_values[f"{binding_key}_{table}"] = calc_value
+                else:
+                    form_values[binding_key] = calc_value
             else:
                 # 普通字段需要从Excel读取
                 if new_label in headers:
@@ -1529,7 +1784,7 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                 if not origin_value_str and item.get('originDefaultValue'):
                     origin_value_str = str(item.get('originDefaultValue', '')).strip()
 
-                form_values[binding_key] = {
+                regular_value = {
                     'label': label,
                     'newValue': new_value_str,
                     'originValue': origin_value_str,
@@ -1538,6 +1793,154 @@ def build_form_values_from_excel(ws, row_idx, headers, query_items, update_items
                     'newValidRule': item.get('newValidRule', ''),
                     'originValidRule': item.get('originValidRule', '')
                 }
+                # 使用 bindingKey_tableName 格式存储
+                if connected_tables:
+                    for table in connected_tables:
+                        form_values[f"{binding_key}_{table}"] = regular_value
+                else:
+                    form_values[binding_key] = regular_value
+
+    return form_values, missing_columns
+
+
+
+
+
+def build_form_values_from_excel_batch(ws, row_idx, headers, query_items, update_items):
+    """批量导入专用：轻量版，跳过数据库查询
+    
+    补充框子字段填充由后续的缓存填充阶段完成。
+    """
+    form_values = {}
+    missing_columns = []
+
+    for item in query_items:
+        label = item.get('label', '')
+        binding_key = item.get('bindingKey', '')
+        connected_tables = item.get('connectedTable', [])
+
+        if label in headers:
+            col = headers[label]
+            value = ws.cell(row=row_idx, column=col).value
+            value_str = str(value).strip() if value is not None else ''
+            if not value_str and item.get('defaultValue'):
+                value_str = str(item.get('defaultValue', '')).strip()
+            value_dict = {'label': label, 'value': value_str, 'inputType': 'query',
+                'fieldType': item.get('type', 'text'), 'ValidRule': item.get('ValidRule', ''),
+                'defaultValue': item.get('defaultValue', '')}
+        else:
+            missing_columns.append(label)
+            value_dict = {'label': label, 'value': '', 'inputType': 'query',
+                'fieldType': item.get('type', 'text'), 'ValidRule': item.get('ValidRule', '')}
+
+        if connected_tables:
+            for table in connected_tables:
+                form_values[f"{binding_key}_{table}"] = value_dict
+        else:
+            form_values[binding_key] = value_dict
+
+    for item in update_items:
+        label = item.get('label', '')
+        binding_key = item.get('bindingKey', '')
+        input_type = item.get('inputType', '')
+        connected_tables = item.get('connectedTable', [])
+
+        if input_type == 'supplement':
+            new_label = f'新{label}'
+            origin_label = f'原{label}'
+            new_value = ''
+            origin_value = ''
+
+            if new_label in headers:
+                col = headers[new_label]
+                new_value = ws.cell(row=row_idx, column=col).value
+            else:
+                missing_columns.append(new_label)
+
+            if origin_label in headers:
+                col = headers[origin_label]
+                origin_value = ws.cell(row=row_idx, column=col).value
+
+            supplement_value = {'label': label,
+                'newValue': str(new_value).strip() if new_value is not None else '',
+                'originValue': str(origin_value).strip() if origin_value is not None else '',
+                'inputType': 'supplement', 'fieldType': 'supplement',
+                'newValidRule': item.get('newValidRule', ''),
+                'originValidRule': item.get('originValidRule', '')}
+
+            if connected_tables:
+                for table in connected_tables:
+                    form_values[f"{binding_key}_{table}"] = supplement_value
+            else:
+                form_values[binding_key] = supplement_value
+
+            # 跳过数据库查询，没有主表主字段时手动处理子字段
+            main_table = item.get('mainTable', '')
+            main_field = item.get('mainField', '')
+            sub_fields = item.get('subFields', [])
+            if not (main_table and main_field and sub_fields):
+                for sf in sub_fields:
+                    sub_label = sf.get('label', '')
+                    sub_bk = sf.get('bindingKey', '')
+                    ns = ws.cell(row=row_idx, column=headers.get(f'新{sub_label}', 0)).value if f'新{sub_label}' in headers else ''
+                    os = ws.cell(row=row_idx, column=headers.get(f'原{sub_label}', 0)).value if f'原{sub_label}' in headers else ''
+                    if connected_tables:
+                        for table in connected_tables:
+                            form_values[f"{sub_bk}_{table}"] = {
+                                'newValue': str(ns).strip() if ns is not None else '',
+                                'originValue': str(os).strip() if os is not None else '',
+                                'inputType': 'supplement-sub', 'fieldType': 'supplement-sub',
+                                'parentKey': f"{binding_key}_{table}", 'label': sub_label}
+                    else:
+                        form_values[sub_bk] = {
+                            'newValue': str(ns).strip() if ns is not None else '',
+                            'originValue': str(os).strip() if os is not None else '',
+                            'inputType': 'supplement-sub', 'fieldType': 'supplement-sub',
+                            'parentKey': binding_key, 'label': sub_label}
+        else:
+            # 普通字段/计算字段
+            new_label = f'新{label}'
+            origin_label = f'原{label}'
+
+            if input_type == 'calculated':
+                calc_value = {'label': label, 'newValue': '', 'originValue': '',
+                    'inputType': input_type, 'fieldType': item.get('type', 'text'),
+                    'newValidRule': item.get('newValidRule', ''),
+                    'originValidRule': item.get('originValidRule', ''),
+                    'expressions': item.get('expressions', {})}
+                if connected_tables:
+                    for table in connected_tables:
+                        form_values[f"{binding_key}_{table}"] = calc_value
+                else:
+                    form_values[binding_key] = calc_value
+            else:
+                new_value = ''
+                origin_value = ''
+                if new_label in headers:
+                    col = headers[new_label]
+                    new_value = ws.cell(row=row_idx, column=col).value
+                else:
+                    missing_columns.append(new_label)
+                if origin_label in headers:
+                    col = headers[origin_label]
+                    origin_value = ws.cell(row=row_idx, column=col).value
+                else:
+                    missing_columns.append(origin_label)
+
+                nvs = str(new_value).strip() if new_value is not None else ''
+                ovs = str(origin_value).strip() if origin_value is not None else ''
+                if not nvs and item.get('newDefaultValue'): nvs = str(item.get('newDefaultValue', '')).strip()
+                if not ovs and item.get('originDefaultValue'): ovs = str(item.get('originDefaultValue', '')).strip()
+
+                rv = {'label': label, 'newValue': nvs, 'originValue': ovs,
+                    'inputType': input_type, 'fieldType': item.get('type', 'text'),
+                    'newValidRule': item.get('newValidRule', ''),
+                    'originValidRule': item.get('originValidRule', '')}
+                if connected_tables:
+                    for table in connected_tables:
+                        form_values[f"{binding_key}_{table}"] = rv
+                else:
+                    form_values[binding_key] = rv
 
     return form_values, missing_columns
 
@@ -1564,13 +1967,12 @@ def dynamic_submit(request):
 
             sql_result = generate_update_sql(config, form_values)
 
-            # 检查是否有缺失字段的错误（严格模式下）
+            # 检查是否有缺失字段错误
             if sql_result.get('missing_field_errors'):
-                error_messages = sql_result['missing_field_errors']
                 return JsonResponse({
                     'success': False,
-                    'message': f'共有{len(error_messages)}个字段校验错误',
-                    'errors': error_messages
+                    'message': 'SQL 生成失败，请检查必填字段',
+                    'errors': sql_result['missing_field_errors']
                 }, status=400)
 
             dynamic_no = form_values.get('dynamicNo', {}).get('value', '')
@@ -1876,6 +2278,7 @@ def process_single_sheet_import(ws, query_items_data, update_items_data, query_v
                     main_table = item.get('mainTable', '')
                     main_field = item.get('mainField', '')
                     parent_key = item.get('bindingKey', '')
+                    connected_tables = item.get('connectedTable', [])
 
                     if main_table and main_field:
                         query_key = f"{main_table}_{main_field}"
@@ -1887,8 +2290,17 @@ def process_single_sheet_import(ws, query_items_data, update_items_data, query_v
                                 'values': set()
                             }
 
-                        # 收集新值和原值
-                        value_data = form_values.get(parent_key, {})
+                        # 收集新值和原值：支持 bindingKey_tableName 查找
+                        value_data = None
+                        if connected_tables:
+                            for table in connected_tables:
+                                unique_key = f"{parent_key}_{table}"
+                                if unique_key in form_values:
+                                    value_data = form_values[unique_key]
+                                    break
+                        if value_data is None:
+                            value_data = form_values.get(parent_key, {})
+
                         new_value = value_data.get('newValue', '')
                         origin_value = value_data.get('originValue', '')
 
@@ -1991,12 +2403,27 @@ def process_single_sheet_import(ws, query_items_data, update_items_data, query_v
                     main_field = item.get('mainField', '')
                     parent_key = item.get('bindingKey', '')
                     sub_fields = item.get('subFields', [])
+                    connected_tables = item.get('connectedTable', [])
 
                     if main_table and main_field and sub_fields:
                         query_key = f"{main_table}_{main_field}"
-                        value_data = form_values.get(parent_key, {})
-                        new_value = value_data.get('newValue', '')
-                        origin_value = value_data.get('originValue', '')
+
+                        # 支持 bindingKey_tableName 查找主字段值
+                        parent_value_data = None
+                        parent_unique_key = None
+                        if connected_tables:
+                            for table in connected_tables:
+                                unique_key = f"{parent_key}_{table}"
+                                if unique_key in form_values:
+                                    parent_value_data = form_values[unique_key]
+                                    parent_unique_key = unique_key
+                                    break
+                        if parent_value_data is None:
+                            parent_value_data = form_values.get(parent_key, {})
+                            parent_unique_key = parent_key
+
+                        new_value = parent_value_data.get('newValue', '')
+                        origin_value = parent_value_data.get('originValue', '')
 
                         # 填充新值的子字段
                         if new_value and str(new_value).strip():
@@ -2009,14 +2436,26 @@ def process_single_sheet_import(ws, query_items_data, update_items_data, query_v
                                         db_field = sub_field.get('dbField') or sub_binding_key
                                         sub_value = row_data.get(db_field, '')
 
-                                        form_values[sub_binding_key] = {
-                                            'newValue': str(sub_value).strip() if sub_value is not None else '',
-                                            'originValue': '',
-                                            'inputType': 'supplement-sub',
-                                            'fieldType': 'supplement-sub',
-                                            'parentKey': parent_key,
-                                            'label': sub_field.get('label', '')
-                                        }
+                                        # 子字段按 connected_tables 存储，与 generate_update_sql 查找一致
+                                        if connected_tables:
+                                            for sub_table in connected_tables:
+                                                form_values[f"{sub_binding_key}_{sub_table}"] = {
+                                                    'newValue': str(sub_value).strip() if sub_value is not None else '',
+                                                    'originValue': '',
+                                                    'inputType': 'supplement-sub',
+                                                    'fieldType': 'supplement-sub',
+                                                    'parentKey': parent_unique_key,
+                                                    'label': sub_field.get('label', '')
+                                                }
+                                        else:
+                                            form_values[sub_binding_key] = {
+                                                'newValue': str(sub_value).strip() if sub_value is not None else '',
+                                                'originValue': '',
+                                                'inputType': 'supplement-sub',
+                                                'fieldType': 'supplement-sub',
+                                                'parentKey': parent_unique_key,
+                                                'label': sub_field.get('label', '')
+                                            }
 
                         # 填充原值的子字段
                         if origin_value and str(origin_value).strip():
@@ -2029,19 +2468,34 @@ def process_single_sheet_import(ws, query_items_data, update_items_data, query_v
                                         db_field = sub_field.get('dbField') or sub_binding_key
                                         sub_value = row_data.get(db_field, '')
 
-                                        # 如果已经有新值的子字段数据，只更新originValue
-                                        if sub_binding_key in form_values:
-                                            form_values[sub_binding_key]['originValue'] = str(
-                                                sub_value).strip() if sub_value is not None else ''
+                                        if connected_tables:
+                                            for sub_table in connected_tables:
+                                                sub_unique_key = f"{sub_binding_key}_{sub_table}"
+                                                if sub_unique_key in form_values:
+                                                    form_values[sub_unique_key]['originValue'] = str(
+                                                        sub_value).strip() if sub_value is not None else ''
+                                                else:
+                                                    form_values[sub_unique_key] = {
+                                                        'newValue': '',
+                                                        'originValue': str(sub_value).strip() if sub_value is not None else '',
+                                                        'inputType': 'supplement-sub',
+                                                        'fieldType': 'supplement-sub',
+                                                        'parentKey': parent_unique_key,
+                                                        'label': sub_field.get('label', '')
+                                                    }
                                         else:
-                                            form_values[sub_binding_key] = {
-                                                'newValue': '',
-                                                'originValue': str(sub_value).strip() if sub_value is not None else '',
-                                                'inputType': 'supplement-sub',
-                                                'fieldType': 'supplement-sub',
-                                                'parentKey': parent_key,
-                                                'label': sub_field.get('label', '')
-                                            }
+                                            if sub_binding_key in form_values:
+                                                form_values[sub_binding_key]['originValue'] = str(
+                                                    sub_value).strip() if sub_value is not None else ''
+                                            else:
+                                                form_values[sub_binding_key] = {
+                                                    'newValue': '',
+                                                    'originValue': str(sub_value).strip() if sub_value is not None else '',
+                                                    'inputType': 'supplement-sub',
+                                                    'fieldType': 'supplement-sub',
+                                                    'parentKey': parent_unique_key,
+                                                    'label': sub_field.get('label', '')
+                                                }
 
             validation_result = validate_form_data(config, form_values, query_values)
 
@@ -2055,10 +2509,10 @@ def process_single_sheet_import(ws, query_items_data, update_items_data, query_v
             else:
                 sql_result = generate_update_sql(config, form_values)
 
-                # 检查是否有缺失字段的错误（严格模式下）
+                # 检查是否有缺失字段错误
                 if sql_result.get('missing_field_errors'):
                     fail_count += 1
-                    fail_reason = '; '.join(sql_result['missing_field_errors'])
+                    fail_reason = '; '.join(sql_result.get('missing_field_errors', []))
                     ws.cell(row=row_idx, column=fail_column, value=fail_reason)
                     ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
                                                                                 end_color="FFFFCC", fill_type="solid")
@@ -2204,22 +2658,18 @@ def batch_import(request):
             fail_count = 0
             all_sql_statements = []
 
-            # ==================== 第一步：收集所有补充框主字段值 ====================
+            # ==================== 第一步：收集所有补充框主字段值（轻量版，无数据库查询） ====================
             supplement_queries = {}  # {table_mainField: set of values}
+            # collect_start_time = time.time()
 
             for row_idx in range(2, ws.max_row + 1):
-                form_values, missing_columns = build_form_values_from_excel(ws, row_idx, headers, query_items,
-                                                                            update_items)
-
-                if missing_columns:
-                    continue
-
-                # 收集补充框主字段值
+                # 只从 Excel 读取数据，不需要查询数据库
                 for item in update_items:
                     if item.get('inputType') == 'supplement':
                         main_table = item.get('mainTable', '')
                         main_field = item.get('mainField', '')
                         parent_key = item.get('bindingKey', '')
+                        connected_tables = item.get('connectedTable', [])
 
                         if main_table and main_field:
                             query_key = f"{main_table}_{main_field}"
@@ -2231,15 +2681,23 @@ def batch_import(request):
                                     'values': set()
                                 }
 
-                            # 收集新值和原值
-                            value_data = form_values.get(parent_key, {})
-                            new_value = value_data.get('newValue', '')
-                            origin_value = value_data.get('originValue', '')
+                            # 直接从 Excel 列读取新值和原值
+                            label = item.get('label', '')
+                            new_col = headers.get(f'新{label}')
+                            origin_col = headers.get(f'原{label}')
 
-                            if new_value:
-                                supplement_queries[query_key]['values'].add(new_value)
-                            if origin_value:
-                                supplement_queries[query_key]['values'].add(origin_value)
+                            if new_col:
+                                new_value = ws.cell(row=row_idx, column=new_col).value
+                                if new_value is not None and str(new_value).strip():
+                                    supplement_queries[query_key]['values'].add(str(new_value).strip())
+
+                            if origin_col:
+                                origin_value = ws.cell(row=row_idx, column=origin_col).value
+                                if origin_value is not None and str(origin_value).strip():
+                                    supplement_queries[query_key]['values'].add(str(origin_value).strip())
+
+            # collect_elapsed = time.time() - collect_start_time
+            # print(f"补充框主字段值收集耗时: {collect_elapsed:.2f} 秒")
 
             # ==================== 第二步：批量查询补充框数据 ====================
             supplement_data_cache = {}  # {table_mainField_value: {subField: value}}
@@ -2264,49 +2722,67 @@ def batch_import(request):
                             select_fields.append(field_name)
                     elif isinstance(sub_field, str):
                         select_fields.append(sub_field)
-
                 # 使用 IN 查询
                 fields_str = ', '.join(select_fields)
                 values_str = ', '.join(["'" + str(v).replace("'", "''") + "'" for v in main_values])
                 sql = f"SELECT {fields_str} FROM {table_name} WHERE {main_field} IN ({values_str})"
 
-                # 调试日志已关闭
-                # print("=" * 50)
-                # print(f"批量查询补充框数据: {query_key}")
-                # print("SQL:", sql)
-                # print("=" * 50)
-
+                # sql_start_time = time.time()
                 with connection.cursor() as cursor:
                     cursor.execute(sql)
                     rows = cursor.fetchall()
+                # sql_elapsed = time.time() - sql_start_time
+                # print(f"补充框SQL查询执行时间: {sql_elapsed:.4f} 秒")
 
-                    for row in rows:
-                        row_dict = {}
-                        for idx, field in enumerate(select_fields):
-                            row_dict[field] = row[idx]
+                for row in rows:
+                    row_dict = {}
+                    for idx, field in enumerate(select_fields):
+                        row_dict[field] = row[idx]
 
-                        # 以主字段值为key存储
-                        main_val = row_dict.get(main_field, '')
-                        supplement_data_cache[f"{query_key}_{main_val}"] = row_dict
+                    # 以主字段值为key存储
+                    main_val = row_dict.get(main_field, '')
+                    supplement_data_cache[f"{query_key}_{main_val}"] = row_dict
 
             print(f"补充框数据缓存: {len(supplement_data_cache)} 条")
 
+            # ==================== 预编译：提取 supplement 类型的 item ====================
+            supplement_items = []
+            for item in update_items:
+                if item.get('inputType') == 'supplement':
+                    main_table = item.get('mainTable', '')
+                    main_field = item.get('mainField', '')
+                    parent_key = item.get('bindingKey', '')
+                    sub_fields = item.get('subFields', [])
+                    connected_tables = item.get('connectedTable', [])
+                    # 预编译 sub_fields 字典，减少循环内 isinstance 检查
+                    sub_fields_dict = {}
+                    for sf in sub_fields:
+                        if isinstance(sf, dict):
+                            bk = sf.get('bindingKey', '')
+                            sub_fields_dict[bk] = sf
+                    if main_table and main_field and sub_fields_dict:
+                        supplement_items.append({
+                            'main_table': main_table,
+                            'main_field': main_field,
+                            'parent_key': parent_key,
+                            'sub_fields_dict': sub_fields_dict,
+                            'connected_tables': connected_tables,
+                            'query_key': f"{main_table}_{main_field}"
+                        })
+
+            # fill_start_time = time.time()
             # ==================== 第三步：处理每一行数据 ====================
+            total_rows = ws.max_row - 1
+
+            # 先一次性从 Excel 读取所有行数据到内存（使用轻量版，跳过冗余数据库查询）
+            print(f"开始读取 Excel 数据，共 {total_rows} 行")
+            # read_start = time.time()
+            row_data_list = []
             for row_idx in range(2, ws.max_row + 1):
-                form_values, missing_columns = build_form_values_from_excel(ws, row_idx, headers, query_items,
+                form_values, missing_columns = build_form_values_from_excel_batch(ws, row_idx, headers, query_items,
                                                                             update_items)
-
-                if missing_columns:
-                    missing_cols_str = ', '.join(missing_columns)
-                    fail_count += 1
-                    ws.cell(row=row_idx, column=fail_column, value=f'缺少必需的列：{missing_cols_str}')
-                    ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
-                                                                                end_color="FFFFCC", fill_type="solid")
-                    continue
-
-                # ==================== 将查询字段中的公共字段添加到 form_values ====================
-                # 包括 ops_remark、filePrefix、onesLink、dynamicNo
-                if query_values:
+                # 将查询字段中的公共字段添加到 form_values
+                if query_values and not missing_columns:
                     for field_name in ['filePrefix', 'onesLink', 'dynamicNo', 'ops_remark']:
                         if field_name in query_values:
                             value_data = query_values[field_name]
@@ -2314,99 +2790,193 @@ def batch_import(request):
                                 form_values[field_name] = value_data
                             else:
                                 form_values[field_name] = {'value': str(value_data)}
+                row_data_list.append({'row_idx': row_idx, 'form_values': form_values, 'missing_columns': missing_columns})
+            # read_elapsed = time.time() - read_start
+            # print(f"Excel 数据读取耗时: {read_elapsed:.2f} 秒")
 
-                # ==================== 使用缓存的补充框数据填充子字段 ====================
-                for item in update_items:
-                    if item.get('inputType') == 'supplement':
-                        main_table = item.get('mainTable', '')
-                        main_field = item.get('mainField', '')
-                        parent_key = item.get('bindingKey', '')
-                        sub_fields = item.get('subFields', [])
+            # 多线程并行处理：补充框填充 + 验证 + SQL 生成
+            from concurrent.futures import ThreadPoolExecutor, as_completed
 
-                        if main_table and main_field and sub_fields:
-                            query_key = f"{main_table}_{main_field}"
-                            value_data = form_values.get(parent_key, {})
-                            new_value = value_data.get('newValue', '')
-                            origin_value = value_data.get('originValue', '')
+            def process_row(row_data):
+                """单行数据处理：补充框填充 + 验证 + SQL 生成（纯计算，可并行）"""
+                row_idx = row_data['row_idx']
+                form_values = row_data['form_values']
+                missing_columns = row_data['missing_columns']
 
-                            # 填充新值的子字段
-                            if new_value and str(new_value).strip():
-                                cache_key = f"{query_key}_{str(new_value).strip()}"
-                                if cache_key in supplement_data_cache:
-                                    row_data = supplement_data_cache[cache_key]
-                                    for sub_field in sub_fields:
-                                        if isinstance(sub_field, dict):
-                                            sub_binding_key = sub_field.get('bindingKey', '')
-                                            db_field = sub_field.get('dbField') or sub_binding_key
-                                            sub_value = row_data.get(db_field, '')
+                if missing_columns:
+                    return {'row_idx': row_idx, 'status': 'missing', 'missing_columns': missing_columns}
 
-                                            form_values[sub_binding_key] = {
-                                                'newValue': str(sub_value) if sub_value is not None else '',
-                                                'originValue': '',
+                # 使用缓存的补充框数据填充子字段
+                for s_item in supplement_items:
+                    query_key = s_item['query_key']
+                    parent_key = s_item['parent_key']
+                    sub_fields_dict = s_item['sub_fields_dict']
+                    connected_tables = s_item['connected_tables']
+
+                    # 支持 bindingKey_tableName 查找主字段值
+                    parent_value_data = None
+                    parent_unique_key = None
+                    if connected_tables:
+                        for table in connected_tables:
+                            unique_key = f"{parent_key}_{table}"
+                            if unique_key in form_values:
+                                parent_value_data = form_values[unique_key]
+                                parent_unique_key = unique_key
+                                break
+                    if parent_value_data is None:
+                        parent_value_data = form_values.get(parent_key, {})
+                        parent_unique_key = parent_key
+
+                    if not parent_value_data:
+                        continue
+
+                    new_value = parent_value_data.get('newValue', '')
+                    origin_value = parent_value_data.get('originValue', '')
+
+                    # 填充新值的子字段
+                    if new_value and str(new_value).strip():
+                        cache_key = f"{query_key}_{str(new_value).strip()}"
+                        row_data_cache = supplement_data_cache.get(cache_key)
+                        if row_data_cache:
+                            for sub_binding_key, sub_field in sub_fields_dict.items():
+                                db_field = sub_field.get('dbField') or sub_binding_key
+                                sub_value = row_data_cache.get(db_field, '')
+
+                                if connected_tables:
+                                    for sub_table in connected_tables:
+                                        form_values[f"{sub_binding_key}_{sub_table}"] = {
+                                            'newValue': str(sub_value) if sub_value is not None else '',
+                                            'originValue': '',
+                                            'inputType': 'supplement-sub',
+                                            'fieldType': 'supplement-sub',
+                                            'parentKey': parent_unique_key,
+                                            'label': sub_field.get('label', '')
+                                        }
+                                else:
+                                    form_values[sub_binding_key] = {
+                                        'newValue': str(sub_value) if sub_value is not None else '',
+                                        'originValue': '',
+                                        'inputType': 'supplement-sub',
+                                        'fieldType': 'supplement-sub',
+                                        'parentKey': parent_unique_key,
+                                        'label': sub_field.get('label', '')
+                                    }
+
+                    # 填充原值的子字段
+                    if origin_value and str(origin_value).strip():
+                        cache_key = f"{query_key}_{str(origin_value).strip()}"
+                        row_data_cache = supplement_data_cache.get(cache_key)
+                        if row_data_cache:
+                            for sub_binding_key, sub_field in sub_fields_dict.items():
+                                db_field = sub_field.get('dbField') or sub_binding_key
+                                sub_value = row_data_cache.get(db_field, '')
+
+                                if connected_tables:
+                                    for sub_table in connected_tables:
+                                        sub_unique_key = f"{sub_binding_key}_{sub_table}"
+                                        if sub_unique_key in form_values:
+                                            form_values[sub_unique_key]['originValue'] = str(
+                                                sub_value) if sub_value is not None else ''
+                                        else:
+                                            form_values[sub_unique_key] = {
+                                                'newValue': '',
+                                                'originValue': str(sub_value) if sub_value is not None else '',
                                                 'inputType': 'supplement-sub',
                                                 'fieldType': 'supplement-sub',
-                                                'parentKey': parent_key,
+                                                'parentKey': parent_unique_key,
                                                 'label': sub_field.get('label', '')
                                             }
-
-                            # 填充原值的子字段
-                            if origin_value and str(origin_value).strip():
-                                cache_key = f"{query_key}_{str(origin_value).strip()}"
-                                if cache_key in supplement_data_cache:
-                                    row_data = supplement_data_cache[cache_key]
-                                    for sub_field in sub_fields:
-                                        if isinstance(sub_field, dict):
-                                            sub_binding_key = sub_field.get('bindingKey', '')
-                                            db_field = sub_field.get('dbField') or sub_binding_key
-                                            sub_value = row_data.get(db_field, '')
-
-                                            # 如果已经有新值的子字段数据，只更新originValue
-                                            if sub_binding_key in form_values:
-                                                form_values[sub_binding_key]['originValue'] = str(
-                                                    sub_value) if sub_value is not None else ''
-                                            else:
-                                                form_values[sub_binding_key] = {
-                                                    'newValue': '',
-                                                    'originValue': str(sub_value) if sub_value is not None else '',
-                                                    'inputType': 'supplement-sub',
-                                                    'fieldType': 'supplement-sub',
-                                                    'parentKey': parent_key,
-                                                    'label': sub_field.get('label', '')
-                                                }
+                                else:
+                                    if sub_binding_key in form_values:
+                                        form_values[sub_binding_key]['originValue'] = str(
+                                            sub_value) if sub_value is not None else ''
+                                    else:
+                                        form_values[sub_binding_key] = {
+                                            'newValue': '',
+                                            'originValue': str(sub_value) if sub_value is not None else '',
+                                            'inputType': 'supplement-sub',
+                                            'fieldType': 'supplement-sub',
+                                            'parentKey': parent_unique_key,
+                                            'label': sub_field.get('label', '')
+                                        }
 
                 validation_result = validate_form_data(config, form_values, query_values)
-
                 if not validation_result['success']:
+                    return {'row_idx': row_idx, 'status': 'validation_fail',
+                            'fail_reason': '; '.join(validation_result.get('errors', []))}
+
+                sql_result = generate_update_sql(config, form_values)
+
+                # 检查是否有缺失字段错误
+                if sql_result.get('missing_field_errors'):
+                    return {'row_idx': row_idx, 'status': 'missing_field',
+                            'fail_reason': '; '.join(sql_result.get('missing_field_errors', []))}
+
+                if sql_result['forward_sqls'] and sql_result['backward_sqls']:
+                    return {'row_idx': row_idx, 'status': 'success',
+                            'forward_sqls': sql_result['forward_sqls'],
+                            'backward_sqls': sql_result['backward_sqls']}
+
+                return {'row_idx': row_idx, 'status': 'no_sql', 'fail_reason': '未生成有效的 SQL 语句'}
+
+            # 使用多线程并行处理
+            max_workers = min(8, total_rows)  # 最多4个线程
+            print(f"开始多线程并行处理，线程数: {max_workers}")
+            process_start = time.time()
+
+            results = []
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(process_row, row_data): row_data['row_idx'] for row_data in row_data_list}
+                for future in as_completed(futures):
+                    result = future.result()
+                    results.append(result)
+
+            # 按行号排序保持顺序
+            results.sort(key=lambda r: r['row_idx'])
+            process_elapsed = time.time() - process_start
+            print(f"多线程并行处理耗时: {process_elapsed:.2f} 秒")
+
+            # 按顺序统计结果并写入 Excel
+            fail_count = 0
+            success_count = 0
+            all_sql_statements = []
+            for result in results:
+                row_idx = result['row_idx']
+                status = result['status']
+
+                if status == 'missing':
                     fail_count += 1
-                    fail_reason = '; '.join(validation_result.get('errors', []))
-                    ws.cell(row=row_idx, column=fail_column, value=fail_reason)
+                    missing_cols_str = ', '.join(result['missing_columns'])
+                    ws.cell(row=row_idx, column=fail_column, value=f'缺少必需的列：{missing_cols_str}')
                     ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
                                                                                 end_color="FFFFCC", fill_type="solid")
-                else:
-                    sql_result = generate_update_sql(config, form_values)
+                elif status == 'validation_fail':
+                    fail_count += 1
+                    ws.cell(row=row_idx, column=fail_column, value=result['fail_reason'])
+                    ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
+                                                                                end_color="FFFFCC", fill_type="solid")
+                elif status == 'missing_field':
+                    fail_count += 1
+                    ws.cell(row=row_idx, column=fail_column, value=result['fail_reason'])
+                    ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
+                                                                                    end_color="FFFFCC",
+                                                                                    fill_type="solid")
+                elif status == 'success':
+                    all_sql_statements.append({
+                        'row': row_idx,
+                        'forward_sqls': result['forward_sqls'],
+                        'backward_sqls': result['backward_sqls']
+                    })
+                    success_count += 1
+                elif status == 'no_sql':
+                    fail_count += 1
+                    ws.cell(row=row_idx, column=fail_column, value=result['fail_reason'])
+                    ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
+                                                                                    end_color="FFFFCC",
+                                                                                    fill_type="solid")
 
-                    # 检查是否有缺失字段的错误（严格模式下）
-                    if sql_result.get('missing_field_errors'):
-                        fail_count += 1
-                        fail_reason = '; '.join(sql_result['missing_field_errors'])
-                        ws.cell(row=row_idx, column=fail_column, value=fail_reason)
-                        ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
-                                                                                    end_color="FFFFCC",
-                                                                                    fill_type="solid")
-                    elif sql_result['forward_sqls'] and sql_result['backward_sqls']:
-                        # 直接存储完整的sql_result，保留raw和formatted
-                        all_sql_statements.append({
-                            'row': row_idx,
-                            'forward_sqls': sql_result['forward_sqls'],
-                            'backward_sqls': sql_result['backward_sqls']
-                        })
-                        success_count += 1
-                    else:
-                        fail_count += 1
-                        ws.cell(row=row_idx, column=fail_column, value='未生成有效的 SQL 语句')
-                        ws.cell(row=row_idx, column=fail_column).fill = PatternFill(start_color="FFFFCC",
-                                                                                    end_color="FFFFCC",
-                                                                                    fill_type="solid")
+            # fill_elapsed_time = time.time() - fill_start_time
+            # print(f"数据填充总耗时: {fill_elapsed_time:.2f} 秒, 共处理 {total_rows} 行")
 
             stats_ws = wb.create_sheet(title='导入统计')
             stats_ws.cell(row=1, column=1, value='总行数').font = Font(bold=True)

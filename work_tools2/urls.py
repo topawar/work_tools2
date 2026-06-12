@@ -71,7 +71,7 @@ urlpatterns = [
     path("api/file-path-configs/", views.get_file_path_configs, name="get_file_path_configs"),
     path("api/file-path-configs/<int:config_id>/", views.get_file_path_config, name="get_file_path_config"),
     path("api/file-path-configs/save/", views.save_file_path_config, name="save_file_path_config"),
-    path("api/file-path-configs/save/<int:config_id>/", views.save_file_path_config, name="save_file_path_config"),
+    path("api/file-path-configs/save/<int:config_id>/", views.save_file_path_config, name="save_file_path_config_with_id"),
     path("api/file-path-configs/delete/<int:config_id>/", views.delete_file_path_config,
          name="delete_file_path_config"),
     path("api/file-path-configs/default/", views.get_default_file_path_config, name="get_default_file_path_config"),

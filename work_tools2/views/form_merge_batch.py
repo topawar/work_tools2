@@ -214,10 +214,33 @@ def batch_import_merge(request):
                                     bold=cell.font.bold,
                                     italic=cell.font.italic
                                 )
-                            if cell.fill and cell.fill.start_color:
+                            if cell.fill and cell.fill.patternType:
+                                from openpyxl.styles.colors import Color
+                                # 安全地获取颜色值，处理不同的颜色类型
+                                def get_color_obj(color_attr):
+                                    """将颜色属性转换为 Color 对象"""
+                                    if color_attr is None:
+                                        return None
+                                    # 如果已经是 Color 对象，直接返回
+                                    if isinstance(color_attr, Color):
+                                        return color_attr
+                                    # 如果有 rgb 属性且是字符串，使用它
+                                    if hasattr(color_attr, 'rgb'):
+                                        rgb_value = color_attr.rgb
+                                        if isinstance(rgb_value, str):
+                                            return Color(rgb=rgb_value)
+                                    # 如果是字符串，直接使用
+                                    if isinstance(color_attr, str):
+                                        return Color(rgb=color_attr)
+                                    # 其他情况返回 None
+                                    return None
+                                
+                                start_color = get_color_obj(cell.fill.start_color)
+                                end_color = get_color_obj(cell.fill.end_color)
+                                
                                 new_cell.fill = PatternFill(
-                                    start_color=cell.fill.start_color.rgb if cell.fill.start_color else None,
-                                    end_color=cell.fill.end_color.rgb if cell.fill.end_color else None,
+                                    start_color=start_color,
+                                    end_color=end_color,
                                     fill_type=cell.fill.fill_type or 'solid'
                                 )
                             if cell.alignment:

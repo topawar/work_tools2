@@ -148,8 +148,16 @@ def build_project():
         "--add-data", f"manage.py{os.pathsep}.",
         "--hidden-import=django",
         "--hidden-import=pypinyin",
+        "--hidden-import=pypinyin.pinyin_dict",
+        "--hidden-import=pypinyin.style",
+        "--collect-all", "pypinyin",
         "--hidden-import=sqlite3",
         "--collect-all", "django",
+        "--collect-all", "openpyxl",
+        "--collect-all", "tkinter",
+        "--hidden-import=xlrd",
+        "--hidden-import=sqlparse",
+        "--hidden-import=et_xmlfile",
         "--console",
         "launcher.py"
     ]

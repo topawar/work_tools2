@@ -39,7 +39,7 @@ echo [Step 4/4] Building...
 echo This may take a few minutes...
 echo.
 
-pyinstaller --clean --noconfirm --onedir --name "WorkTools" --add-data "templates;templates" --add-data "static;static" --add-data "work_tools2;work_tools2" --add-data "manage.py;." --hidden-import=django --hidden-import=pypinyin --hidden-import=sqlite3 --collect-all django --console launcher.py
+pyinstaller --clean --noconfirm --onedir --name "WorkTools" --add-data "templates;templates" --add-data "static;static" --add-data "work_tools2;work_tools2" --add-data "manage.py;." --hidden-import=django --hidden-import=pypinyin --hidden-import=pypinyin.pinyin_dict --hidden-import=pypinyin.style --hidden-import=sqlite3 --collect-all django --collect-all pypinyin --collect-all openpyxl --collect-all tkinter --hidden-import=xlrd --hidden-import=sqlparse --hidden-import=et_xmlfile --console launcher.py
 
 if errorlevel 1 (
     echo.
