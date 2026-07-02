@@ -558,6 +558,21 @@
             }
         }
 
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
         function updateSortOrder(type) {
             const container = type === 'query' ?
                 document.getElementById('queryItemsContainer') :
@@ -578,19 +593,42 @@
         }
 
         function loadFormList() {
+            // 保存当前筛选条件、分页和选中状态，便于刷新后恢复
+            const savedSearchText = document.getElementById('formSearchInput')?.value || '';
+            const savedParentMenu = document.getElementById('parentMenuFilter')?.value || '';
+            const savedQueryMode = document.getElementById('queryModeFilter')?.value || '';
+            const savedAppendOpsRemark = document.getElementById('appendOpsRemarkFilter')?.value || '';
+            const savedPageSize = document.getElementById('formPageSize')?.value || '10';
+            const savedCurrentPage = formCurrentPage;
+            const savedSelectedIds = new Set(selectedFormIds);
+
             fetch('/api/form-configs/')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
                         allForms = data.data;  // 保存所有数据
                         formFilteredData = [...allForms];  // 初始化过滤数据
-                        formCurrentPage = 1;  // 重置到第一页
-                        selectedFormIds.clear(); // 清空选中状态
-                        
+
                         // 加载主菜单选项到筛选下拉框
                         loadParentMenuFilterOptions();
-                        
-                        renderFormPage();  // 渲染分页
+
+                        // 恢复筛选条件
+                        document.getElementById('formSearchInput').value = savedSearchText;
+                        document.getElementById('parentMenuFilter').value = savedParentMenu;
+                        document.getElementById('queryModeFilter').value = savedQueryMode;
+                        document.getElementById('appendOpsRemarkFilter').value = savedAppendOpsRemark;
+                        document.getElementById('formPageSize').value = savedPageSize;
+                        formPageSize = parseInt(savedPageSize);
+
+                        // 恢复选中状态
+                        selectedFormIds = savedSelectedIds;
+
+                        // 重新应用筛选条件
+                        filterForms();
+
+                        // 尝试恢复之前的页码（若超出范围则由 renderFormPage 自动修正）
+                        formCurrentPage = savedCurrentPage;
+                        renderFormPage();
                     } else {
                         alert('加载失败：' + data.message);
                     }
@@ -1152,6 +1190,8 @@
             });
         }
 
+        let currentEditingTableIndex = null;
+
         function renderTableTags() {
             const container = document.getElementById('tableTagsContainer');
 
@@ -1160,14 +1200,144 @@
                 return;
             }
 
-            container.innerHTML = tableNameList.map((name, index) => `
-        <span class="badge bg-primary d-flex align-items-center" style="font-size: 14px; padding: 6px 10px;">
-            ${name}
-            <button type="button" class="btn-close btn-close-white ms-2"
-                    style="font-size: 8px;"
-                    onclick="removeTableName(${index})"></button>
-        </span>
-    `).join('');
+            container.innerHTML = tableNameList.map((name, index) => {
+                if (currentEditingTableIndex === index) {
+                    return `
+                        <span class="badge bg-warning text-dark d-flex align-items-center" style="font-size: 14px; padding: 6px 10px;">
+                            <input type="text" id="editTableNameInput" class="form-control form-control-sm"
+                                   value="${name}" style="width: 150px; font-size: 13px;"
+                                   onkeypress="if(event.key==='Enter') confirmEditTableName(${index}); if(event.key==='Escape') cancelEditTableName();"
+                                   onclick="event.stopPropagation()">
+                            <button type="button" class="btn btn-sm btn-link text-dark p-0 ms-2"
+                                    style="font-size: 14px; line-height: 1;"
+                                    onclick="event.stopPropagation(); confirmEditTableName(${index})" title="确认">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-link text-dark p-0 ms-1"
+                                    style="font-size: 14px; line-height: 1;"
+                                    onclick="event.stopPropagation(); cancelEditTableName()" title="取消">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </span>
+                    `;
+                }
+                return `
+                    <span class="badge bg-primary d-flex align-items-center" style="font-size: 14px; padding: 6px 10px;">
+                        ${name}
+                        <button type="button" class="btn btn-sm btn-link text-white p-0 ms-2"
+                                style="font-size: 12px; line-height: 1;"
+                                onclick="event.stopPropagation(); editTableName(${index})" title="重命名">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                        <button type="button" class="btn-close btn-close-white ms-1"
+                                style="font-size: 8px;"
+                                onclick="event.stopPropagation(); removeTableName(${index})"></button>
+                    </span>
+                `;
+            }).join('');
+
+            if (currentEditingTableIndex !== null) {
+                setTimeout(() => {
+                    const input = document.getElementById('editTableNameInput');
+                    if (input) {
+                        input.focus();
+                        input.select();
+                    }
+                }, 0);
+            }
+        }
+
+        function editTableName(index) {
+            currentEditingTableIndex = index;
+            renderTableTags();
+        }
+
+        function cancelEditTableName() {
+            currentEditingTableIndex = null;
+            renderTableTags();
+        }
+
+        function confirmEditTableName(index) {
+            const input = document.getElementById('editTableNameInput');
+            const oldName = tableNameList[index];
+            const newName = input.value.trim();
+
+            if (!newName) {
+                showToast('表名不能为空', 'warning');
+                return;
+            }
+            if (!/^[a-zA-Z0-9_]+$/.test(newName)) {
+                showToast('表名只能包含字母、数字和下划线', 'warning');
+                return;
+            }
+            if (newName === oldName) {
+                cancelEditTableName();
+                return;
+            }
+            if (tableNameList.includes(newName)) {
+                showToast('表名列表中已存在该名称', 'warning');
+                return;
+            }
+
+            // 仅修改当前表单配置中的表名引用，不修改底层数据库物理表
+            tableNameList[index] = newName;
+
+            // 同步更新全局数据库表列表（用于补充框下拉选项等）
+            const dbIndex = databaseTables.indexOf(oldName);
+            if (dbIndex !== -1) {
+                databaseTables[dbIndex] = newName;
+            }
+
+            // 级联更新当前表单内所有字段的关联表引用
+            renameConnectedTableReferences(oldName, newName);
+
+            currentEditingTableIndex = null;
+            renderTableTags();
+            refreshAllConnectedTableCheckboxes();
+            showToast(`表名 ${oldName} 已修改为 ${newName}，关联字段引用已同步更新`, 'success');
+        }
+
+        function renameConnectedTableReferences(oldName, newName) {
+            // 更新查询字段的 connected_table
+            document.querySelectorAll('#queryItemsContainer .field-card').forEach(card => {
+                const container = card.querySelector('.connected-tables-container');
+                if (container) {
+                    const currentSelected = getSelectedTables(card);
+                    const updatedSelected = currentSelected.map(name => name === oldName ? newName : name);
+                    if (JSON.stringify(currentSelected) !== JSON.stringify(updatedSelected)) {
+                        container.innerHTML = generateConnectedTableCheckboxes(updatedSelected, 'query');
+                    }
+                }
+            });
+
+            // 更新更新字段的 connected_table
+            document.querySelectorAll('#updateItemsContainer .field-card').forEach(card => {
+                const container = card.querySelector('.connected-tables-container');
+                if (container) {
+                    const currentSelected = getSelectedTables(card);
+                    const updatedSelected = currentSelected.map(name => name === oldName ? newName : name);
+                    if (JSON.stringify(currentSelected) !== JSON.stringify(updatedSelected)) {
+                        container.innerHTML = generateConnectedTableCheckboxes(updatedSelected, 'update');
+                    }
+                }
+
+                // 更新补充框的 main_table 下拉选项及选中值
+                const mainTableSelect = card.querySelector('.update-main-table');
+                if (mainTableSelect) {
+                    let optionUpdated = false;
+                    mainTableSelect.querySelectorAll('option').forEach(opt => {
+                        if (opt.value === oldName) {
+                            opt.value = newName;
+                            opt.textContent = newName;
+                            optionUpdated = true;
+                        }
+                    });
+                    if (mainTableSelect.value === oldName) {
+                        mainTableSelect.value = newName;
+                        mainTableSelect.dispatchEvent(new Event('change'));
+                    }
+                }
+            });
         }
 
         function generateConnectedTableCheckboxes(connectedTables = [], prefix) {
@@ -1197,7 +1367,7 @@
             const component = componentList.find(c => c.name === componentName);
 
             if (!component || !component.options || component.options.length === 0) {
-                return `<input type="text" class="form-control ${fieldName}" value="${currentValue || ''}" placeholder="未找到配置项或配置项无选项">`;
+                return `<input type="text" class="form-control form-control-sm ${fieldName}" value="${currentValue || ''}" placeholder="未找到配置项或配置项无选项">`;
             }
 
             const optionsHtml = component.options.map(opt => {
@@ -1266,55 +1436,55 @@
             const connectedTables = data?.connectedTable || [];
 
                            div.innerHTML = `
-        <div class="card-header d-flex align-items-center">
-            <i class="bi bi-grip-vertical drag-handle me-2 text-muted" style="cursor: move;" title="拖动排序"></i>
-            <span class="badge bg-secondary me-2 card-sequence-number" style="min-width: 40px;">#${sortOrder + 1}</span>
-            <h6 class="mb-0">查询字段</h6>
-            <span class="field-summary me-2" style="display: none; color: #0d6efd; font-weight: 600; font-size: 1rem;">
+        <div class="card-header d-flex align-items-center py-2">
+            <i class="bi bi-grip-vertical drag-handle me-2 text-muted" style="cursor: move; font-size: 0.85rem;" title="拖动排序"></i>
+            <span class="badge bg-secondary me-2 card-sequence-number" style="min-width: 32px; font-size: 0.75rem;">#${sortOrder + 1}</span>
+            <h6 class="mb-0" style="font-size: 0.85rem;">查询字段</h6>
+            <span class="field-summary me-2" style="display: none; color: #0d6efd; font-weight: 600; font-size: 0.85rem;">
                 ${data?.label ? data.label : ''}${data?.bindingKey ? ' (' + data.bindingKey + ')' : ''}
             </span>
             <div class="d-flex gap-1 ms-auto">
-                <button type="button" class="btn btn-sm btn-outline-secondary toggle-collapse-btn" onclick="toggleCardCollapse(this)" title="收起">
+                <button type="button" class="btn btn-sm btn-outline-secondary toggle-collapse-btn" onclick="toggleCardCollapse(this)" title="收起" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
                     <i class="bi bi-chevron-up"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveQueryItemUp(this)" title="上移">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveQueryItemUp(this)" title="上移" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
                     <i class="bi bi-arrow-up"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveQueryItemDown(this)" title="下移">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveQueryItemDown(this)" title="下移" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
                     <i class="bi bi-arrow-down"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeQueryItem(this)">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeQueryItem(this)" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
         </div>
-        <div class="card-body">
+        <div class="card-body" style="padding: 0.75rem; font-size: 0.85rem;">
             <input type="hidden" class="sort-order-value" value="${sortOrder}">
-            <div class="row g-3">
+            <div class="row g-2">
                 <div class="col-md-4">
-                    <label class="form-label">字段中文名 <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control query-label" value="${data?.label || ''}" placeholder="例如: 订单号" oninput="updateFieldSummary(this)">
+                    <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">字段中文名 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm query-label" value="${data?.label || ''}" placeholder="例如: 订单号" oninput="updateFieldSummary(this)">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">字段英文名 <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control query-binding-key" value="${data?.bindingKey || ''}" placeholder="例如: itemId" oninput="updateFieldSummary(this)">
+                    <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">字段英文名 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm query-binding-key" value="${data?.bindingKey || ''}" placeholder="例如: itemId" oninput="updateFieldSummary(this)">
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">验证规则</label>
-                    <select class="form-select query-valid-rule">
+                    <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">验证规则</label>
+                    <select class="form-select form-select-sm query-valid-rule">
                         <option value="requiredReverse" ${data?.ValidRule === 'requiredReverse' ? 'selected' : ''}>不必填</option>
                         <option value="required" ${data?.ValidRule === 'required' ? 'selected' : ''}>必填</option>
                     </select>
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">默认值</label>
+                    <input type="text" class="form-control form-control-sm query-default-value" value="${data?.defaultValue || ''}" placeholder="可选">
+                </div>
                 <div class="col-md-12">
-                    <label class="form-label">关联表</label>
-                    <div class="connected-tables-container border rounded p-2" style="background-color: #f8f9fa;">
+                    <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">关联表</label>
+                    <div class="connected-tables-container border rounded p-1" style="background-color: #f8f9fa;">
                         ${generateConnectedTableCheckboxes(connectedTables, 'query')}
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">默认值</label>
-                    <input type="text" class="form-control query-default-value" value="${data?.defaultValue || ''}" placeholder="可选">
                 </div>
             </div>
         </div>
@@ -1453,7 +1623,7 @@
                     const originWrapper = card.querySelector('.origin-default-value-wrapper');
                     if (originWrapper) {
                         // 原值用文本输入框显示，只读
-                        originWrapper.innerHTML = `<input type="text" class="form-control update-origin-default-value" readonly placeholder="将根据新值自动取反" style="background-color: #e9ecef; cursor: not-allowed;">`;
+                        originWrapper.innerHTML = `<input type="text" class="form-control form-control-sm update-origin-default-value" readonly placeholder="将根据新值自动取反" style="background-color: #e9ecef; cursor: not-allowed;">`;
                         
                         // 如果新值已有选择，自动设置原值
                         const newSelect = card.querySelector('.update-new-default-value');
@@ -1467,13 +1637,13 @@
                 const newWrapper = card.querySelector('.new-default-value-wrapper');
                 if (newWrapper) {
                     const currentNewValue = card.querySelector('.update-new-default-value')?.value || '';
-                    newWrapper.innerHTML = `<input type="text" class="form-control update-new-default-value" value="${currentNewValue}" placeholder="请输入新值默认值">`;
+                    newWrapper.innerHTML = `<input type="text" class="form-control form-control-sm update-new-default-value" value="${currentNewValue}" placeholder="请输入新值默认值">`;
                 }
 
                 const originWrapper = card.querySelector('.origin-default-value-wrapper');
                 if (originWrapper) {
                     const currentOriginValue = card.querySelector('.update-origin-default-value')?.value || '';
-                    originWrapper.innerHTML = `<input type="text" class="form-control update-origin-default-value" value="${currentOriginValue}" placeholder="请输入原值默认值">`;
+                    originWrapper.innerHTML = `<input type="text" class="form-control form-control-sm update-origin-default-value" value="${currentOriginValue}" placeholder="请输入原值默认值">`;
                 }
             }
         }
@@ -1514,45 +1684,44 @@
             }
 
                            div.innerHTML = `
-        <div class="card-header d-flex align-items-center">
-            <i class="bi bi-grip-vertical drag-handle me-2 text-muted" style="cursor: move;" title="拖动排序"></i>
-            <span class="badge bg-secondary me-2 card-sequence-number" style="min-width: 40px;">#${sortOrder + 1}</span>
-            <h6 class="mb-0">更新字段</h6>
-            <span class="field-summary me-2" style="display: none; color: #0d6efd; font-weight: 600; font-size: 1rem;">
+        <div class="card-header d-flex align-items-center py-2">
+            <i class="bi bi-grip-vertical drag-handle me-2 text-muted" style="cursor: move; font-size: 0.85rem;" title="拖动排序"></i>
+            <span class="badge bg-secondary me-2 card-sequence-number" style="min-width: 32px; font-size: 0.75rem;">#${sortOrder + 1}</span>
+            <h6 class="mb-0" style="font-size: 0.85rem;">更新字段</h6>
+            <span class="field-summary me-2" style="display: none; color: #0d6efd; font-weight: 600; font-size: 0.85rem;">
                 ${data?.label ? data.label : ''}${data?.bindingKey ? ' (' + data.bindingKey + ')' : ''}
             </span>
             <div class="d-flex gap-1 ms-auto">
-                <button type="button" class="btn btn-sm btn-outline-secondary toggle-collapse-btn" onclick="toggleCardCollapse(this)" title="收起">
+                <button type="button" class="btn btn-sm btn-outline-secondary toggle-collapse-btn" onclick="toggleCardCollapse(this)" title="收起" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
                     <i class="bi bi-chevron-up"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveUpdateItemUp(this)" title="上移">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveUpdateItemUp(this)" title="上移" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
                     <i class="bi bi-arrow-up"></i>
                 </button>
-
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveUpdateItemDown(this)" title="下移">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveUpdateItemDown(this)" title="下移" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
                     <i class="bi bi-arrow-down"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeUpdateItem(this)">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeUpdateItem(this)" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
         </div>
-        <div class="card-body">
+        <div class="card-body" style="padding: 0.75rem; font-size: 0.85rem;">
             <input type="hidden" class="sort-order-value" value="${sortOrder}">
-            <div class="row g-3">
-                <div class="col-md-3 label-container" style="display: ${fieldType === 'calculated' ? 'none' : 'block'};">
-                    <label class="form-label">字段中文名 <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control update-label" value="${data?.label || ''}" placeholder="例如: 数量" oninput="updateFieldSummary(this)">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">字段英文名 <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control update-binding-key" value="${data?.bindingKey || ''}" placeholder="例如: qty" oninput="updateFieldSummary(this)">
-                </div>
 
-
-                 <div class="col-md-2">
-                    <label class="form-label">字段类型</label>
-                    <select class="form-select update-field-type" onchange="handleFieldTypeChange(this)">
+            <!-- 第一行：字段中文名、字段英文名、字段类型、新值校验规则、原值校验规则 -->
+            <div class="row g-2 mb-2">
+                <div class="col label-container" style="display: ${fieldType === 'calculated' ? 'none' : 'block'}; min-width: 120px;">
+                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">字段中文名 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm update-label" value="${data?.label || ''}" placeholder="例如: 数量" oninput="updateFieldSummary(this)">
+                </div>
+                <div class="col" style="min-width: 120px;">
+                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">字段英文名 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm update-binding-key" value="${data?.bindingKey || ''}" placeholder="例如: qty" oninput="updateFieldSummary(this)">
+                </div>
+                <div class="col" style="min-width: 100px;">
+                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">字段类型</label>
+                    <select class="form-select form-select-sm update-field-type" onchange="handleFieldTypeChange(this)">
                         <option value="text" ${fieldType === 'text' ? 'selected' : ''}>文本</option>
                         <option value="number" ${fieldType === 'number' ? 'selected' : ''}>数值</option>
                         <option value="date" ${fieldType === 'date' ? 'selected' : ''}>日期</option>
@@ -1562,36 +1731,54 @@
                         <option value="calculated" ${fieldType === 'calculated' ? 'selected' : ''}>计算字段</option>
                     </select>
                 </div>
-
-                <div class="col-md-3 new-valid-rule-container" style="display: ${fieldType === 'supplement' || fieldType === 'calculated' ? 'none' : 'block'};">
-                    <label class="form-label">新值验证规则</label>
-                    <select class="form-select update-new-valid-rule">
+                <div class="col new-valid-rule-container" style="display: ${fieldType === 'supplement' || fieldType === 'calculated' ? 'none' : 'block'}; min-width: 100px;">
+                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">新值校验规则</label>
+                    <select class="form-select form-select-sm update-new-valid-rule">
                         <option value="requiredReverse" ${data?.newValidRule === 'requiredReverse' ? 'selected' : ''}>不必填</option>
                         <option value="required" ${data?.newValidRule === 'required' ? 'selected' : ''}>必填</option>
                         <option value="defaultNull" ${data?.newValidRule === 'defaultNull' ? 'selected' : ''}>默认空值</option>
                         <option value="defaultField" ${data?.newValidRule === 'defaultField' ? 'selected' : ''}>默认字段</option>
                     </select>
                 </div>
-                <div class="col-md-2 origin-valid-rule-container" style="display: ${(fieldType === 'supplement' || fieldType === 'radio' || fieldType === 'calculated') ? 'none' : 'block'};">
-                    <label class="form-label">原值验证规则</label>
-                    <select class="form-select update-origin-valid-rule">
+                <div class="col origin-valid-rule-container" style="display: ${(fieldType === 'supplement' || fieldType === 'radio' || fieldType === 'calculated') ? 'none' : 'block'}; min-width: 100px;">
+                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">原值校验规则</label>
+                    <select class="form-select form-select-sm update-origin-valid-rule">
                         <option value="requiredReverse" ${data?.originValidRule === 'requiredReverse' ? 'selected' : ''}>不必填</option>
                         <option value="required" ${data?.originValidRule === 'required' ? 'selected' : ''}>必填</option>
                         <option value="defaultNull" ${data?.originValidRule === 'defaultNull' ? 'selected' : ''}>默认空值</option>
                         <option value="defaultField" ${data?.originValidRule === 'defaultField' ? 'selected' : ''}>默认字段</option>
                     </select>
                 </div>
+            </div>
 
-
-                <div class="col-md-12">
-                    <label class="form-label">关联表</label>
-                    <div class="connected-tables-container border rounded p-2" style="background-color: #f8f9fa;">
-                        ${generateConnectedTableCheckboxes(connectedTables, 'update')}
+            <!-- 第二行：新值默认值、原值默认值 -->
+            <div class="row g-2 mb-2">
+                <div class="col-md-6 new-default-value-container" style="display: ${(fieldType === 'supplement' || fieldType === 'calculated') ? 'none' : 'block'};">
+                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">新值默认值</label>
+                    <div class="new-default-value-wrapper layui-form">
+                        ${(fieldType === 'select' || fieldType === 'radio') ? generateComponentOptionsSelect(componentName, newDefaultValue, 'update-new-default-value') : `<input type="text" class="form-control form-control-sm update-new-default-value" value="${newDefaultValue}" placeholder="请输入新值默认值">`}
                     </div>
                 </div>
+                <div class="col-md-6 origin-default-value-container" style="display: ${(fieldType === 'supplement' || fieldType === 'calculated') ? 'none' : 'block'};">
+                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">原值默认值</label>
+                    ${fieldType === 'radio' ? `
+                        <input type="text" class="form-control form-control-sm update-origin-default-value" value="${data?.originDefaultValue || ''}" readonly disabled placeholder="将根据新值自动取反" style="background-color: #e9ecef; cursor: not-allowed;">
+                    ` : fieldType === 'select' ? `
+                        <div class="origin-default-value-wrapper layui-form">
+                            ${generateComponentOptionsSelect(componentName, data?.originDefaultValue, 'update-origin-default-value')}
+                        </div>
+                    ` : `
+                        <div class="origin-default-value-wrapper layui-form">
+                            <input type="text" class="form-control form-control-sm update-origin-default-value" value="${data?.originDefaultValue || ''}" placeholder="请输入原值默认值">
+                        </div>
+                    `}
+                </div>
+            </div>
 
-                <div class="col-md-6 component-selector" style="display: ${(fieldType === 'select' || fieldType === 'radio') ? 'block' : 'none'};">
-                    <label class="form-label">引用配置项</label>
+            <!-- 引用配置项（下拉框/单选框时显示） -->
+            <div class="row g-2 mb-2">
+                <div class="col-md-12 component-selector" style="display: ${(fieldType === 'select' || fieldType === 'radio') ? 'block' : 'none'};">
+                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">引用配置项</label>
                     <div class="layui-form">
                         <select class="update-component-name" lay-search lay-filter="componentSelect_${index}">
                             <option value="">请选择配置项...</option>
@@ -1600,99 +1787,74 @@
                                ).join('')}
                         </select>
                     </div>
-                    <small class="text-muted">仅显示与当前字段类型匹配的配置项，支持搜索</small>
-                </div>
-
-
-                <div class="col-md-3 new-default-value-container" style="display: ${(fieldType === 'supplement' || fieldType === 'calculated') ? 'none' : 'block'};">
-                    <label class="form-label">新值默认值</label>
-                    <div class="new-default-value-wrapper layui-form">
-                        ${(fieldType === 'select' || fieldType === 'radio') ? generateComponentOptionsSelect(componentName, newDefaultValue, 'update-new-default-value') : `<input type="text" class="form-control update-new-default-value" value="${newDefaultValue}" placeholder="请输入新值默认值">`}
-                    </div>
-                </div>
-
-                 <div class="col-md-3 origin-default-value-container" style="display: ${(fieldType === 'supplement' || fieldType === 'calculated') ? 'none' : 'block'};">
-                    <label class="form-label">原值默认值</label>
-                    ${fieldType === 'radio' ? `
-                        <input type="text" class="form-control update-origin-default-value" value="${data?.originDefaultValue || ''}" readonly disabled placeholder="将根据新值自动取反" style="background-color: #e9ecef; cursor: not-allowed;">
-                        <small class="text-muted">原值将自动与新值相反（不可编辑）</small>
-                    ` : fieldType === 'select' ? `
-                        <div class="origin-default-value-wrapper layui-form">
-                            ${generateComponentOptionsSelect(componentName, data?.originDefaultValue, 'update-origin-default-value')}
-                        </div>
-                    ` : `
-                        <div class="origin-default-value-wrapper layui-form">
-                            <input type="text" class="form-control update-origin-default-value" value="${data?.originDefaultValue || ''}" placeholder="请输入原值默认值">
-                        </div>
-                    `}
                 </div>
 
                 <div class="col-md-12 options-config" style="display: none;">
-                    <label class="form-label">选项配置（JSON格式）</label>
-                    <textarea class="form-control update-options" rows="3" placeholder='例如: [{"value":"active","label":"启用"},{"value":"inactive","label":"禁用"}]'>${data?.options ? JSON.stringify(data.options, null, 2) : ''}</textarea>
-                    <small class="text-muted">手动配置选项（如果不使用引用配置项）</small>
+                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">选项配置（JSON格式）</label>
+                    <textarea class="form-control form-control-sm update-options" rows="2" placeholder='例如: [{"value":"active","label":"启用"},{"value":"inactive","label":"禁用"}]'>${data?.options ? JSON.stringify(data.options, null, 2) : ''}</textarea>
+                    <small class="text-muted" style="font-size: 0.7rem;">手动配置选项（如果不使用引用配置项）</small>
                 </div>
+            </div>
 
+            <!-- 关联表 -->
+            <div class="row g-2 mb-2">
+                <div class="col-md-12">
+                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">关联表</label>
+                    <div class="connected-tables-container border rounded p-1" style="background-color: #f8f9fa;">
+                        ${generateConnectedTableCheckboxes(connectedTables, 'update')}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 补充框配置 -->
+            <div class="row g-2">
                 <div class="col-md-12 supplement-config" style="display: ${fieldType === 'supplement' ? 'block' : 'none'};">
-                    <div class="row g-3">
+                    <div class="row g-2">
                         <div class="col-md-6">
-                            <label class="form-label">选择数据库表 <span class="text-danger">*</span></label>
-                            <select class="form-select update-main-table" onchange="handleMainTableChange(this)">
+                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">选择数据库表 <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm update-main-table" onchange="handleMainTableChange(this)">
                                 <option value="">请选择表</option>
                                 ${databaseTables.map(table =>
                                `<option value="${table}" ${data?.mainTable === table ? 'selected' : ''}>${table}</option>`
                            ).join('')}
                             </select>
-                            <small class="text-muted">子字段将使用此表的字段进行映射</small>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">主字段名（WHERE条件） <span class="text-danger">*</span></label>
-                            <select class="form-select update-main-field" disabled>
+                            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">主字段名（WHERE条件） <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm update-main-field" disabled>
                                 <option value="">请先选择表</option>
                             </select>
-                            <small class="text-muted">用于SQL WHERE条件的字段名</small>
                         </div>
                     </div>
 
-                    <div class="mt-3">
-                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="openSubFieldsModal(this)">
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="openSubFieldsModal(this)" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;">
                             <i class="bi bi-gear"></i> 配置子字段
                         </button>
-                        <span class="sub-fields-count ms-2 text-muted">${data?.subFields ? data.subFields.length + ' 个子字段' : '暂无子字段'}</span>
+                        <span class="sub-fields-count ms-2 text-muted" style="font-size: 0.75rem;">${data?.subFields ? data.subFields.length + ' 个子字段' : '暂无子字段'}</span>
                     </div>
 
-                    <textarea class="form-control update-sub-fields" rows="3" style="display: none;">${data?.subFields ? JSON.stringify(data.subFields, null, 2) : ''}</textarea>
+                    <textarea class="form-control form-control-sm update-sub-fields" rows="2" style="display: none;">${data?.subFields ? JSON.stringify(data.subFields, null, 2) : ''}</textarea>
 
-                    <div class="sub-fields-preview mt-2 p-2 border rounded" style="background-color: #f8f9fa; display: ${data?.subFields && data.subFields.length > 0 ? 'block' : 'none'};">
-                        <small class="text-muted d-block mb-2">子字段预览：</small>
+                    <div class="sub-fields-preview mt-2 p-1 border rounded" style="background-color: #f8f9fa; display: ${data?.subFields && data.subFields.length > 0 ? 'block' : 'none'};">
+                        <small class="text-muted d-block mb-1" style="font-size: 0.7rem;">子字段预览：</small>
                         ${data?.subFields ? data.subFields.map((sf, idx) => `
-                            <span class="badge bg-info me-1 mb-1" title="自定义字段: ${sf.bindingKey} | 数据库字段: ${sf.dbField}">${idx + 1}. ${sf.label}</span>
+                            <span class="badge bg-info me-1 mb-1" style="font-size: 0.7rem;" title="自定义字段: ${sf.bindingKey} | 数据库字段: ${sf.dbField}">${idx + 1}. ${sf.label}</span>
                         `).join('') : ''}
                     </div>
                 </div>
 
-                  <div class="col-md-12 calculated-config" style="display: ${fieldType === 'calculated' ? 'block' : 'none'};">
-                    <div class="alert alert-info">
+                <div class="col-md-12 calculated-config" style="display: ${fieldType === 'calculated' ? 'block' : 'none'};">
+                    <div class="alert alert-info py-2 px-3" style="font-size: 0.8rem;">
                         <i class="bi bi-info-circle"></i>
-                        <strong>说明：</strong>计算字段不会在页面上显示输入框，而是在后台根据表达式自动生成SQL。<br>
-                        执行时使用引用字段的新值计算，回退时使用引用字段的原值计算。<br>
-                        如果关联多个表，需要为每个表分别配置表达式。
+                        <strong>说明：</strong>计算字段不会在页面上显示输入框，而是在后台根据表达式自动生成SQL。
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">各表表达式配置 <span class="text-danger">*</span></label>
-                        <div id="calculatedExpressionsContainer_${index}" class="border rounded p-3" style="background-color: #f8f9fa;">
-                            <div class="text-muted small">请先在上方"关联表"中选择表，然后为每个表配置表达式</div>
+                    <div class="mb-2">
+                        <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">各表表达式配置 <span class="text-danger">*</span></label>
+                        <div id="calculatedExpressionsContainer_${index}" class="border rounded p-2" style="background-color: #f8f9fa;">
+                            <div class="text-muted small" style="font-size: 0.75rem;">请先在上方"关联表"中选择表，然后为每个表配置表达式</div>
                         </div>
-                    </div>
-
-                    <div class="expression-examples">
-                        <small class="text-muted d-block mb-2">示例：</small>
-                        <ul class="list-unstyled small text-muted">
-                            <li><code>BPO_PRICE * qty</code> - 简单乘法</li>
-                            <li><code>BPO_PRICE / (1 + TAX_RATE)</code> - 除法运算</li>
-                            <li><code>(SELECT SUM(BPO_AMT) FROM tphct02 WHERE BPO_ID = 'xxx')</code> - 子查询</li>
-                        </ul>
                     </div>
                 </div>
             </div>
@@ -1917,18 +2079,18 @@
                     if (!card.querySelector('.new-default-value-wrapper')) {
                         const currentNewValue = card.querySelector('.update-new-default-value')?.value || '';
                         newDefaultValueDiv.innerHTML = `
-                            <label class="form-label">新值默认值</label>
+                            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">新值默认值</label>
                             <div class="new-default-value-wrapper layui-form">
-                                <input type="text" class="form-control update-new-default-value" value="${currentNewValue}" placeholder="请输入新值默认值">
+                                <input type="text" class="form-control form-control-sm update-new-default-value" value="${currentNewValue}" placeholder="请输入新值默认值">
                             </div>
                         `;
                     }
                     if (!card.querySelector('.origin-default-value-wrapper')) {
                         const currentOriginValue = card.querySelector('.update-origin-default-value')?.value || '';
                         originDefaultValueDiv.innerHTML = `
-                            <label class="form-label">原值默认值</label>
+                            <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">原值默认值</label>
                             <div class="origin-default-value-wrapper layui-form">
-                                <input type="text" class="form-control update-origin-default-value" value="${currentOriginValue}" placeholder="请输入原值默认值">
+                                <input type="text" class="form-control form-control-sm update-origin-default-value" value="${currentOriginValue}" placeholder="请输入原值默认值">
                             </div>
                         `;
                     }
@@ -1954,12 +2116,12 @@
                     
                     const originWrapper = card.querySelector('.origin-default-value-wrapper');
                     if (originWrapper) {
-                        originWrapper.innerHTML = `<input type="text" class="form-control update-origin-default-value" value="${currentOriginValue}" placeholder="请输入原值默认值">`;
+                        originWrapper.innerHTML = `<input type="text" class="form-control form-control-sm update-origin-default-value" value="${currentOriginValue}" placeholder="请输入原值默认值">`;
                     }
-                    
+
                     const newWrapper = card.querySelector('.new-default-value-wrapper');
                     if (newWrapper) {
-                        newWrapper.innerHTML = `<input type="text" class="form-control update-new-default-value" value="${currentNewValue}" placeholder="请输入新值默认值">`;
+                        newWrapper.innerHTML = `<input type="text" class="form-control form-control-sm update-new-default-value" value="${currentNewValue}" placeholder="请输入新值默认值">`;
                     }
                 }
             }
@@ -2309,7 +2471,7 @@
                             <input type="hidden" class="sub-field-binding-key-input" value="${sf.bindingKey || ''}">
                             <input type="hidden" class="sub-field-db-field-input" value="${sf.dbField || ''}" data-saved-value="${sf.dbField || ''}">
                             <div class="row g-3">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label fw-bold text-primary mb-1" style="font-size: 0.9rem;">
                                         <i class="bi bi-tag-fill me-1"></i>显示标签 <span class="text-danger">*</span>
                                     </label>
@@ -2318,7 +2480,7 @@
                                            onchange="updateSubFieldData(${globalIndex}, 'label', this.value)">
                                     <small class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle"></i> 用户看到的名称</small>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label fw-bold text-success mb-1" style="font-size: 0.9rem;">
                                         <i class="bi bi-key-fill me-1"></i>自定义字段名 <span class="text-danger">*</span>
                                     </label>
@@ -2327,7 +2489,7 @@
                                            onchange="updateSubFieldData(${globalIndex}, 'bindingKey', this.value)">
                                     <small class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle"></i> 你定义的字段标识</small>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label fw-bold text-info mb-1" style="font-size: 0.9rem;">
                                         <i class="bi bi-database-fill me-1"></i>数据库映射字段 <span class="text-danger">*</span>
                                     </label>
@@ -2337,6 +2499,17 @@
                                         <option value="">${mainTableName ? '请选择数据库字段' : '请先在主字段中选择表'}</option>
                                     </select>
                                     <small class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle"></i> 选择数据库中实际存在的字段</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold text-warning mb-1" style="font-size: 0.9rem;">
+                                        <i class="bi bi-collection me-1"></i>字段类型 <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-select sub-field-type-edit"
+                                            onchange="updateSubFieldData(${globalIndex}, 'type', this.value); handleSubFieldTypeChange(${globalIndex}, this.value)">
+                                        <option value="auxiliary" ${sf.type === 'auxiliary' ? 'selected' : ''}>辅助字段</option>
+                                        <option value="normal" ${(!sf.type || sf.type === 'normal') ? 'selected' : ''}>普通字段</option>
+                                    </select>
+                                    <small class="text-muted sub-field-type-hint" style="font-size: 0.75rem;">${getSubFieldTypeHint(sf.type)}</small>
                                 </div>
                             </div>
                         </div>
@@ -2454,6 +2627,38 @@
             }
         }
 
+        /**
+         * 获取子字段类型提示文本
+         */
+        function getSubFieldTypeHint(type) {
+            switch (type) {
+                case 'auxiliary':
+                    return '辅助字段：填写后参与联合精确查询';
+                case 'normal':
+                default:
+                    return '普通字段：页面不显示，但查询后会回填';
+            }
+        }
+
+        /**
+         * 处理子字段类型变化
+         */
+        function handleSubFieldTypeChange(index, type) {
+            const sf = allSubFields[index];
+            if (!sf) return;
+
+            // 更新提示文本
+            const accordion = document.getElementById('subFieldsAccordion');
+            if (accordion) {
+                const item = accordion.querySelector(`[data-global-index="${index}"]`);
+                if (item) {
+                    const hint = item.querySelector('.sub-field-type-hint');
+                    if (hint) {
+                        hint.textContent = getSubFieldTypeHint(type);
+                    }
+                }
+            }
+        }
 
         function initSubFieldsSortable() {
             const container = document.getElementById('subFieldsContainer');
@@ -2746,21 +2951,24 @@
         function saveSubFieldsConfig() {
             // 验证所有子字段是否填写完整
             const validSubFields = [];
+
             for (let i = 0; i < allSubFields.length; i++) {
                 const sf = allSubFields[i];
                 const label = sf.label ? sf.label.trim() : '';
                 const bindingKey = sf.bindingKey ? sf.bindingKey.trim() : '';
                 const dbField = sf.dbField ? sf.dbField.trim() : '';
-                
+                const type = sf.type || 'normal';
+
                 if (!label || !bindingKey || !dbField) {
                     alert(`第${i + 1}个子字段信息不完整，请填写显示标签、自定义字段名和数据库映射字段`);
                     return;
                 }
-                
+
                 validSubFields.push({
                     label: label,
                     bindingKey: bindingKey,
                     dbField: dbField,
+                    type: type,
                     sortOrder: i
                 });
             }
@@ -2780,10 +2988,19 @@
                 if (previewDiv) {
                     if (validSubFields.length > 0) {
                         previewDiv.style.display = 'block';
+                        const typeBadgeClass = {
+                            'auxiliary': 'bg-warning text-dark',
+                            'normal': 'bg-secondary'
+                        };
+                        const typeLabel = {
+                            'auxiliary': '辅',
+                            'normal': '普'
+                        };
                         previewDiv.innerHTML = '<small class="text-muted d-block mb-2">子字段预览：</small>' +
-                            validSubFields.map((sf, idx) => 
-                                `<span class="badge bg-info me-1 mb-1" title="自定义字段: ${sf.bindingKey} | 数据库字段: ${sf.dbField}">${idx + 1}. ${sf.label}</span>`
-                            ).join('');
+                            validSubFields.map((sf, idx) => {
+                                const t = sf.type || 'normal';
+                                return `<span class="badge ${typeBadgeClass[t]} me-1 mb-1" title="类型: ${typeLabel[t]} | 自定义字段: ${sf.bindingKey} | 数据库字段: ${sf.dbField}">${idx + 1}. ${sf.label}</span>`;
+                            }).join('');
                     } else {
                         previewDiv.style.display = 'none';
                     }
@@ -3043,11 +3260,6 @@
                     item.mainTable = div.querySelector('.update-main-table').value.trim();
                     item.mainField = div.querySelector('.update-main-field').value.trim();
 
-                    if (!item.mainTable || !item.mainField) {
-                        alert(`补充框“${label}”必须选择数据库表和主字段名`);
-                        return;
-                    }
-
                     const subFieldsText = div.querySelector('.update-sub-fields').value.trim();
                     if (subFieldsText) {
                         try {
@@ -3060,6 +3272,11 @@
 
                     if (!item.subFields || item.subFields.length === 0) {
                         alert(`补充框“${label}”必须至少配置一个子字段`);
+                        return;
+                    }
+
+                    if (!item.mainTable || !item.mainField) {
+                        alert(`补充框“${label}”必须选择数据库表和主字段名`);
                         return;
                     }
                 }
@@ -3546,15 +3763,18 @@
                 const checkbox = document.getElementById(`dbIpCheck_${id}`);
                 checkbox.checked = !checkbox.checked;
             }
-            
+
             const checkbox = document.getElementById(`dbIpCheck_${id}`);
-            
+            const card = checkbox.closest('.db-ip-card');
+
             if (checkbox.checked) {
                 if (!selectedDatabaseIpIds.includes(id)) {
                     selectedDatabaseIpIds.push(id);
                 }
+                if (card) card.classList.add('selected');
             } else {
                 selectedDatabaseIpIds = selectedDatabaseIpIds.filter(ipId => ipId !== id);
+                if (card) card.classList.remove('selected');
             }
         }
 
@@ -3563,30 +3783,43 @@
          */
         function renderDatabaseIpList(configs) {
             const container = document.getElementById('databaseIpListContainer');
-            
+
             if (!configs || configs.length === 0) {
                 container.innerHTML = '<div class="text-center text-muted py-4">暂无数据库配置</div>';
                 return;
             }
-            
-            container.innerHTML = configs.map(config => `
-                <div class="form-check mb-2 p-3 border rounded" style="cursor: pointer;" onclick="toggleDatabaseIpSelection(${config.id}, event)">
-                    <input class="form-check-input" type="checkbox" value="${config.id}" style="margin-left: 0px" id="dbIpCheck_${config.id}"
-                           ${selectedDatabaseIpIds.includes(config.id) ? 'checked' : ''}>
-                    <label class="form-check-label w-100" for="dbIpCheck_${config.id}">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>${config.name}</strong>
-                                <br>
-                                <small class="text-muted">IP: ${config.ip_address} | 库名: ${config.database_name}</small>
+
+            container.innerHTML = `
+                <div class="row g-2">
+                    ${configs.map(config => {
+                        const isSelected = selectedDatabaseIpIds.includes(config.id);
+                        return `
+                            <div class="col-xl-4 col-lg-4 col-md-6">
+                                <div class="db-ip-card ${isSelected ? 'selected' : ''}" onclick="toggleDatabaseIpSelection(${config.id}, event)">
+                                    <div class="d-flex align-items-start">
+                                        <input class="form-check-input mt-1 me-2" type="checkbox" value="${config.id}"
+                                               id="dbIpCheck_${config.id}"
+                                               ${isSelected ? 'checked' : ''}
+                                               onclick="event.stopPropagation(); toggleDatabaseIpSelection(${config.id}, event)">
+                                        <div class="flex-grow-1" style="min-width: 0;">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="db-ip-name" title="${config.name}">${config.name}</span>
+                                                ${config.is_active ?
+                                                    '<span class="badge bg-success" style="font-size: 0.65rem;">启用</span>' :
+                                                    '<span class="badge bg-secondary" style="font-size: 0.65rem;">禁用</span>'}
+                                            </div>
+                                            <div class="db-ip-meta">
+                                                <span title="IP: ${config.ip_address}"><i class="bi bi-hdd-network"></i> ${config.ip_address}</span>
+                                                <span title="库名: ${config.database_name}"><i class="bi bi-database"></i> ${config.database_name}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            ${config.is_active ? 
-                                '<span class="badge bg-success">启用</span>' : 
-                                '<span class="badge bg-secondary">禁用</span>'}
-                        </div>
-                    </label>
+                        `;
+                    }).join('')}
                 </div>
-            `).join('');
+            `;
         }
         
 
@@ -3691,6 +3924,51 @@
         .table-checkbox-item input[type="checkbox"]:checked + .checkbox-label-text {
             color: #0d6efd;
             font-weight: 500;
+        }
+
+        /* 数据库配置列表小卡片 */
+        .db-ip-card {
+            background: #ffffff;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 0.6rem 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .db-ip-card:hover {
+            border-color: #adb5bd;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+        }
+
+        .db-ip-card.selected {
+            border-color: #0d6efd;
+            background-color: #f0f7ff;
+        }
+
+        .db-ip-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #212529;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        .db-ip-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: #6c757d;
+        }
+
+        .db-ip-meta span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
     </style>
 

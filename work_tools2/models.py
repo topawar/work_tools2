@@ -209,3 +209,52 @@ class FilePathConfig(models.Model):
         """获取日期格式的显示名称"""
         format_dict = dict(self.DATE_FORMATS)
         return format_dict.get(self.date_format, self.date_format)
+
+
+class ImportTaskModel(models.Model):
+    """CSV导入任务持久化模型"""
+
+    STATUS_CHOICES = [
+        ('pending', '等待中'),
+        ('running', '进行中'),
+        ('completed', '已完成'),
+        ('failed', '失败'),
+    ]
+
+    task_id = models.CharField(max_length=32, unique=True, verbose_name="任务ID")
+    table_name = models.CharField(max_length=200, verbose_name="目标表名")
+    original_filename = models.CharField(max_length=500, blank=True, default='', verbose_name="原始文件名")
+    file_content = models.TextField(verbose_name="CSV文件内容")
+    truncate_before = models.BooleanField(default=False, verbose_name="导入前清空")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="状态")
+    progress = models.IntegerField(default=0, verbose_name="进度百分比")
+    total_records = models.IntegerField(default=0, verbose_name="总记录数")
+    processed_records = models.IntegerField(default=0, verbose_name="已处理记录数")
+    inserted_count = models.IntegerField(default=0, verbose_name="成功插入数")
+    failed_count = models.IntegerField(default=0, verbose_name="失败数")
+    errors = models.JSONField(default=list, verbose_name="错误详情")
+    message = models.TextField(blank=True, default='', verbose_name="任务消息")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")
+
+    class Meta:
+        db_table = 'work_tools2_importtask'
+        ordering = ['-created_at']
+        verbose_name = '导入任务'
+        verbose_name_plural = '导入任务'
+
+    def to_dict(self):
+        return {
+            'task_id': self.task_id,
+            'table_name': self.table_name,
+            'status': self.status,
+            'progress': self.progress,
+            'total_records': self.total_records,
+            'processed_records': self.processed_records,
+            'inserted_count': self.inserted_count,
+            'failed_count': self.failed_count,
+            'errors': self.errors[:10] if isinstance(self.errors, list) else [],
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else '-',
+            'completed_at': self.completed_at.strftime('%Y-%m-%d %H:%M:%S') if self.completed_at else None,
+            'message': self.message
+        }

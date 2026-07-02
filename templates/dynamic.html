@@ -85,19 +85,12 @@
                     <!-- 每个补充框单独一行，包含主输入框和子输入框 -->
                 </div>
                 <!-- 功能按钮区域 -->
-                <div class="row g-3 align-items-center mb-4">
+                <div class="row g-3 align-items-center mb-4" id="formActionButtons">
                     <div class="col-auto">
                         <a href="javascript:void(0)" onclick="downloadTemplate()" class="btn btn-outline-primary"
                            id="downloadTemplateBtn">
                             <i class="bi bi-download"></i> 下载导入模板
                         </a>
-                    </div>
-                    <div class="col-auto">
-                        <button type="button" onclick="openOnlineEditor()"
-                                class="btn btn-outline-success"
-                                id="onlineEditorBtn">
-                            <i class="bi bi-table"></i> 在线编辑导入
-                        </button>
                     </div>
                     <div class="col-auto">
                         <input type="file" id="batchImportFile" accept=".xlsx" style="display: none;"
@@ -109,33 +102,76 @@
                         </button>
                     </div>
                     <div class="col-auto">
+                        <button type="button" onclick="openOnlineEditor()"
+                                class="btn btn-outline-success"
+                                id="onlineEditorBtn">
+                            <i class="bi bi-table"></i> 在线编辑导入
+                        </button>
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" onclick="previewOnlineData()"
+                                class="btn btn-outline-primary"
+                                id="previewOnlineDataBtn">
+                            <i class="bi bi-eye"></i> 预览已保存数据
+                        </button>
+                    </div>
+                    <div class="col-auto">
                         <span id="batchImportFileName" style="color: #666; margin-left: 10px;"></span>
+                    </div>
+                    <div class="col-auto">
+                        <span id="savedOnlineRowsStatus" style="margin-left: 10px;"></span>
                     </div>
                 </div>
 
-                <!-- 在线编辑器容器（内嵌 Luckysheet） -->
-                <div id="onlineEditorContainer" style="display: none; margin-top: 15px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; background: #fff;">
-                    <div style="padding: 10px 15px; background: #f8f9fa; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="importFromFile()">
-                                <i class="bi bi-file-earmark-excel"></i> 从Excel导入
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearSpreadsheetData()">
-                                <i class="bi bi-trash"></i> 清空数据
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-info" onclick="fillFromCurrentForm()">
-                                <i class="bi bi-input-cursor"></i> 填充当前表单数据
-                            </button>
-                            <span style="color: #666; margin-left: 8px; font-size: 12px; line-height: 31px;">
-                                <i class="bi bi-info-circle"></i> 支持直接粘贴Excel数据，表头已固定
-                            </span>
-                        </div>
-                        <div style="display: flex; gap: 8px;">
-                            <button type="button" class="btn btn-sm btn-secondary" onclick="closeOnlineEditor()">取消</button>
-                            <button type="button" class="btn btn-sm btn-success" onclick="confirmOnlineImport()">确认导入</button>
+                <!-- 在线编辑器容器（Bootstrap 全屏模态框） -->
+                <div class="modal fade" id="luckysheetModal" tabindex="-1" aria-labelledby="luckysheetModalLabel" aria-hidden="true" data-bs-focus="false">
+                    <div class="modal-dialog modal-fullscreen">
+                        <div class="modal-content">
+                            <div class="modal-header py-2">
+                                <h5 class="modal-title fs-6" id="luckysheetModalLabel">
+                                    <i class="bi bi-table me-1"></i>在线编辑导入数据
+                                </h5>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="importFromFile()">
+                                        <i class="bi bi-file-earmark-excel"></i> 从Excel导入
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearSpreadsheetData()">
+                                        <i class="bi bi-trash"></i> 清空数据
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="previewOnlineData()">
+                                        <i class="bi bi-eye"></i> 预览
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="closeOnlineEditor()">取消</button>
+                                    <button type="button" class="btn btn-sm btn-success" onclick="saveOnlineEditorData()">保存</button>
+                                </div>
+                            </div>
+                            <div class="modal-body p-0" style="overflow: hidden; background: #f5f5f5;">
+                                <div id="luckysheet" style="width: 100%; height: 100%;"></div>
+                            </div>
                         </div>
                     </div>
-                    <div id="luckysheet" style="width: 100%; height: 560px;"></div>
+                </div>
+
+                <!-- 在线编辑数据预览弹窗 -->
+                <div class="modal fade" id="onlineDataPreviewModal" tabindex="-1" aria-labelledby="onlineDataPreviewModalLabel" aria-hidden="true" data-bs-focus="false">
+                    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title fs-6" id="onlineDataPreviewModalLabel">
+                                    <i class="bi bi-eye me-1"></i>已保存的在线编辑数据
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div id="onlineDataPreviewTable" style="max-height: 60vh; overflow: auto;">
+                                    <p class="text-muted">暂无保存的数据</p>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <input type="file" id="xsImportFile" accept=".xlsx" style="display: none;" onchange="handleXsFileImport(this)">
 
@@ -155,8 +191,93 @@
         </div>
     </div>
 
+    <!-- Luckysheet 模态框自定义样式 -->
+    <style>
+        /* 全屏模态框：给 Luckysheet 最大化编辑空间 */
+        #luckysheetModal.modal {
+            z-index: 1055;
+        }
+        #luckysheetModal .modal-header {
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        #luckysheetModal .modal-body {
+            position: relative;
+        }
+        #luckysheetModal #luckysheet {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 确保 Luckysheet 内部弹出菜单、颜色选择器、函数提示框在模态框之上 */
+        .luckysheet-cols-menu,
+        .luckysheet-rightgclick-menu,
+        .luckysheet-toolbar-button-hover,
+        .luckysheet-toolbar-submenu,
+        .luckysheet-color-picker,
+        .luckysheet-functionbox,
+        .luckysheet-formula-function-criteria {
+            z-index: 1060 !important;
+        }
+        /* 部分 Luckysheet 弹窗使用行内 style，通过父容器层级兜底 */
+        #luckysheet-modal-dialog-mask,
+        .luckysheet-modal-dialog-mask,
+        .luckysheet-modal-dialog-slider {
+            z-index: 1060 !important;
+        }
+
+        /* 恢复 Bootstrap 5 按钮样式，避免被 Luckysheet 的 .btn 规则覆盖 */
+        #formActionButtons .btn,
+        .input-group .btn,
+        .layui-btn {
+            padding: 0.375rem 0.75rem !important;
+            font-size: 1rem !important;
+            line-height: 1.5 !important;
+            border-radius: 0.25rem !important;
+            background-image: none !important;
+        }
+        #formActionButtons .btn-outline-primary,
+        .input-group .btn-outline-secondary {
+            background-color: transparent !important;
+        }
+        #formActionButtons .btn-outline-primary {
+            color: #0d6efd !important;
+            border-color: #0d6efd !important;
+        }
+        #formActionButtons .btn-outline-primary:hover {
+            color: #fff !important;
+            background-color: #0d6efd !important;
+        }
+        #formActionButtons .btn-outline-secondary,
+        .input-group .btn-outline-secondary {
+            color: #6c757d !important;
+            border-color: #6c757d !important;
+        }
+        #formActionButtons .btn-outline-secondary:hover,
+        .input-group .btn-outline-secondary:hover {
+            color: #fff !important;
+            background-color: #6c757d !important;
+        }
+        #formActionButtons .btn-outline-success {
+            color: #198754 !important;
+            border-color: #198754 !important;
+        }
+        #formActionButtons .btn-outline-success:hover {
+            color: #fff !important;
+            background-color: #198754 !important;
+        }
+
+        /* 确保 Luckysheet 单元格输入框在 Bootstrap 模态框之上，避免输入被遮挡 */
+        #luckysheet-input-box,
+        .luckysheet-input-box {
+            z-index: 9999 !important;
+        }
+
+    </style>
+
     <!-- 引入 Layui 样式 -->
     <link rel="stylesheet" href="/static/layui/css/layui.css">
+    <link rel="stylesheet" href="/static/js/luckysheet/assets/iconfont/iconfont.css">
     <link rel="stylesheet" href="/static/js/luckysheet/pluginsCss.css">
     <link rel="stylesheet" href="/static/js/luckysheet/plugins.css">
     <link rel="stylesheet" href="/static/js/luckysheet/luckysheet.css">
@@ -198,6 +319,12 @@
 
         // 存储 Layui 表格弹出层实例
         let tableLayerIndex = null;
+
+        // 存储在线编辑保存的数据行
+        let savedOnlineRows = [];
+
+        // 存储待回显到在线表格的行级校验错误
+        let pendingValidationErrors = null;
 
         /**
          * 切换输入框的编辑状态
@@ -704,7 +831,8 @@
             const mainField = currentSupplementItem.mainField || 'main_value';
             
             // 先查询数据，判断是否需要弹出表格
-            querySupplementData(currentSupplementItem, value).then(function(resultData) {
+            const isOriginInput = element.id.startsWith('originMain');
+            querySupplementData(currentSupplementItem, value, isOriginInput).then(function(resultData) {
                 if (resultData && resultData.length === 1) {
                     // 只有一条数据，直接填充，不弹出表格
                     console.log('只查到一条数据，直接填充:', resultData[0]);
@@ -721,7 +849,36 @@
         };
 
 
-        function querySupplementData(supplementItem, searchValue) {
+        /**
+         * 收集补充框的辅助字段值（用于联合精确查询）
+         * @param {Object} supplementItem - 补充框配置项
+         * @param {boolean} isOrigin - 是否收集原值
+         * @returns {Array} 辅助字段查询条件数组 [{dbField, value}]
+         */
+        function collectAuxiliaryValues(supplementItem, isOrigin) {
+            const auxiliaryValues = [];
+            if (!supplementItem.subFields) return auxiliaryValues;
+
+            supplementItem.subFields.forEach((subField, index) => {
+                const subType = subField.type || 'normal';
+                if (subType !== 'auxiliary') return;
+
+                const inputId = isOrigin
+                    ? `originSub${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}_${index}`
+                    : `newSub${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}_${index}`;
+                const input = document.getElementById(inputId);
+                const value = input ? (input.value || '').trim() : '';
+                const dbField = subField.dbField || subField.bindingKey;
+
+                if (value && dbField) {
+                    auxiliaryValues.push({ dbField: dbField, value: value });
+                }
+            });
+
+            return auxiliaryValues;
+        }
+
+        function querySupplementData(supplementItem, searchValue, isOrigin) {
             return new Promise((resolve, reject) => {
                 const tableName = supplementItem.mainTable;
                 const mainField = supplementItem.mainField;
@@ -732,6 +889,9 @@
                     resolve([]);
                     return;
                 }
+
+                // 收集辅助字段查询条件
+                const auxiliaryValues = collectAuxiliaryValues(supplementItem, isOrigin);
 
                 // 快速检查模式：只查 LIMIT 2，判断是否只有1条数据
                 fetch('/api/supplement/query/', {
@@ -744,6 +904,7 @@
                         mainField: mainField,
                         subFields: subFields,
                         searchValue: searchValue || '',
+                        auxiliaryValues: auxiliaryValues,
                         quickCheck: true  // 快速检查模式，只查 LIMIT 2
                     })
                 })
@@ -999,6 +1160,7 @@
                             mainField: mainField,
                             subFields: JSON.stringify(currentSupplementItem.subFields || []),
                             searchValue: currentValue,
+                            auxiliaryValues: JSON.stringify(collectAuxiliaryValues(currentSupplementItem, currentActiveInput && currentActiveInput.element && currentActiveInput.element.id.startsWith('originMain'))),
                             isExactSearch: false  // 初始为模糊搜索
                         },
                         request: {
@@ -1061,6 +1223,7 @@
                                     mainField: mainField,
                                     subFields: JSON.stringify(currentSupplementItem.subFields || []),
                                     searchValue: searchValue || window.initialSearchValue,  // 如果为空，使用初始模糊搜索值
+                                    auxiliaryValues: JSON.stringify(collectAuxiliaryValues(currentSupplementItem, currentActiveInput && currentActiveInput.element && currentActiveInput.element.id.startsWith('originMain'))),
                                     isExactSearch: !!searchValue  // 只有有值时才精确搜索
                                 },
                                 page: {
@@ -1164,50 +1327,32 @@
             }
 
             // 填充子输入框（根据是新值还是原值来决定填充哪一行的子输入框）
+            const isOrigin = activeElement && activeElement.id.startsWith('originMain');
             supplementItem.subFields.forEach((subField, index) => {
-                var subTargetId;
-                if (activeElement && activeElement.id.startsWith('originMain')) {
-                    // 原值的子输入框
-                    subTargetId = `originSub${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}_${index}`;
-                    console.log('填充原值子输入框:', subTargetId);
-                } else {
-                    // 新值的子输入框
-                    subTargetId = `newSub${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}_${index}`;
-                    console.log('填充新值子输入框:', subTargetId);
+                const subType = subField.type || 'normal';
+
+                const subTargetId = isOrigin
+                    ? `originSub${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}_${index}`
+                    : `newSub${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}_${index}`;
+                console.log(`填充${isOrigin ? '原值' : '新值'}子输入框:`, subTargetId, '类型:', subType);
+
+                // 填充子输入框 - 使用 dbField（数据库字段名）从数据中取值
+                const dbFieldName = subField.dbField || subField.bindingKey;
+                const fieldValue = data[dbFieldName];
+                $('#' + subTargetId).val(fieldValue !== undefined && fieldValue !== null ? fieldValue : '');
+                console.log(`子输入框 ${subField.label} (${subTargetId}) 新值:`, $('#' + subTargetId).val(), '数据库字段:', dbFieldName);
+
+                // 清除子输入框的错误提示和样式
+                const subErrorElement = document.getElementById(`error_${subTargetId}`);
+                if (subErrorElement) {
+                    subErrorElement.remove();
                 }
-
-                // 填充子输入框（根据是新值还是原值来决定填充哪一行的子输入框）
-                supplementItem.subFields.forEach((subField, index) => {
-                    var subTargetId;
-                    if (activeElement && activeElement.id.startsWith('originMain')) {
-                        // 原值的子输入框
-                        subTargetId = `originSub${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}_${index}`;
-                        console.log('填充原值子输入框:', subTargetId);
-                    } else {
-                        // 新值的子输入框
-                        subTargetId = `newSub${supplementItem.bindingKey.charAt(0).toUpperCase() + supplementItem.bindingKey.slice(1)}_${index}`;
-                        console.log('填充新值子输入框:', subTargetId);
-                    }
-
-                    // 填充子输入框 - 使用 dbField（数据库字段名）从数据中取值
-                    const dbFieldName = subField.dbField || subField.bindingKey;
-                    const fieldValue = data[dbFieldName];
-                    $('#' + subTargetId).val(fieldValue !== undefined && fieldValue !== null ? fieldValue : '');
-                    console.log(`子输入框 ${subField.label} (${subTargetId}) 新值:`, $('#' + subTargetId).val(), '数据库字段:', dbFieldName);
-
-                    // 清除子输入框的错误提示和样式
-                    const subErrorElement = document.getElementById(`error_${subTargetId}`);
-                    if (subErrorElement) {
-                        subErrorElement.remove();
-                    }
-                    const subInputElement = document.getElementById(subTargetId);
-                    if (subInputElement) {
-                        subInputElement.style.borderColor = '';
-                        subInputElement.style.boxShadow = '';
-                        subInputElement.style.backgroundColor = '';
-                    }
-                });
-
+                const subInputElement = document.getElementById(subTargetId);
+                if (subInputElement) {
+                    subInputElement.style.borderColor = '';
+                    subInputElement.style.boxShadow = '';
+                    subInputElement.style.backgroundColor = '';
+                }
             });
 
             // 重新渲染 Layui form（如果需要）
@@ -1312,12 +1457,17 @@
                 });
             });
 
-            // 2. 更新字段（普通输入、下拉框、单选框、日期、数值）
             const updateItems = dynamicTableConfig.updateItems || [];
+
+            // 2. 所有更新字段的新值列（按字段排序在前）
             updateItems.forEach(item => {
                 const inputType = item.inputType;
+                if (inputType === 'calculated') {
+                    // 计算字段：不显示在表格中（由后端计算）
+                    return;
+                }
                 if (inputType === 'supplement') {
-                    // 补充框：主字段 + 子字段
+                    // 补充框主字段新值
                     columns.push({
                         index: colIndex++,
                         key: '新' + item.label,
@@ -1327,17 +1477,10 @@
                         bindingKey: item.bindingKey,
                         width: 140
                     });
-                    columns.push({
-                        index: colIndex++,
-                        key: '原' + item.label,
-                        label: '原' + item.label,
-                        type: 'text',
-                        category: 'update',
-                        bindingKey: item.bindingKey,
-                        width: 140
-                    });
-                    // 子字段
+                    // 辅助子字段新值
                     (item.subFields || []).forEach(sub => {
+                        const subType = sub.type || 'normal';
+                        if (subType === 'normal') return;
                         columns.push({
                             index: colIndex++,
                             key: '新' + sub.label,
@@ -1348,6 +1491,42 @@
                             parentKey: item.bindingKey,
                             width: 120
                         });
+                    });
+                } else {
+                    // 普通更新字段新值
+                    columns.push({
+                        index: colIndex++,
+                        key: '新' + item.label,
+                        label: '新' + item.label,
+                        type: item.type || 'text',
+                        category: 'update',
+                        bindingKey: item.bindingKey,
+                        width: 120
+                    });
+                }
+            });
+
+            // 3. 所有更新字段的原值列（按字段排序在后）
+            updateItems.forEach(item => {
+                const inputType = item.inputType;
+                if (inputType === 'calculated') {
+                    return;
+                }
+                if (inputType === 'supplement') {
+                    // 补充框主字段原值
+                    columns.push({
+                        index: colIndex++,
+                        key: '原' + item.label,
+                        label: '原' + item.label,
+                        type: 'text',
+                        category: 'update',
+                        bindingKey: item.bindingKey,
+                        width: 140
+                    });
+                    // 辅助子字段原值
+                    (item.subFields || []).forEach(sub => {
+                        const subType = sub.type || 'normal';
+                        if (subType === 'normal') return;
                         columns.push({
                             index: colIndex++,
                             key: '原' + sub.label,
@@ -1359,19 +1538,8 @@
                             width: 120
                         });
                     });
-                } else if (inputType === 'calculated') {
-                    // 计算字段：不显示在表格中（由后端计算）
                 } else {
-                    // 普通字段：新值 + 原值
-                    columns.push({
-                        index: colIndex++,
-                        key: '新' + item.label,
-                        label: '新' + item.label,
-                        type: item.type || 'text',
-                        category: 'update',
-                        bindingKey: item.bindingKey,
-                        width: 120
-                    });
+                    // 普通更新字段原值
                     columns.push({
                         index: colIndex++,
                         key: '原' + item.label,
@@ -1385,6 +1553,72 @@
             });
 
             return columns;
+        }
+
+        /**
+         * 将表单名称处理为合法的 Sheet 名称
+         * Luckysheet/Excel 限制：不超过 31 字符，不能包含 [ ] : \ ? * /，首尾不能是单引号
+         */
+        function sanitizeSheetName(name) {
+            if (!name) return 'Sheet1';
+            let sanitized = String(name)
+                .replace(/[\[\]:\\?*\/]/g, '_')
+                .replace(/^'+|'+$/g, '')
+                .trim();
+            if (!sanitized) return 'Sheet1';
+            if (sanitized.length > 31) {
+                sanitized = sanitized.substring(0, 31);
+            }
+            return sanitized;
+        }
+
+        /**
+         * 根据表头文本计算合适的列宽
+         * 中文字符按 14px、英文/数字按 8px 估算，加上 24px 边距
+         */
+        function calculateOptimalColumnWidth(label) {
+            if (!label) return 120;
+            let textWidth = 0;
+            for (const ch of String(label)) {
+                // CJK 字符范围
+                if (/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/.test(ch)) {
+                    textWidth += 14;
+                } else {
+                    textWidth += 8;
+                }
+            }
+            return Math.min(Math.max(textWidth + 24, 80), 300);
+        }
+
+        /**
+         * 获取某一列对应的当前表单默认值
+         * @param {Object} col - 列定义
+         * @param {Object} allValues - getAllFormValues 的结果
+         * @returns {string} 默认值，无则返回空字符串
+         */
+        function getColumnDefaultValue(col, allValues) {
+            if (!allValues) return '';
+
+            // 查找当前列对应的表单值对象
+            let item = allValues[col.bindingKey];
+            if (!item) {
+                const keys = Object.keys(allValues);
+                for (const k of keys) {
+                    if (k.startsWith(col.bindingKey + '_')) {
+                        item = allValues[k];
+                        break;
+                    }
+                }
+            }
+            if (!item) return '';
+
+            if (col.category === 'query') {
+                return item.value || '';
+            } else if (col.category === 'update' || col.category === 'sub') {
+                const key = col.key && col.key.startsWith('新') ? 'newValue' : 'originValue';
+                return item[key] || '';
+            }
+            return '';
         }
 
         /**
@@ -1418,9 +1652,13 @@
 
             // 列定义与表头
             const totalRows = 500;
-            const totalCols = luckyColumns.length;
+            // 保证右侧始终有可编辑的空白列，最少 20 列或比配置列多 10 列
+            const totalCols = Math.max(luckyColumns.length + 10, 20);
+            const allFormValues = window.getAllFormValues ? window.getAllFormValues() : {};
             const celldata = [];
             luckyColumns.forEach((col, idx) => {
+                const defaultValue = getColumnDefaultValue(col, allFormValues);
+                const hasDefault = String(defaultValue).trim() !== '';
                 celldata.push({
                     r: 0,
                     c: idx,
@@ -1428,7 +1666,7 @@
                         v: col.label,
                         ct: { fa: 'General', t: 'g' },
                         m: col.label,
-                        bg: '#e8f4f8',
+                        bg: hasDefault ? '#fff3cd' : '#e8f4f8',
                         ff: 'Arial',
                         fs: 12,
                         bl: 1,
@@ -1440,50 +1678,25 @@
 
             const columnlen = {};
             luckyColumns.forEach((col, idx) => {
-                columnlen[idx] = col.width;
+                columnlen[idx] = calculateOptimalColumnWidth(col.label);
             });
 
             const options = {
                 container: 'luckysheet',
                 title: '在线编辑导入数据',
                 lang: 'zh',
-                showinfobar: false,
-                showsheetbar: false,
-                showstatisticBar: false,
+                // 显示顶部信息栏、底部 Sheet 标签栏和统计栏，接近原生 WPS/Office
+                showinfobar: true,
+                showsheetbar: true,
+                showstatisticBar: true,
                 showtoolbar: true,
-                showtoolbarConfig: {
-                    undoRedo: true,
-                    paintFormat: true,
-                    currencyFormat: false,
-                    percentageFormat: false,
-                    numberDecrease: false,
-                    numberIncrease: false,
-                    moreFormats: false,
-                    font: true,
-                    fontSize: true,
-                    bold: true,
-                    italic: true,
-                    strikethrough: true,
-                    underline: true,
-                    textColor: true,
-                    fillColor: true,
-                    border: true,
-                    mergeCell: true,
-                    horizontalAlignMode: true,
-                    verticalAlignMode: true,
-                    textWrapMode: true,
-                    textRotateMode: false,
-                    image: false,
-                    link: false,
-                    chart: false,
-                    postil: false,
-                    pivotTable: false,
-                    function: false,
-                    frozenMode: false,
-                    sortAndFilter: false,
-                    conditionalFormat: false,
-                    dataVerification: false,
-                    splitColumn: false
+                showtoolbarConfig: true,
+                sheetBarConfig: {
+                    add: true,
+                    delete: true,
+                    rename: true,
+                    color: true,
+                    move: true
                 },
                 enableAddRow: true,
                 enableAddBackTop: true,
@@ -1492,7 +1705,7 @@
                 defaultColWidth: 120,
                 defaultRowHeight: 25,
                 data: [{
-                    name: 'Sheet1',
+                    name: sanitizeSheetName(dynamicTableConfig && dynamicTableConfig.formName ? dynamicTableConfig.formName : 'Sheet1'),
                     color: '',
                     index: 'sheet_01',
                     status: 1,
@@ -1510,6 +1723,19 @@
                     workbookCreateAfter: function() {
                         luckySheetReady = true;
                         console.log('[DEBUG] Luckysheet workbook created, ready = true');
+                        // 优先回显已保存的在线编辑数据；没有则填充当前表单默认值作为示例
+                        try {
+                            if (savedOnlineRows && savedOnlineRows.length > 0) {
+                                fillSavedOnlineRows();
+                            }
+                            // 如果有待回显的校验错误，追加错误列
+                            if (pendingValidationErrors && pendingValidationErrors.length > 0) {
+                                fillValidationErrors(pendingValidationErrors);
+                                pendingValidationErrors = null;
+                            }
+                        } catch (e) {
+                            console.warn('[WARN] 初始化填充数据失败:', e);
+                        }
                     }
                 }
             };
@@ -1519,7 +1745,7 @@
         }
 
         /**
-         * 打开在线编辑器（内嵌在页面中）
+         * 打开在线编辑器（Bootstrap 全屏模态框）
          */
         window.openOnlineEditor = function () {
             if (!dynamicTableConfig) {
@@ -1530,34 +1756,119 @@
             luckyColumns = buildSpreadsheetColumns();
             console.log('[DEBUG] luckyColumns:', luckyColumns);
 
-            const container = document.getElementById('onlineEditorContainer');
-            container.style.display = 'block';
-            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const modalEl = document.getElementById('luckysheetModal');
+            if (!modalEl) {
+                console.error('[ERROR] #luckysheetModal 不存在');
+                return;
+            }
 
-            // 容器显示后再初始化，确保尺寸计算正确
-            setTimeout(function () {
-                initLuckysheet();
-            }, 50);
+            // 使用 Bootstrap 5 Modal
+            let modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (!modalInstance) {
+                modalInstance = new bootstrap.Modal(modalEl, {
+                    backdrop: 'static',
+                    keyboard: false,
+                    focus: false
+                });
+
+                // 弹窗完全显示后再初始化 Luckysheet，确保容器尺寸正确
+                modalEl.addEventListener('shown.bs.modal', function () {
+                    // 禁用 Bootstrap 模态框的焦点陷阱，避免 Luckysheet 单元格输入被截获导致输入延迟显示
+                    if (modalInstance._focustrap && typeof modalInstance._focustrap.deactivate === 'function') {
+                        modalInstance._focustrap.deactivate();
+                    }
+                    // 替换焦点陷阱为无操作对象，防止后续重新激活抢走 Luckysheet 输入框焦点
+                    modalInstance._focustrap = {
+                        activate: function () {},
+                        deactivate: function () {}
+                    };
+                    // 让当前焦点离开模态框，确保 Luckysheet 能正常接管键盘输入
+                    if (document.activeElement && document.activeElement.blur) {
+                        document.activeElement.blur();
+                    }
+                    initLuckysheet();
+                });
+
+                // 弹窗关闭后销毁 Luckysheet，释放资源
+                modalEl.addEventListener('hidden.bs.modal', function () {
+                    if (luckySheetReady && typeof luckysheet !== 'undefined' && luckysheet.destroy) {
+                        try {
+                            luckysheet.destroy();
+                        } catch (e) {
+                            console.warn('[WARN] 销毁 Luckysheet 失败:', e);
+                        }
+                    }
+                    luckySheetReady = false;
+                    // 保留 luckyColumns，以便外层预览已保存数据时使用
+                });
+            }
+
+            modalInstance.show();
         };
 
         /**
          * 关闭在线编辑器
          */
         window.closeOnlineEditor = function () {
-            const container = document.getElementById('onlineEditorContainer');
-            if (container) {
-                container.style.display = 'none';
-            }
-            if (luckySheetReady && typeof luckysheet !== 'undefined' && luckysheet.destroy) {
-                try {
-                    luckysheet.destroy();
-                } catch (e) {
-                    console.warn('[WARN] 销毁 Luckysheet 失败:', e);
+            const modalEl = document.getElementById('luckysheetModal');
+            if (modalEl) {
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) {
+                    modalInstance.hide();
                 }
             }
-            luckySheetReady = false;
-            luckyColumns = [];
         };
+
+        /**
+         * 批量设置 Luckysheet 单元格值（使用 setRangeValue 二维数组接口，性能优于逐个 setCellValue）
+         * @param {Array} rangeValues - 扁平数组，元素格式 {r, c, v}
+         */
+        function batchSetRangeValues(rangeValues) {
+            if (!rangeValues || rangeValues.length === 0) return;
+
+            // 优先使用 setRangeValue(range, data) 批量写入
+            if (typeof luckysheet.setRangeValue === 'function') {
+                try {
+                    let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+                    rangeValues.forEach(item => {
+                        minR = Math.min(minR, item.r);
+                        maxR = Math.max(maxR, item.r);
+                        minC = Math.min(minC, item.c);
+                        maxC = Math.max(maxC, item.c);
+                    });
+
+                    const rowCount = maxR - minR + 1;
+                    const colCount = maxC - minC + 1;
+                    const data = [];
+                    for (let r = 0; r < rowCount; r++) {
+                        const row = [];
+                        for (let c = 0; c < colCount; c++) {
+                            row.push('');
+                        }
+                        data.push(row);
+                    }
+
+                    rangeValues.forEach(item => {
+                        data[item.r - minR][item.c - minC] = item.v;
+                    });
+
+                    const range = {
+                        row: [minR, maxR],
+                        column: [minC, maxC]
+                    };
+
+                    luckysheet.setRangeValue(data, { range: range, isRefresh: true });
+                    return;
+                } catch (e) {
+                    console.warn('[WARN] setRangeValue 批量写入失败，回退到 setCellValue:', e);
+                }
+            }
+
+            // 回退：逐个写入
+            rangeValues.forEach(item => {
+                luckysheet.setCellValue(item.r, item.c, item.v);
+            });
+        }
 
         /**
          * 从文件导入到在线编辑器
@@ -1603,19 +1914,25 @@
                     // 清空现有数据（保留表头）
                     clearSpreadsheetData();
 
-                    // 填充数据
+                    // 批量构建待写入的单元格数据
+                    const rangeValues = [];
                     for (let i = 1; i < jsonData.length; i++) {
                         const row = jsonData[i];
-                        let hasData = false;
                         row.forEach((cell, fileIdx) => {
                             if (colMap[fileIdx] !== undefined && cell !== '' && cell !== null && cell !== undefined) {
-                                luckysheet.setCellValue(i, colMap[fileIdx], String(cell));
-                                hasData = true;
+                                rangeValues.push({
+                                    r: i,
+                                    c: colMap[fileIdx],
+                                    v: String(cell)
+                                });
                             }
                         });
                     }
 
-                    layui.layer.msg('数据导入成功！', {icon: 1});
+                    // 使用批量写入提升性能
+                    batchSetRangeValues(rangeValues);
+
+                    layui.layer.msg(`数据导入成功，共 ${jsonData.length - 1} 行`, {icon: 1});
                 } catch (err) {
                     console.error('导入失败:', err);
                     layui.layer.msg('文件解析失败：' + err.message, {icon: 2});
@@ -1638,78 +1955,123 @@
             const rowCount = sheetData.length;
             const colCount = luckyColumns.length;
 
-            // 清空所有数据（保留表头）
+            // 批量构建待清空的单元格数据
+            const rangeValues = [];
             for (let r = 1; r < rowCount; r++) {
                 for (let c = 0; c < colCount; c++) {
-                    luckysheet.setCellValue(r, c, '');
+                    rangeValues.push({ r: r, c: c, v: '' });
                 }
             }
+
+            // 使用批量写入提升性能
+            batchSetRangeValues(rangeValues);
 
             layui.layer.msg('已清空数据', {icon: 1});
         };
 
         /**
-         * 从当前表单填充第一行数据
+         * 将已保存的在线编辑数据回显到 Luckysheet
          */
-        window.fillFromCurrentForm = function () {
+        function fillSavedOnlineRows() {
             if (!luckySheetReady || typeof luckysheet === 'undefined') {
                 layui.layer.msg('表格尚未就绪，请稍后再试', {icon: 2});
                 return;
             }
-            const allValues = window.getAllFormValues();
+            if (!savedOnlineRows || savedOnlineRows.length === 0) {
+                return;
+            }
 
-            luckyColumns.forEach(col => {
-                let value = '';
-                if (col.category === 'query') {
-                    let item = allValues[col.bindingKey];
-                    if (!item) {
-                        const keys = Object.keys(allValues);
-                        for (const k of keys) {
-                            if (k.startsWith(col.bindingKey + '_')) {
-                                item = allValues[k];
-                                break;
-                            }
-                        }
+            savedOnlineRows.forEach((row, rowIndex) => {
+                const sheetRow = rowIndex + 1; // 第 0 行是表头
+                luckyColumns.forEach(col => {
+                    if (row[col.key] !== undefined && row[col.key] !== null && String(row[col.key]).trim() !== '') {
+                        luckysheet.setCellValue(sheetRow, col.index, String(row[col.key]));
                     }
-                    if (item) value = item.value || '';
-                } else if (col.category === 'update' || col.category === 'sub') {
-                    const key = col.key.startsWith('新') ? 'newValue' : 'originValue';
-                    let item = allValues[col.bindingKey];
-                    if (!item) {
-                        const keys = Object.keys(allValues);
-                        for (const k of keys) {
-                            if (k.startsWith(col.bindingKey + '_')) {
-                                item = allValues[k];
-                                break;
-                            }
-                        }
-                    }
-                    if (item) value = item[key] || '';
-                }
-                if (value) {
-                    luckysheet.setCellValue(1, col.index, String(value));
-                }
+                });
             });
 
-            layui.layer.msg('已填充当前表单数据到第1行', {icon: 1});
-        };
+            layui.layer.msg('已回显 ' + savedOnlineRows.length + ' 行已保存数据', {icon: 1});
+        }
 
         /**
-         * 确认在线导入：将表格数据提交到后端
+         * 清空错误信息列
          */
-        window.confirmOnlineImport = function () {
-            if (!luckySheetReady || typeof luckysheet === 'undefined') {
-                console.error('[ERROR] Luckysheet 尚未初始化完成');
-                layui.layer.msg('表格尚未就绪，请稍后再试', {icon: 2});
-                return;
+        function clearErrorColumn() {
+            if (!luckySheetReady || typeof luckysheet === 'undefined') return;
+            const errorColIndex = luckyColumns.length;
+            const sheetData = luckysheet.getSheetData();
+            const rowCount = sheetData.length;
+            for (let r = 0; r < rowCount; r++) {
+                luckysheet.setCellValue(r, errorColIndex, '');
+            }
+        }
+
+        /**
+         * 将后端返回的行级校验错误填充到 Luckysheet 的错误列
+         * @param {Array} rowErrors - 后端返回的错误数组，元素格式 {rowIndex, failReason}
+         */
+        function fillValidationErrors(rowErrors) {
+            if (!luckySheetReady || typeof luckysheet === 'undefined') return;
+            if (!rowErrors || rowErrors.length === 0) return;
+
+            const errorColIndex = luckyColumns.length;
+
+            // 设置错误列表头
+            luckysheet.setCellValue(0, errorColIndex, {
+                v: '错误信息',
+                ct: { fa: 'General', t: 'g' },
+                m: '错误信息',
+                bg: '#ffcccc',
+                ff: 'Arial',
+                fs: 12,
+                bl: 1,
+                ht: 0,
+                vt: 0
+            });
+
+            // 设置错误列宽度
+            if (typeof luckysheet.setColumnWidth === 'function') {
+                luckysheet.setColumnWidth([{ col: errorColIndex, len: 280 }]);
+            } else {
+                const config = luckysheet.getConfig ? luckysheet.getConfig() : {};
+                if (config && config.columnlen) {
+                    config.columnlen[errorColIndex] = 280;
+                }
             }
 
-            // 获取所有数据
-            const sheetData = luckysheet.getSheetData();
-            console.log('[DEBUG] confirmOnlineImport sheetData:', sheetData);
+            // 后端 rowIndex 从 2 开始（第 1 行为表头），前端数据行从第 1 行开始
+            rowErrors.forEach(function (err) {
+                const backendRowIndex = err.rowIndex;
+                const frontendRow = backendRowIndex - 1;
+                const failReason = err.failReason || '';
+                if (frontendRow > 0) {
+                    luckysheet.setCellValue(frontendRow, errorColIndex, {
+                        v: failReason,
+                        ct: { fa: 'General', t: 'g' },
+                        m: failReason,
+                        bg: '#fff3cd',
+                        fc: '#856404',
+                        ff: 'Arial',
+                        fs: 11,
+                        ht: 0,
+                        vt: 0
+                    });
+                }
+            });
+        }
+
+        /**
+         * 从单张 Sheet 的二维数据中提取有效数据行
+         * @param {Array} sheetData - 单张 Sheet 的二维数据
+         * @returns {Array} 提取后的数据行数组
+         */
+        function extractRowsFromSheet(sheetData) {
+            const rows = [];
+            if (!sheetData || !Array.isArray(sheetData)) {
+                return rows;
+            }
 
             // 提取数据行（跳过表头第0行）
-            const dataRows = [];
             for (let r = 1; r < sheetData.length; r++) {
                 const row = sheetData[r];
                 if (!row) continue;
@@ -1736,30 +2098,135 @@
                 }
 
                 if (hasData) {
-                    dataRows.push(rowObj);
+                    rows.push(rowObj);
                 }
             }
+            return rows;
+        }
 
-            console.log('[DEBUG] confirmOnlineImport dataRows:', dataRows);
+        /**
+         * 保存在线编辑的数据到内存，不提交到后端
+         */
+        window.saveOnlineEditorData = function () {
+            if (!luckySheetReady || typeof luckysheet === 'undefined') {
+                console.error('[ERROR] Luckysheet 尚未初始化完成');
+                layui.layer.msg('表格尚未就绪，请稍后再试', {icon: 2});
+                return;
+            }
+
+            // 清空错误信息列，避免旧错误随数据一起保存
+            clearErrorColumn();
+
+            // 如果已选择文件导入，清空它，改用在线编辑数据
+            if (batchImportFile) {
+                batchImportFile = null;
+                document.getElementById('batchImportFile').value = '';
+                document.getElementById('batchImportFileName').textContent = '';
+                layui.layer.msg('已清空文件导入选择，改用在线编辑数据', {icon: 0});
+            }
+
+            // 获取所有工作表数据
+            let allSheets = [];
+            try {
+                allSheets = luckysheet.getAllSheets ? luckysheet.getAllSheets() : [{
+                    name: 'Sheet1',
+                    data: luckysheet.getSheetData()
+                }];
+            } catch (e) {
+                console.error('[ERROR] 获取所有 Sheet 数据失败:', e);
+                layui.layer.msg('读取表格数据失败，请重试', {icon: 2});
+                return;
+            }
+            console.log('[DEBUG] saveOnlineEditorData allSheets:', allSheets);
+
+            // 汇总所有 Sheet 中的有效数据行
+            const dataRows = [];
+            allSheets.forEach(function (sheet) {
+                const sheetData = sheet && sheet.data ? sheet.data : sheet;
+                const sheetRows = extractRowsFromSheet(sheetData);
+                console.log('[DEBUG] Sheet:', sheet.name, 'rows:', sheetRows.length);
+                dataRows.push(...sheetRows);
+            });
+
+            console.log('[DEBUG] saveOnlineEditorData dataRows:', dataRows);
 
             if (dataRows.length === 0) {
-                layui.layer.msg('没有数据可导入，请先在表格中填写数据', {icon: 2});
+                layui.layer.msg('没有数据可保存，请先在表格中填写数据', {icon: 2});
                 return;
             }
 
-            // 隐藏在线编辑器
-            const container = document.getElementById('onlineEditorContainer');
-            if (container) container.style.display = 'none';
+            // 保存到全局变量
+            savedOnlineRows = dataRows;
 
-            // 校验公共字段
-            const commonFieldsValid = validateCommonFields();
-            if (!commonFieldsValid) {
-                return;
-            }
+            // 关闭在线编辑器模态框
+            closeOnlineEditor();
 
-            // 提交数据
-            submitOnlineBatchImport(dataRows);
+            // 更新外层保存状态提示
+            updateSavedOnlineRowsStatus();
+
+            layui.layer.msg('已保存 ' + dataRows.length + ' 行数据', {icon: 1});
         };
+
+        /**
+         * 预览已保存的在线编辑数据
+         */
+        window.previewOnlineData = function () {
+            const previewContainer = document.getElementById('onlineDataPreviewTable');
+            if (!previewContainer) return;
+
+            if (!savedOnlineRows || savedOnlineRows.length === 0) {
+                previewContainer.innerHTML = '<p class="text-muted">暂无保存的数据</p>';
+            } else {
+                let html = '<table class="table table-sm table-bordered table-striped"><thead><tr>';
+                luckyColumns.forEach(col => {
+                    html += '<th>' + escapeHtml(col.label) + '</th>';
+                });
+                html += '</tr></thead><tbody>';
+                savedOnlineRows.forEach(row => {
+                    html += '<tr>';
+                    luckyColumns.forEach(col => {
+                        html += '<td>' + escapeHtml(row[col.key] || '') + '</td>';
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                previewContainer.innerHTML = html;
+            }
+
+            const modalEl = document.getElementById('onlineDataPreviewModal');
+            if (!modalEl) return;
+            let modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (!modalInstance) {
+                modalInstance = new bootstrap.Modal(modalEl, { focus: false });
+            }
+            modalInstance.show();
+        };
+
+        /**
+         * 更新外层已保存在线数据的显示状态
+         */
+        function updateSavedOnlineRowsStatus() {
+            const statusEl = document.getElementById('savedOnlineRowsStatus');
+            if (!statusEl) return;
+            if (savedOnlineRows && savedOnlineRows.length > 0) {
+                statusEl.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle"></i> 已保存 ' + savedOnlineRows.length + ' 行</span>';
+            } else {
+                statusEl.innerHTML = '';
+            }
+        }
+
+        /**
+         * HTML 转义，防止预览表格 XSS
+         */
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
 
         /**
          * 提交在线批量导入数据
@@ -1781,6 +2248,15 @@
                     layui.layer.close(loadingIndex);
 
                     if (response.data.success) {
+                        const failCount = response.data.failCount || 0;
+                        const rowErrors = response.data.rowErrors || [];
+                        // 在线编辑模式存在校验失败行时，回显错误列而不是生成错误文件
+                        if (failCount > 0 && rowErrors.length > 0) {
+                            layui.layer.msg(`校验失败 ${failCount} 行，已回显到在线编辑表格的错误列`, {icon: 2});
+                            pendingValidationErrors = rowErrors;
+                            openOnlineEditor();
+                            return;
+                        }
                         showSubmitResult(true, response.data.message || '批量导入完成', {
                             sqlFilePath: response.data.sqlFilePath,
                             excelFilePath: response.data.excelFilePath,
@@ -2207,6 +2683,16 @@
                 return null;
             }
 
+            // 优先使用在线编辑保存的数据生成 SQL
+            if (savedOnlineRows && savedOnlineRows.length > 0) {
+                const commonFieldsValid = validateCommonFields();
+                if (!commonFieldsValid) {
+                    return;
+                }
+                submitOnlineBatchImport(savedOnlineRows);
+                return;
+            }
+
             // 如果有批量导入文件，跳过表单校验，直接走批量导入逻辑
             if (batchImportFile) {
                 // 即使是批量导入，也要校验公共字段
@@ -2424,6 +2910,13 @@
 
                 // 清除除公共字段外的所有错误样式
                 clearAllFieldErrors();
+
+                // 如果已有在线编辑保存的数据，清空它，改用文件导入
+                if (savedOnlineRows && savedOnlineRows.length > 0) {
+                    savedOnlineRows = [];
+                    updateSavedOnlineRowsStatus();
+                    layui.layer.msg('已清空在线编辑数据，改用文件导入', {icon: 0});
+                }
 
                 batchImportFile = file;
                 document.getElementById('batchImportFileName').textContent = '已选择：' + file.name + ' (' + formatFileSize(file.size) + ')';
@@ -2857,15 +3350,21 @@
             function generateQueryHtml(items) {
                 if (items.length === 0) return '';
 
-                let queryHtml = '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
-                items.forEach((item, index) => {
-                    // 为查询字段生成唯一的 ID，格式：query_bindingKey_tableName
-                    const tableName = item.connectedTable && item.connectedTable.length > 0 
-                        ? item.connectedTable[0] 
-                        : '';
-                    const queryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
-                    
-                    queryHtml += `                        <span class="input-group-text">${item.label}</span>
+                const itemsPerRow = 4;
+                let queryHtml = '';
+
+                for (let i = 0; i < items.length; i += itemsPerRow) {
+                    const rowItems = items.slice(i, i + itemsPerRow);
+                    queryHtml += '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
+
+                    rowItems.forEach((item, idx) => {
+                        // 为查询字段生成唯一的 ID，格式：query_bindingKey_tableName
+                        const tableName = item.connectedTable && item.connectedTable.length > 0
+                            ? item.connectedTable[0]
+                            : '';
+                        const queryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
+
+                        queryHtml += `                        <span class="input-group-text">${item.label}</span>
                         <input type="${item.type}"
                                id="${queryId}"
                                class="form-control"
@@ -2873,12 +3372,14 @@
                                data-binding-key="${item.bindingKey}"
                                data-field-type="query"
                                placeholder="请输入${item.label}">
-                    `;
-                    if (index < items.length - 1) {
-                        queryHtml += '<div style="width: 15px"></div>';
-                    }
-                });
-                queryHtml += '</div></div>';
+                        `;
+                        if (idx < rowItems.length - 1) {
+                            queryHtml += '<div style="width: 15px"></div>';
+                        }
+                    });
+
+                    queryHtml += '</div></div>';
+                }
 
                 return queryHtml;
             }
@@ -2975,41 +3476,37 @@
             function generateInputHtml(items) {
                 if (items.length === 0) return '';
 
-                let newHtml = '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
-                items.forEach((item, index) => {
-                    const newId = `new${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
-                    newHtml += `
-                        <span class="input-group-text">新${item.label}</span>
-                        <input type="${item.type === 'date' ? 'text' : item.type}"
-                               id="${newId}"
-                               class="form-control"
-                               value="${item.newDefaultValue || ''}"
-                               data-binding-key="${item.bindingKey}"
-                               data-field-type="${item.type}">
-                    `;
-                    if (index < items.length - 1) {
-                        newHtml += '<div style="width: 15px"></div>';
-                    }
-                });
-                newHtml += '</div></div>';
+                const itemsPerRow = 4;
 
-                let originHtml = '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
-                items.forEach((item, index) => {
-                    const originId = `origin${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
-                    originHtml += `
-                        <span class="input-group-text">原${item.label}</span>
-                        <input type="${item.type === 'date' ? 'text' : item.type}"
-                               id="${originId}"
-                               class="form-control"
-                               value="${item.originDefaultValue || ''}"
-                               data-binding-key="${item.bindingKey}"
-                               data-field-type="${item.type}">
-                    `;
-                    if (index < items.length - 1) {
-                        originHtml += '<div style="width: 15px"></div>';
+                function renderInputRows(items, prefix, defaultValueKey) {
+                    let html = '';
+                    for (let i = 0; i < items.length; i += itemsPerRow) {
+                        const rowItems = items.slice(i, i + itemsPerRow);
+                        html += '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
+
+                        rowItems.forEach((item, idx) => {
+                            const id = `${prefix}${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
+                            html += `
+                                <span class="input-group-text">${prefix === 'new' ? '新' : '原'}${item.label}</span>
+                                <input type="${item.type === 'date' ? 'text' : item.type}"
+                                       id="${id}"
+                                       class="form-control"
+                                       value="${item[defaultValueKey] || ''}"
+                                       data-binding-key="${item.bindingKey}"
+                                       data-field-type="${item.type}">
+                            `;
+                            if (idx < rowItems.length - 1) {
+                                html += '<div style="width: 15px"></div>';
+                            }
+                        });
+
+                        html += '</div></div>';
                     }
-                });
-                originHtml += '</div></div>';
+                    return html;
+                }
+
+                const newHtml = renderInputRows(items, 'new', 'newDefaultValue');
+                const originHtml = renderInputRows(items, 'origin', 'originDefaultValue');
 
                 return newHtml + originHtml;
             }
@@ -3018,54 +3515,68 @@
                 const mainNewId = `newMain${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
                 const mainOriginId = `originMain${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
 
-                // 收集所有字段（主字段 + 子字段）
-                const allFields = [];
-                
+                // 补充框本身即为查询主字段，使用补充框标签作为主输入框显示标签
+                const mainLabel = item.label;
+
+                // 收集新值字段（主字段 + 可见子字段 + 隐藏普通字段）
+                const newVisibleFields = [];
+                const newHiddenFields = [];
+
                 // 添加主字段（保持绿色背景样式）
-                allFields.push({
+                newVisibleFields.push({
                     id: mainNewId,
-                    label: `新${item.label}`,
+                    label: `新${mainLabel}`,
                     labelStyle: 'background: greenyellow',
                     bindingKey: item.bindingKey,
                     fieldType: 'supplement-main',
-                    placeholder: `请输入${item.label}主值`,
+                    placeholder: `请输入${mainLabel}主值`,
                     oninput: `handleSupplementInput('${item.bindingKey}', this, 'newValue')`
                 });
-                
-                // 添加子字段（普通样式）
+
+                // 添加子字段
                 item.subFields.forEach((subField, index) => {
+                    const subType = subField.type || 'normal';
                     const subNewId = `newSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
-                    allFields.push({
+                    const fieldDef = {
                         id: subNewId,
                         label: `新${subField.label}`,
-                        labelStyle: '',
                         bindingKey: subField.bindingKey,
                         fieldType: 'supplement-sub',
                         placeholder: `请输入${subField.label}`,
                         subIndex: index,
-                        parentBindingKey: item.bindingKey
-                    });
+                        parentBindingKey: item.bindingKey,
+                        subType: subType
+                    };
+
+                    if (subType === 'normal') {
+                        // 普通字段不显示，作为隐藏输入框
+                        newHiddenFields.push(fieldDef);
+                    } else {
+                        // 辅助字段默认可见
+                        newVisibleFields.push(fieldDef);
+                    }
                 });
 
-                // 每行最多3个字段，生成多行HTML
+                // 每行最多3个可见字段，生成多行HTML
                 let newHtml = '';
                 const itemsPerRow = 3;
-                for (let i = 0; i < allFields.length; i += itemsPerRow) {
-                    const rowFields = allFields.slice(i, i + itemsPerRow);
+                for (let i = 0; i < newVisibleFields.length; i += itemsPerRow) {
+                    const rowFields = newVisibleFields.slice(i, i + itemsPerRow);
                     newHtml += '<div class="row g-3 align-items-center mb-2"><div class="input-group">';
-                    
+
                     rowFields.forEach((field, idx) => {
                         if (idx > 0) {
                             newHtml += '<div style="width: 15px"></div>';
                         }
                         newHtml += `
-                            <span class="input-group-text" style="${field.labelStyle}">${field.label}</span>
+                            <span class="input-group-text" style="${field.labelStyle || ''}">${field.label}</span>
                             <input type="text"
                                    id="${field.id}"
                                    class="form-control"
                                    value=""
                                    data-binding-key="${field.bindingKey}"
                                    data-field-type="${field.fieldType}"
+                                   ${field.subType ? `data-sub-type="${field.subType}"` : ''}
                                    placeholder="${field.placeholder}"
                                    ${field.oninput ? `oninput="${field.oninput}"` : ''}
                                    ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
@@ -3073,57 +3584,84 @@
                                   >
                         `;
                     });
-                    
+
                     newHtml += '</div></div>';
                 }
 
+                // 隐藏的普通字段
+                if (newHiddenFields.length > 0) {
+                    newHtml += '<div style="display:none;">';
+                    newHiddenFields.forEach(field => {
+                        newHtml += `
+                            <input type="hidden"
+                                   id="${field.id}"
+                                   data-binding-key="${field.bindingKey}"
+                                   data-field-type="${field.fieldType}"
+                                   ${field.subType ? `data-sub-type="${field.subType}"` : ''}
+                                   ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
+                                   ${field.parentBindingKey ? `data-parent-binding-key="${field.parentBindingKey}"` : ''}
+                                  >
+                        `;
+                    });
+                    newHtml += '</div>';
+                }
+
                 // 处理原值字段
-                const originAllFields = [];
-                
+                const originVisibleFields = [];
+                const originHiddenFields = [];
+
                 // 添加原值主字段（保持绿色背景样式）
-                originAllFields.push({
+                originVisibleFields.push({
                     id: mainOriginId,
-                    label: `原${item.label}`,
+                    label: `原${mainLabel}`,
                     labelStyle: 'background: greenyellow;',
                     bindingKey: item.bindingKey,
                     fieldType: 'supplement-main',
-                    placeholder: `原${item.label}主值`,
+                    placeholder: `原${mainLabel}主值`,
                     oninput: `handleSupplementInput('${item.bindingKey}', this, 'originValue')`
                 });
-                
-                // 添加原值子字段（普通样式）
+
+                // 添加原值子字段
                 item.subFields.forEach((subField, index) => {
+                    const subType = subField.type || 'normal';
                     const subOriginId = `originSub${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}_${index}`;
-                    originAllFields.push({
+                    const fieldDef = {
                         id: subOriginId,
                         label: `原${subField.label}`,
-                        labelStyle: '',
                         bindingKey: subField.bindingKey,
                         fieldType: 'supplement-sub',
                         placeholder: `原${subField.label}`,
                         subIndex: index,
-                        parentBindingKey: item.bindingKey
-                    });
+                        parentBindingKey: item.bindingKey,
+                        subType: subType
+                    };
+
+                    if (subType === 'normal') {
+                        originHiddenFields.push(fieldDef);
+                    } else {
+                        originVisibleFields.push(fieldDef);
+                    }
                 });
 
-                // 每行最多3个字段，生成多行HTML
+                // 每行最多3个可见字段，生成多行HTML
                 let originHtml = '';
-                for (let i = 0; i < originAllFields.length; i += itemsPerRow) {
-                    const rowFields = originAllFields.slice(i, i + itemsPerRow);
+                for (let i = 0; i < originVisibleFields.length; i += itemsPerRow) {
+                    const rowFields = originVisibleFields.slice(i, i + itemsPerRow);
                     originHtml += '<div class="row g-3 align-items-center mb-2"><div class="input-group">';
-                    
+
                     rowFields.forEach((field, idx) => {
                         if (idx > 0) {
                             originHtml += '<div style="width: 15px"></div>';
                         }
                         originHtml += `
-                            <span class="input-group-text" style="${field.labelStyle}">${field.label}</span>
+                            <span class="input-group-text" style="${field.labelStyle || ''}">${field.label}</span>
                             <input type="text"
                                    id="${field.id}"
                                    class="form-control"
                                    value=""
                                    data-binding-key="${field.bindingKey}"
                                    data-field-type="${field.fieldType}"
+                                   ${field.subType ? `data-sub-type="${field.subType}"` : ''}
                                    placeholder="${field.placeholder}"
                                    ${field.oninput ? `oninput="${field.oninput}"` : ''}
                                    ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
@@ -3131,8 +3669,26 @@
                                   >
                         `;
                     });
-                    
+
                     originHtml += '</div></div>';
+                }
+
+                // 隐藏的普通字段（原值）
+                if (originHiddenFields.length > 0) {
+                    originHtml += '<div style="display:none;">';
+                    originHiddenFields.forEach(field => {
+                        originHtml += `
+                            <input type="hidden"
+                                   id="${field.id}"
+                                   data-binding-key="${field.bindingKey}"
+                                   data-field-type="${field.fieldType}"
+                                   ${field.subType ? `data-sub-type="${field.subType}"` : ''}
+                                   ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
+                                   ${field.parentBindingKey ? `data-parent-binding-key="${field.parentBindingKey}"` : ''}
+                                  >
+                        `;
+                    });
+                    originHtml += '</div>';
                 }
 
                 return newHtml + originHtml;

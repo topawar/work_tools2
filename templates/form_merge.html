@@ -100,26 +100,81 @@
                     </div>
                 </div>
 
-                <div class="row g-3 align-items-center mb-4">
-                    <div class="col-auto">
-                        <a href="javascript:void(0)" onclick="downloadTemplate()" class="btn btn-outline-primary"
-                           id="downloadTemplateBtn">
-                            <i class="bi bi-download"></i> 下载导入模板
-                        </a>
-                    </div>
-                    <div class="col-auto">
-                        <input type="file" id="batchImportFile" accept=".xlsx" style="display: none;"
-                               onchange="handleBatchImportFileSelect(this)">
-                        <button type="button" onclick="document.getElementById('batchImportFile').click()"
-                                class="btn btn-outline-success"
-                                id="batchImportBtn">
-                            <i class="bi bi-upload"></i> 选择文件
-                        </button>
-                    </div>
-                    <div class="col-auto">
-                        <span id="batchImportFileName" style="color: #666; margin-left: 10px;"></span>
+                <div class="d-flex align-items-center flex-wrap gap-2 mb-4" id="formActionButtons">
+                    <a href="javascript:void(0)" onclick="downloadTemplate()" class="btn btn-outline-primary"
+                       id="downloadTemplateBtn">
+                        <i class="bi bi-download"></i> 下载导入模板
+                    </a>
+                    <input type="file" id="batchImportFile" accept=".xlsx" style="display: none;"
+                           onchange="handleBatchImportFileSelect(this)">
+                    <button type="button" onclick="document.getElementById('batchImportFile').click()"
+                            class="btn btn-outline-secondary"
+                            id="batchImportBtn">
+                        <i class="bi bi-upload"></i> 从文件导入
+                    </button>
+                    <button type="button" onclick="openOnlineEditor()" class="btn btn-outline-success"
+                            id="onlineEditorBtn">
+                        <i class="bi bi-table"></i> 在线编辑导入
+                    </button>
+                    <button type="button" onclick="previewSavedOnlineData()" class="btn btn-outline-primary"
+                            id="previewOnlineBtn">
+                        <i class="bi bi-eye"></i> 预览已保存数据
+                    </button>
+                    <span id="batchImportFileName" style="color: #666;"></span>
+                    <span id="savedOnlineRowsStatus"></span>
+                </div>
+
+                <!-- 在线编辑器容器（Bootstrap 全屏模态框） -->
+                <div class="modal fade" id="luckysheetModal" tabindex="-1" aria-labelledby="luckysheetModalLabel" aria-hidden="true" data-bs-focus="false">
+                    <div class="modal-dialog modal-fullscreen">
+                        <div class="modal-content">
+                            <div class="modal-header py-2">
+                                <h5 class="modal-title fs-6" id="luckysheetModalLabel">
+                                    <i class="bi bi-table me-1"></i>在线编辑导入数据
+                                </h5>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="importFromFileToOnlineEditor()">
+                                        <i class="bi bi-file-earmark-excel"></i> 从Excel导入
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearSpreadsheetData()">
+                                        <i class="bi bi-trash"></i> 清空数据
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="previewCurrentOnlineData()">
+                                        <i class="bi bi-eye"></i> 预览
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="closeOnlineEditor()">取消</button>
+                                    <button type="button" class="btn btn-sm btn-success" onclick="saveOnlineEditorData()">保存</button>
+                                </div>
+                            </div>
+                            <div class="modal-body p-0" style="overflow: hidden; background: #f5f5f5;">
+                                <div id="luckysheet" style="width: 100%; height: 100%;"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+                <!-- 在线编辑数据预览弹窗 -->
+                <div class="modal fade" id="onlineDataPreviewModal" tabindex="-1" aria-labelledby="onlineDataPreviewModalLabel" aria-hidden="true" data-bs-focus="false">
+                    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title fs-6" id="onlineDataPreviewModalLabel">
+                                    <i class="bi bi-eye me-1"></i>已保存的在线编辑数据
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div id="onlineDataPreviewTable" style="max-height: 60vh; overflow: auto;">
+                                    <p class="text-muted">暂无保存的数据</p>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <input type="file" id="xsImportFile" accept=".xlsx" style="display: none;" onchange="handleXsFileImport(this)">
 
                 <!-- 提交结果显示区域 -->
                 <div id="submitResultArea" style="display: none; margin-bottom: 20px;">
@@ -139,11 +194,70 @@
     <!-- 引入 Layui 样式 -->
     <link rel="stylesheet" href="/static/layui/css/layui.css">
 
+    <!-- Luckysheet 样式 -->
+    <link rel="stylesheet" href="/static/js/luckysheet/assets/iconfont/iconfont.css">
+    <link rel="stylesheet" href="/static/js/luckysheet/pluginsCss.css">
+    <link rel="stylesheet" href="/static/js/luckysheet/plugins.css">
+    <link rel="stylesheet" href="/static/js/luckysheet/luckysheet.css">
+
     <!-- 引入 JS 库 -->
     <script src="/static/js/axios.min.js"></script>
+    <script src="/static/js/jquery-3.7.1.min.js"></script>
+    <script src="/static/js/jquery.mousewheel.min.js"></script>
     <script src="/static/layui/layui.js"></script>
-    
+    <script src="/static/js/sheetjs/xlsx.full.min.js"></script>
+    <script src="/static/js/luckysheet/luckysheet.umd.js"></script>
+
     <style>
+        /* 修复 Layui 与 Bootstrap 按钮样式冲突 */
+        #formActionButtons .btn,
+        .input-group .btn,
+        .layui-btn {
+            padding: 0.375rem 0.75rem !important;
+            font-size: 1rem !important;
+            line-height: 1.5 !important;
+            border-radius: 0.25rem !important;
+            background-image: none !important;
+        }
+        #formActionButtons .btn-outline-primary,
+        .input-group .btn-outline-secondary {
+            background-color: transparent !important;
+        }
+        #formActionButtons .btn-outline-primary {
+            color: #0d6efd !important;
+            border-color: #0d6efd !important;
+        }
+        #formActionButtons .btn-outline-primary:hover {
+            color: #fff !important;
+            background-color: #0d6efd !important;
+        }
+        #formActionButtons .btn-outline-secondary,
+        .input-group .btn-outline-secondary {
+            color: #6c757d !important;
+            border-color: #6c757d !important;
+        }
+        #formActionButtons .btn-outline-secondary:hover,
+        .input-group .btn-outline-secondary:hover {
+            color: #fff !important;
+            background-color: #6c757d !important;
+        }
+        #formActionButtons .btn-outline-success {
+            color: #198754 !important;
+            border-color: #198754 !important;
+        }
+        #formActionButtons .btn-outline-success:hover {
+            color: #fff !important;
+            background-color: #198754 !important;
+        }
+        #formActionButtons .btn-outline-info {
+            color: #0dcaf0 !important;
+            border-color: #0dcaf0 !important;
+        }
+        #formActionButtons .btn-outline-info:hover {
+            color: #000 !important;
+            background-color: #0dcaf0 !important;
+        }
+
         /* 表单选择卡片样式 */
         .form-check-card {
             padding: 8px 10px;
@@ -236,8 +350,109 @@
         .selected-tag .remove-tag:hover {
             opacity: 1;
         }
+
+        /* 在线编辑器模态框样式 */
+        #luckysheetModal.modal {
+            z-index: 1055;
+        }
+
+        #luckysheetModal .modal-dialog {
+            max-width: 100%;
+            margin: 0;
+            height: 100vh;
+        }
+
+        #luckysheetModal .modal-content {
+            height: 100vh;
+            border-radius: 0;
+            border: none;
+        }
+
+        #luckysheetModal .modal-header {
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        #luckysheetModal .modal-body {
+            padding: 0;
+        }
+
+        /* 确保 Luckysheet 下拉菜单等弹层不被模态框遮挡 */
+        .luckysheet-cols-menu, .luckysheet-menu, .luckysheet-rightgird-menu,
+        .luckysheet-filter-menu, .luckysheet-sheet-area {
+            z-index: 1060 !important;
+        }
+
+        /* 调整 Sheet 标签文字垂直位置，使其居中 */
+        .luckysheet-sheet-area div.luckysheet-sheets-item {
+            padding: 0 19px 0 5px !important;
+            line-height: 29px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+        }
+        .luckysheet-sheet-area div.luckysheet-sheets-item-active {
+            line-height: 29px !important;
+        }
+        .luckysheet-sheet-area div.luckysheet-sheets-item .luckysheet-sheets-item-menu {
+            top: 0 !important;
+            height: 100% !important;
+            display: inline-flex !important;
+            align-items: center !important;
+        }
+
+        /* 预览表格样式 */
+        .preview-table {
+            font-size: 0.85rem;
+        }
+
+        .preview-table th {
+            background-color: #4472C4;
+            color: white;
+            position: sticky;
+            top: 0;
+            white-space: nowrap;
+        }
+
+        .preview-table td {
+            white-space: nowrap;
+        }
+
+        /* 状态提示保持紧凑 */
+        #batchImportFileName,
+        #savedOnlineRowsStatus {
+            margin-left: 6px !important;
+        }
+
+        /* 在线编辑器模态框层级 */
+        #luckysheetModal.modal {
+            z-index: 1055;
+        }
+
+        /* Luckysheet 内部弹层提升到模态框之上 */
+        .luckysheet-cols-menu,
+        .luckysheet-menu,
+        .luckysheet-rightgclick-menu,
+        .luckysheet-toolbar-button-hover,
+        .luckysheet-toolbar-submenu,
+        .luckysheet-color-picker,
+        .luckysheet-functionbox,
+        .luckysheet-formula-function-criteria,
+        .luckysheet-sheet-area {
+            z-index: 1060 !important;
+        }
+        #luckysheet-modal-dialog-mask,
+        .luckysheet-modal-dialog-mask,
+        .luckysheet-modal-dialog-slider {
+            z-index: 1060 !important;
+        }
+
+        /* Luckysheet 单元格输入框置顶，避免模态框焦点陷阱导致输入延迟 */
+        #luckysheet-input-box,
+        .luckysheet-input-box {
+            z-index: 9999 !important;
+        }
     </style>
-    
+
     <!-- 引入 pinyin 库 -->
     <script src="/static/js/index.js"></script>
     <script>
@@ -387,6 +602,14 @@
         let formPinyinMap = {};
         // 当前筛选的模块
         let currentModuleFilter = '';
+
+        // 在线编辑器状态
+        let luckySheetReady = false;
+        let luckySheetInstance = null;
+        let onlineEditorConfigs = {};  // { sheetName: { queryItems, updateItems, columns } }
+        let savedOnlineRowsPerSheet = {};  // { sheetName: [rowData, ...] }
+        let currentOnlineRowsPerSheet = {};  // 当前编辑器中的数据
+        let pendingValidationErrors = null;  // 待回显的行级校验错误
 
         /**
          * 加载表单列表
@@ -820,6 +1043,14 @@
                 return;
             }
 
+            // 如果已有在线编辑保存的数据，清空它，改用文件导入
+            if (Object.values(savedOnlineRowsPerSheet).reduce((sum, rows) => sum + rows.length, 0) > 0) {
+                savedOnlineRowsPerSheet = {};
+                currentOnlineRowsPerSheet = {};
+                updateOnlineEditorStatus();
+                layui.layer.msg('已清空在线编辑数据，改用文件导入', {icon: 0});
+            }
+
             // 显示文件名
             document.getElementById('batchImportFileName').textContent = '已选择: ' + file.name;
             layui.layer.msg('文件已选择，请点击"提交"按钮开始处理', {icon: 1});
@@ -846,51 +1077,929 @@
                 return;
             }
 
-            // 验证是否选择了文件
-            const fileInput = document.getElementById('batchImportFile');
-            const file = fileInput.files[0];
-            if (!file) {
-                layui.layer.msg('请先选择要导入的Excel文件', {icon: 2});
+            // 优先使用在线编辑保存的数据
+            const totalSavedRows = Object.values(savedOnlineRowsPerSheet).reduce((sum, rows) => sum + rows.length, 0);
+            if (totalSavedRows > 0) {
+                executeBatchImportJson(savedOnlineRowsPerSheet);
                 return;
             }
 
-            // 直接执行批量导入，不再需要二次确认
+            // 其次使用文件导入
+            const fileInput = document.getElementById('batchImportFile');
+            const file = fileInput.files[0];
+            if (!file) {
+                layui.layer.msg('请先选择要导入的Excel文件，或使用在线编辑导入数据', {icon: 2});
+                return;
+            }
+
             executeBatchImport(file);
         };
 
+        // ==================== 在线编辑器相关 ====================
+        // 全局状态变量在文件顶部已声明，此处不再重复 let/const
+
         /**
-         * 执行批量导入
+         * 将表单名称处理为合法的 Sheet 名称
+         */
+        function sanitizeSheetName(name) {
+            if (!name) return 'Sheet1';
+            let sanitized = String(name)
+                .replace(/[\[\]:\\?*\/]/g, '_')
+                .replace(/^'+|'+$/g, '')
+                .trim();
+            if (!sanitized) return 'Sheet1';
+            if (sanitized.length > 31) {
+                sanitized = sanitized.substring(0, 31);
+            }
+            return sanitized;
+        }
+
+        /**
+         * 根据表头文本计算合适的列宽
+         */
+        function calculateOptimalColumnWidth(label) {
+            if (!label) return 120;
+            let textWidth = 0;
+            for (const ch of String(label)) {
+                if (/[\u4e00-\u9fa5\u3000-\u303f\uff00-\uffef]/.test(ch)) {
+                    textWidth += 14;
+                } else {
+                    textWidth += 8;
+                }
+            }
+            return Math.min(Math.max(textWidth + 24, 80), 300);
+        }
+
+        /**
+         * 根据列定义获取默认值
+         */
+        function getColumnDefaultValue(col, config) {
+            const queryItems = config.queryItems || [];
+            const updateItems = config.updateItems || [];
+
+            if (col.category === 'query') {
+                const item = queryItems.find(i => i.label === col.key);
+                return item && item.defaultValue ? String(item.defaultValue) : '';
+            }
+
+            const isNew = col.key && col.key.startsWith('新');
+            const baseLabel = isNew ? col.key.substring(1) : col.key.substring(1);
+            const parentItem = updateItems.find(i => i.label === baseLabel);
+            if (!parentItem) return '';
+
+            if (col.category === 'sub') {
+                const sub = (parentItem.subFields || []).find(s =>
+                    (isNew ? '新' + (s.label || '') : '原' + (s.label || '')) === col.key
+                );
+                if (!sub) return '';
+                return String(isNew ? (sub.newDefaultValue || sub.defaultValue || '')
+                                    : (sub.originDefaultValue || sub.defaultValue || ''));
+            }
+
+            return String(isNew ? (parentItem.newDefaultValue || '')
+                                : (parentItem.originDefaultValue || ''));
+        }
+
+        /**
+         * 根据表单配置生成在线表格列定义
+         */
+        function buildSpreadsheetColumns(config) {
+            const columns = [];
+            let colIndex = 0;
+
+            const queryItems = config.queryItems || [];
+            queryItems.forEach(item => {
+                const defaultValue = item.defaultValue ? String(item.defaultValue) : '';
+                columns.push({
+                    index: colIndex++,
+                    key: item.label,
+                    label: item.label,
+                    type: item.type || 'text',
+                    category: 'query',
+                    bindingKey: item.bindingKey,
+                    width: calculateOptimalColumnWidth(item.label),
+                    hasDefault: !!defaultValue,
+                    defaultValue: defaultValue
+                });
+            });
+
+            const updateItems = config.updateItems || [];
+
+            // 所有更新字段的新值列在前
+            updateItems.forEach(item => {
+                const inputType = item.inputType;
+                if (inputType === 'calculated') return;
+                const newDefault = item.newDefaultValue ? String(item.newDefaultValue) : '';
+                columns.push({
+                    index: colIndex++,
+                    key: '新' + item.label,
+                    label: '新' + item.label,
+                    type: 'text',
+                    category: 'update',
+                    bindingKey: item.bindingKey,
+                    width: calculateOptimalColumnWidth('新' + item.label),
+                    hasDefault: !!newDefault,
+                    defaultValue: newDefault
+                });
+                if (inputType === 'supplement') {
+                    (item.subFields || []).forEach(sub => {
+                        const subType = sub.type || 'normal';
+                        if (subType === 'normal') return;
+                        const subLabel = sub.label || '';
+                        const subDefault = sub.newDefaultValue || sub.defaultValue || '';
+                        columns.push({
+                            index: colIndex++,
+                            key: '新' + subLabel,
+                            label: '新' + subLabel,
+                            type: 'text',
+                            category: 'sub',
+                            bindingKey: sub.bindingKey,
+                            parentKey: item.bindingKey,
+                            width: calculateOptimalColumnWidth('新' + subLabel),
+                            hasDefault: !!subDefault,
+                            defaultValue: String(subDefault)
+                        });
+                    });
+                }
+            });
+
+            // 所有更新字段的原值列在后
+            updateItems.forEach(item => {
+                const inputType = item.inputType;
+                if (inputType === 'calculated') return;
+                const originDefault = item.originDefaultValue ? String(item.originDefaultValue) : '';
+                columns.push({
+                    index: colIndex++,
+                    key: '原' + item.label,
+                    label: '原' + item.label,
+                    type: 'text',
+                    category: 'update',
+                    bindingKey: item.bindingKey,
+                    width: calculateOptimalColumnWidth('原' + item.label),
+                    hasDefault: !!originDefault,
+                    defaultValue: originDefault
+                });
+                if (inputType === 'supplement') {
+                    (item.subFields || []).forEach(sub => {
+                        const subType = sub.type || 'normal';
+                        if (subType === 'normal') return;
+                        const subLabel = sub.label || '';
+                        const subDefault = sub.originDefaultValue || sub.defaultValue || '';
+                        columns.push({
+                            index: colIndex++,
+                            key: '原' + subLabel,
+                            label: '原' + subLabel,
+                            type: 'text',
+                            category: 'sub',
+                            bindingKey: sub.bindingKey,
+                            parentKey: item.bindingKey,
+                            width: calculateOptimalColumnWidth('原' + subLabel),
+                            hasDefault: !!subDefault,
+                            defaultValue: String(subDefault)
+                        });
+                    });
+                }
+            });
+
+            return columns;
+        }
+
+        /**
+         * 构造 Luckysheet 的 sheet 配置
+         */
+        function buildSheetConfig(formConfig, order) {
+            const columns = buildSpreadsheetColumns(formConfig);
+            // 将列定义缓存到配置对象，后续读取数据时直接使用
+            formConfig.columns = columns;
+
+            const sheetName = sanitizeSheetName(formConfig.formName);
+            const savedRows = savedOnlineRowsPerSheet[sheetName] || [];
+
+            const totalCols = Math.max(columns.length + 10, 20);
+            const totalRows = Math.max(savedRows.length + 20, 500);
+
+            const celldata = [];
+            const columnlen = {};
+
+            columns.forEach((col, idx) => {
+                columnlen[idx] = col.width;
+                // 表头：有默认值标黄，否则淡蓝
+                const headerBg = col.hasDefault ? '#fff3cd' : '#e8f4f8';
+                celldata.push({
+                    r: 0,
+                    c: idx,
+                    v: {
+                        v: col.label,
+                        ct: { fa: 'General', t: 'g' },
+                        m: col.label,
+                        bg: headerBg,
+                        ff: 'Arial',
+                        fs: 12,
+                        bl: 1,
+                        ht: 0,
+                        vt: 0
+                    }
+                });
+            });
+
+            // 第一行作为默认值示例
+            columns.forEach((col, idx) => {
+                const defaultValue = col.defaultValue || '';
+                if (defaultValue) {
+                    celldata.push({
+                        r: 1,
+                        c: idx,
+                        v: {
+                            v: defaultValue,
+                            ct: { fa: 'General', t: 'g' },
+                            m: String(defaultValue),
+                            bg: '#fff3cd',
+                            ff: 'Arial',
+                            fs: 11,
+                            ht: 0,
+                            vt: 0
+                        }
+                    });
+                }
+            });
+
+            // 回显已保存的数据
+            savedRows.forEach((row, rIdx) => {
+                const rowNum = rIdx + 2; // 第0行表头，第1行默认值示例
+                columns.forEach((col, idx) => {
+                    const val = row[col.label];
+                    if (val !== undefined && val !== null && String(val).trim() !== '') {
+                        celldata.push({
+                            r: rowNum,
+                            c: idx,
+                            v: {
+                                v: String(val),
+                                ct: { fa: 'General', t: 'g' },
+                                m: String(val),
+                                ff: 'Arial',
+                                fs: 11,
+                                ht: 0,
+                                vt: 0
+                            }
+                        });
+                    }
+                });
+            });
+
+            return {
+                name: sheetName,
+                color: '',
+                status: order === 0 ? 1 : 0,
+                order: order,
+                index: order,
+                row: totalRows,
+                column: totalCols,
+                celldata: celldata,
+                config: {
+                    columnlen: columnlen,
+                    rowlen: { 0: 28 },
+                    merge: {}
+                }
+            };
+        }
+
+        /**
+         * 批量设置 Luckysheet 单元格值
+         */
+        function batchSetRangeValues(rangeValues) {
+            if (!rangeValues || rangeValues.length === 0) return;
+            if (typeof luckysheet.setRangeValue === 'function') {
+                try {
+                    let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
+                    rangeValues.forEach(item => {
+                        minR = Math.min(minR, item.r);
+                        maxR = Math.max(maxR, item.r);
+                        minC = Math.min(minC, item.c);
+                        maxC = Math.max(maxC, item.c);
+                    });
+                    const rowCount = maxR - minR + 1;
+                    const colCount = maxC - minC + 1;
+                    const data = [];
+                    for (let r = 0; r < rowCount; r++) {
+                        const row = [];
+                        for (let c = 0; c < colCount; c++) {
+                            row.push('');
+                        }
+                        data.push(row);
+                    }
+                    rangeValues.forEach(item => {
+                        data[item.r - minR][item.c - minC] = item.v;
+                    });
+                    luckysheet.setRangeValue(data, {
+                        range: { row: [minR, maxR], column: [minC, maxC] },
+                        isRefresh: true
+                    });
+                    return;
+                } catch (e) {
+                    console.warn('[WARN] setRangeValue 批量写入失败，回退到 setCellValue:', e);
+                }
+            }
+            rangeValues.forEach(item => {
+                luckysheet.setCellValue(item.r, item.c, item.v);
+            });
+        }
+
+        /**
+         * 打开在线编辑器
+         */
+        window.openOnlineEditor = function () {
+            if (selectedFormIds.length === 0) {
+                layui.layer.msg('请至少选择一个表单', {icon: 2});
+                return;
+            }
+
+            const fileInput = document.getElementById('batchImportFile');
+            if (fileInput.files && fileInput.files[0]) {
+                layui.layer.confirm('已选择文件导入，打开在线编辑器将清空文件选择并改用在线编辑数据，是否继续？', {
+                    btn: ['继续', '取消']
+                }, function (index) {
+                    layui.layer.close(index);
+                    clearFileImportSelection();
+                    doOpenOnlineEditor();
+                });
+            } else {
+                doOpenOnlineEditor();
+            }
+        };
+
+        function clearFileImportSelection() {
+            const fileInput = document.getElementById('batchImportFile');
+            fileInput.value = '';
+            document.getElementById('batchImportFileName').textContent = '';
+        }
+
+        function doOpenOnlineEditor() {
+            const loadingIndex = layui.layer.load(2);
+
+            const fetchPromises = selectedFormIds.map(formId =>
+                fetch(`/api/form-config/${formId}/`)
+                    .then(response => response.json())
+                    .then(data => data.success ? data.data : null)
+                    .catch(error => {
+                        console.error('获取表单配置失败:', error);
+                        return null;
+                    })
+            );
+
+            Promise.all(fetchPromises).then(configs => {
+                layui.layer.close(loadingIndex);
+
+                const validConfigs = configs.filter(c => c !== null);
+                if (validConfigs.length === 0) {
+                    layui.layer.msg('获取表单配置失败', {icon: 2});
+                    return;
+                }
+
+                onlineEditorConfigs = {};
+                const sheetConfigs = [];
+                validConfigs.forEach((config, idx) => {
+                    onlineEditorConfigs[sanitizeSheetName(config.formName)] = config;
+                    sheetConfigs.push(buildSheetConfig(config, idx));
+                });
+
+                const modalEl = document.getElementById('luckysheetModal');
+                let modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (!modalInstance) {
+                    modalInstance = new bootstrap.Modal(modalEl, {
+                        backdrop: 'static',
+                        keyboard: false,
+                        focus: false
+                    });
+
+                    modalEl.addEventListener('shown.bs.modal', function () {
+                        if (modalInstance._focustrap && typeof modalInstance._focustrap.deactivate === 'function') {
+                            modalInstance._focustrap.deactivate();
+                        }
+                        modalInstance._focustrap = {
+                            activate: function () {},
+                            deactivate: function () {}
+                        };
+                        if (document.activeElement && document.activeElement.blur) {
+                            document.activeElement.blur();
+                        }
+                        initLuckysheet(sheetConfigs);
+                    });
+
+                    modalEl.addEventListener('hidden.bs.modal', function () {
+                        if (luckySheetReady && typeof luckysheet !== 'undefined' && luckysheet.destroy) {
+                            try {
+                                luckysheet.destroy();
+                            } catch (e) {
+                                console.warn('[WARN] 销毁 Luckysheet 失败:', e);
+                            }
+                        }
+                        luckySheetReady = false;
+                    });
+                }
+
+                modalInstance.show();
+            });
+        }
+
+        /**
+         * 初始化 Luckysheet
+         */
+        function initLuckysheet(sheetConfigs) {
+            if (typeof luckysheet === 'undefined' || !luckysheet.create) {
+                layui.layer.msg('在线表格组件未加载，请刷新页面重试', {icon: 2});
+                return;
+            }
+
+            if (luckySheetReady) {
+                try {
+                    luckysheet.destroy();
+                } catch (e) {
+                    console.warn('[WARN] 销毁旧 Luckysheet 失败:', e);
+                }
+                luckySheetReady = false;
+            }
+
+            const container = document.getElementById('luckysheet');
+            if (!container) return;
+            container.innerHTML = '';
+
+            luckysheet.create({
+                container: 'luckysheet',
+                title: '在线编辑导入数据',
+                lang: 'zh',
+                showinfobar: true,
+                showsheetbar: true,
+                showstatisticBar: true,
+                showtoolbar: true,
+                showtoolbarConfig: true,
+                sheetBarConfig: {
+                    add: true,
+                    delete: true,
+                    rename: true,
+                    color: true,
+                    move: true
+                },
+                enableAddRow: true,
+                enableAddBackTop: true,
+                rowHeaderWidth: 46,
+                columnHeaderHeight: 28,
+                defaultColWidth: 120,
+                defaultRowHeight: 25,
+                data: sheetConfigs,
+                hook: {
+                    workbookCreateAfter: function () {
+                        luckySheetReady = true;
+                        console.log('[DEBUG] Luckysheet workbook created');
+                        if (pendingValidationErrors) {
+                            fillValidationErrors(pendingValidationErrors);
+                            pendingValidationErrors = null;
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * 读取 Luckysheet 中的所有有效数据行
+         */
+        function getCellValue(cell) {
+            if (cell === null || cell === undefined) return '';
+            if (typeof cell === 'object') {
+                return cell.v !== undefined ? cell.v : (cell.m !== undefined ? cell.m : '');
+            }
+            return cell;
+        }
+
+        function getSpreadsheetData() {
+            if (!luckySheetReady || typeof luckysheet === 'undefined') return {};
+
+            const result = {};
+            const sheets = luckysheet.getAllSheets ? luckysheet.getAllSheets() : [];
+            if (!sheets || sheets.length === 0) return result;
+
+            sheets.forEach(sheet => {
+                const sheetName = sheet.name;
+                const config = onlineEditorConfigs[sheetName];
+                if (!config) return;
+
+                const columns = config.columns || buildSpreadsheetColumns(config);
+                const rows = [];
+                const sheetData = sheet.data || [];
+
+                sheetData.forEach((row, rIdx) => {
+                    if (!row || rIdx === 0) return; // 跳过表头
+                    const rowData = {};
+                    let hasValue = false;
+                    columns.forEach((col, cIdx) => {
+                        const cellValue = getCellValue(row[cIdx]);
+                        const strValue = cellValue !== null && cellValue !== undefined ? String(cellValue).trim() : '';
+                        if (strValue) {
+                            rowData[col.label] = strValue;
+                            hasValue = true;
+                        }
+                    });
+                    if (hasValue) {
+                        rows.push(rowData);
+                    }
+                });
+
+                result[sheetName] = rows;
+            });
+
+            return result;
+        }
+
+        /**
+         * 关闭在线编辑器
+         */
+        window.closeOnlineEditor = function () {
+            const modalEl = document.getElementById('luckysheetModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) {
+                modal.hide();
+            }
+        };
+
+        /**
+         * 清空错误信息列
+         */
+        function clearErrorColumn() {
+            if (!luckySheetReady || typeof luckysheet === 'undefined') return;
+            const sheets = luckysheet.getAllSheets ? luckysheet.getAllSheets() : [];
+            sheets.forEach(sheet => {
+                const config = onlineEditorConfigs[sheet.name];
+                if (!config) return;
+                const errorColIndex = (config.columns || buildSpreadsheetColumns(config)).length;
+                const sheetData = sheet.data || [];
+                const rangeValues = [];
+                for (let r = 0; r < sheetData.length; r++) {
+                    rangeValues.push({ r: r, c: errorColIndex, v: '' });
+                }
+                batchSetRangeValues(rangeValues);
+            });
+        }
+
+        /**
+         * 将后端返回的行级校验错误填充到对应 Sheet 的错误列
+         */
+        function fillValidationErrors(errorsBySheet) {
+            if (!luckySheetReady || typeof luckysheet === 'undefined') return;
+            if (!errorsBySheet) return;
+
+            Object.entries(errorsBySheet).forEach(([sheetName, rowErrors]) => {
+                if (!rowErrors || rowErrors.length === 0) return;
+                const config = onlineEditorConfigs[sheetName];
+                if (!config) return;
+                const columns = config.columns || buildSpreadsheetColumns(config);
+                const errorColIndex = columns.length;
+
+                // 切换到对应 Sheet
+                try {
+                    const sheets = luckysheet.getAllSheets ? luckysheet.getAllSheets() : [];
+                    const target = sheets.find(s => s.name === sheetName);
+                    if (target && typeof luckysheet.setSheetActive === 'function') {
+                        luckysheet.setSheetActive(target.index);
+                    }
+                } catch (e) {
+                    console.warn('[WARN] 切换 Sheet 失败:', e);
+                }
+
+                // 错误列表头
+                luckysheet.setCellValue(0, errorColIndex, {
+                    v: '错误信息',
+                    ct: { fa: 'General', t: 'g' },
+                    m: '错误信息',
+                    bg: '#ffcccc',
+                    ff: 'Arial',
+                    fs: 12,
+                    bl: 1,
+                    ht: 0,
+                    vt: 0
+                });
+                if (typeof luckysheet.setColumnWidth === 'function') {
+                    luckysheet.setColumnWidth([{ col: errorColIndex, len: 280 }]);
+                }
+
+                rowErrors.forEach(err => {
+                    const backendRowIndex = err.rowIndex;
+                    const frontendRow = backendRowIndex - 1;
+                    const failReason = err.failReason || '';
+                    if (frontendRow > 0) {
+                        luckysheet.setCellValue(frontendRow, errorColIndex, {
+                            v: failReason,
+                            ct: { fa: 'General', t: 'g' },
+                            m: failReason,
+                            bg: '#fff3cd',
+                            fc: '#856404',
+                            ff: 'Arial',
+                            fs: 11,
+                            ht: 0,
+                            vt: 0
+                        });
+                    }
+                });
+            });
+        }
+
+        /**
+         * 保存在线编辑的数据到内存
+         */
+        window.saveOnlineEditorData = function () {
+            if (!luckySheetReady || typeof luckysheet === 'undefined') {
+                layui.layer.msg('表格尚未就绪，请稍后再试', {icon: 2});
+                return;
+            }
+
+            clearErrorColumn();
+
+            const rowsPerSheet = getSpreadsheetData();
+            const validationErrors = validateOnlineData(rowsPerSheet);
+            if (validationErrors.length > 0) {
+                layui.layer.msg('校验失败：' + validationErrors[0], {icon: 2});
+                return;
+            }
+
+            const totalRows = Object.values(rowsPerSheet).reduce((sum, rows) => sum + rows.length, 0);
+            if (totalRows === 0) {
+                layui.layer.msg('没有数据可保存，请先在表格中填写数据', {icon: 2});
+                return;
+            }
+
+            savedOnlineRowsPerSheet = rowsPerSheet;
+            currentOnlineRowsPerSheet = rowsPerSheet;
+
+            // 清空文件导入选择
+            clearFileImportSelection();
+
+            updateOnlineEditorStatus();
+            closeOnlineEditor();
+            layui.layer.msg('已保存 ' + totalRows + ' 行数据', {icon: 1});
+        };
+
+        /**
+         * 校验在线编辑数据
+         */
+        function validateOnlineData(rowsPerSheet) {
+            const errors = [];
+
+            for (const [sheetName, rows] of Object.entries(rowsPerSheet)) {
+                const config = onlineEditorConfigs[sheetName];
+                if (!config) continue;
+
+                const queryItems = config.queryItems || [];
+                const updateItems = config.updateItems || [];
+
+                rows.forEach((row, rowIdx) => {
+                    const hasQueryValue = queryItems.some(item => {
+                        const value = row[item.label];
+                        return value !== undefined && String(value).trim() !== '';
+                    });
+                    if (!hasQueryValue) {
+                        errors.push(`[${sheetName}] 第${rowIdx + 1}行：查询字段至少需要填写一个条件`);
+                    }
+
+                    const hasUpdateValue = updateItems.some(item => {
+                        if (item.inputType === 'calculated') return false;
+                        const newValue = row['新' + item.label];
+                        const originValue = row['原' + item.label];
+                        return (newValue !== undefined && String(newValue).trim() !== '') ||
+                               (originValue !== undefined && String(originValue).trim() !== '');
+                    });
+                    if (!hasUpdateValue) {
+                        errors.push(`[${sheetName}] 第${rowIdx + 1}行：更新字段至少需要填写一个新值或原值`);
+                    }
+                });
+            }
+
+            return errors;
+        }
+
+        /**
+         * 预览已保存的在线编辑数据
+         */
+        window.previewSavedOnlineData = function () {
+            previewRowsPerSheet(savedOnlineRowsPerSheet, '已保存的在线编辑数据');
+        };
+
+        /**
+         * 预览当前在线编辑数据
+         */
+        window.previewCurrentOnlineData = function () {
+            previewRowsPerSheet(getSpreadsheetData(), '当前在线编辑数据');
+        };
+
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        /**
+         * 预览数据通用函数
+         */
+        function previewRowsPerSheet(rowsPerSheet, title) {
+            const container = document.getElementById('onlineDataPreviewTable');
+            const totalRows = Object.values(rowsPerSheet).reduce((sum, rows) => sum + rows.length, 0);
+
+            if (totalRows === 0) {
+                container.innerHTML = '<p class="text-muted">暂无数据</p>';
+            } else {
+                let html = '';
+                for (const [sheetName, rows] of Object.entries(rowsPerSheet)) {
+                    if (rows.length === 0) continue;
+                    const config = onlineEditorConfigs[sheetName];
+                    const columns = config ? (config.columns || buildSpreadsheetColumns(config)) : [];
+                    const headers = columns.length > 0 ? columns.map(c => c.label) : Object.keys(rows[0]);
+
+                    html += `<h6 class="mt-3 mb-2">${escapeHtml(sheetName)}</h6>`;
+                    html += '<table class="table table-sm table-bordered table-striped preview-table"><thead><tr>';
+                    headers.forEach(h => {
+                        html += '<th>' + escapeHtml(h) + '</th>';
+                    });
+                    html += '</tr></thead><tbody>';
+                    rows.forEach(row => {
+                        html += '<tr>';
+                        headers.forEach(h => {
+                            html += '<td>' + escapeHtml(row[h] || '') + '</td>';
+                        });
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table>';
+                }
+                container.innerHTML = html;
+            }
+
+            document.getElementById('onlineDataPreviewModalLabel').textContent = title;
+            const modalEl = document.getElementById('onlineDataPreviewModal');
+            let modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (!modalInstance) {
+                modalInstance = new bootstrap.Modal(modalEl, { focus: false });
+            }
+            modalInstance.show();
+        }
+
+        /**
+         * 清空在线编辑器数据（保留表头和默认值示例行）
+         */
+        window.clearSpreadsheetData = function () {
+            if (!luckySheetReady || typeof luckysheet === 'undefined') {
+                layui.layer.msg('表格尚未就绪，请稍后再试', {icon: 2});
+                return;
+            }
+
+            const sheets = luckysheet.getAllSheets ? luckysheet.getAllSheets() : [];
+            sheets.forEach(sheet => {
+                const config = onlineEditorConfigs[sheet.name];
+                if (!config) return;
+                const columns = config.columns || buildSpreadsheetColumns(config);
+                const sheetData = sheet.data || [];
+                const rangeValues = [];
+                // 从第1行开始清空（保留表头）
+                for (let r = 1; r < sheetData.length; r++) {
+                    for (let c = 0; c < columns.length + 1; c++) {
+                        rangeValues.push({ r: r, c: c, v: '' });
+                    }
+                }
+                batchSetRangeValues(rangeValues);
+            });
+
+            currentOnlineRowsPerSheet = {};
+            layui.layer.msg('已清空数据', {icon: 1});
+        };
+
+        /**
+         * 从文件导入到在线编辑器
+         */
+        window.importFromFileToOnlineEditor = function () {
+            document.getElementById('xsImportFile').click();
+        };
+
+        /**
+         * 处理导入到在线编辑器的文件
+         */
+        window.handleXsFileImport = function (input) {
+            const file = input.files[0];
+            if (!file) return;
+            input.value = '';
+
+            if (!file.name.endsWith('.xlsx')) {
+                layui.layer.msg('请选择 .xlsx 格式的 Excel 文件', {icon: 2});
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    if (workbook.SheetNames.length === 0) {
+                        layui.layer.msg('文件为空', {icon: 2});
+                        return;
+                    }
+
+                    clearSpreadsheetData();
+
+                    workbook.SheetNames.forEach(sheetName => {
+                        const config = onlineEditorConfigs[sheetName];
+                        if (!config) return;
+
+                        const worksheet = workbook.Sheets[sheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+                        if (jsonData.length === 0) return;
+
+                        const columns = config.columns || buildSpreadsheetColumns(config);
+                        const fileHeaders = jsonData[0].map(h => String(h).trim());
+                        const colMap = {};
+                        fileHeaders.forEach((h, fileIdx) => {
+                            const col = columns.find(c => c.label === h || c.key === h);
+                            if (col) {
+                                colMap[col.index] = fileIdx;
+                            }
+                        });
+
+                        const rangeValues = [];
+                        for (let i = 1; i < jsonData.length; i++) {
+                            const fileRow = jsonData[i];
+                            columns.forEach(col => {
+                                const fileIdx = colMap[col.index];
+                                if (fileIdx === undefined) return;
+                                const value = fileRow[fileIdx];
+                                if (value !== undefined && value !== null && String(value).trim() !== '') {
+                                    rangeValues.push({
+                                        r: i,
+                                        c: col.index,
+                                        v: String(value)
+                                    });
+                                }
+                            });
+                        }
+
+                        batchSetRangeValues(rangeValues);
+                    });
+
+                    currentOnlineRowsPerSheet = getSpreadsheetData();
+                    layui.layer.msg('文件导入成功', {icon: 1});
+                } catch (err) {
+                    console.error('导入失败:', err);
+                    layui.layer.msg('文件解析失败：' + err.message, {icon: 2});
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        /**
+         * 清空在线编辑保存的数据
+         */
+        function clearOnlineEditorData() {
+            savedOnlineRowsPerSheet = {};
+            currentOnlineRowsPerSheet = {};
+            updateOnlineEditorStatus();
+        }
+
+        /**
+         * 更新在线编辑状态显示
+         */
+        function updateOnlineEditorStatus() {
+            const totalRows = Object.values(savedOnlineRowsPerSheet).reduce((sum, rows) => sum + rows.length, 0);
+            const statusEl = document.getElementById('savedOnlineRowsStatus');
+            if (totalRows > 0) {
+                statusEl.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle"></i> 已保存 ' + totalRows + ' 行</span>';
+            } else {
+                statusEl.innerHTML = '';
+            }
+        }
+
+        /**
+         * 构建公共字段对象
+         */
+        function buildQueryValues() {
+            return {
+                'onesLink': { 'value': document.getElementById('onesLink').value.trim() },
+                'filePrefix': { 'value': document.getElementById('filePrefix').value.trim() },
+                'dynamicNo': { 'value': document.getElementById('dynamicNo').value.trim() },
+                'ops_remark': { 'value': document.getElementById('ops_remark').value.trim() }
+            };
+        }
+
+        /**
+         * 执行批量导入（文件上传模式）
          */
         function executeBatchImport(file) {
-            // 显示加载提示
             const loadingIndex = layui.layer.load(2, {
                 shade: [0.5, '#000'],
                 content: '正在处理批量导入...'
             });
 
-            // 构建FormData
             const formData = new FormData();
             formData.append('file', file);
             formData.append('formIds', JSON.stringify(selectedFormIds));
+            formData.append('queryValues', JSON.stringify(buildQueryValues()));
 
-            // 构建公共字段
-            const queryValues = {
-                'onesLink': {
-                    'value': document.getElementById('onesLink').value.trim()
-                },
-                'filePrefix': {
-                    'value': document.getElementById('filePrefix').value.trim()
-                },
-                'dynamicNo': {
-                    'value': document.getElementById('dynamicNo').value.trim()
-                },
-                'ops_remark': {
-                    'value': document.getElementById('ops_remark').value.trim()
-                }
-            };
-            formData.append('queryValues', JSON.stringify(queryValues));
-
-            // 发送请求
             fetch('/api/form-merge/batch-import/', {
                 method: 'POST',
                 body: formData
@@ -898,13 +2007,8 @@
                 .then(response => response.json())
                 .then(data => {
                     layui.layer.close(loadingIndex);
-
-                    console.log('批量导入返回数据:', data);  // 调试信息
-
-                    // 无论成功还是失败，都显示详细结果
                     showBatchImportResult(data);
                 })
-
                 .catch(error => {
                     layui.layer.close(loadingIndex);
                     console.error('Error:', error);
@@ -912,19 +2016,45 @@
                 });
         }
 
-               /**
+        /**
+         * 执行批量导入（在线编辑器 JSON 模式）
+         */
+        function executeBatchImportJson(rowsPerSheet) {
+            const loadingIndex = layui.layer.load(2, {
+                shade: [0.5, '#000'],
+                content: '正在处理在线编辑数据...'
+            });
+
+            fetch('/api/form-merge/batch-import/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    queryValues: buildQueryValues(),
+                    rowsPerSheet: rowsPerSheet
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    layui.layer.close(loadingIndex);
+                    showBatchImportResult(data);
+                })
+                .catch(error => {
+                    layui.layer.close(loadingIndex);
+                    console.error('Error:', error);
+                    layui.layer.msg('网络错误：' + error.message, {icon: 2});
+                });
+        }
+
+        /**
          * 显示批量导入结果
          */
         function showBatchImportResult(data) {
-            console.log('显示结果，数据:', data);  // 调试信息
-
             const resultArea = document.getElementById('submitResultArea');
             const alert = document.getElementById('resultAlert');
             const title = document.getElementById('resultTitle');
             const message = document.getElementById('resultMessage');
             const actions = document.getElementById('resultActions');
 
-            // 根据成功/失败设置样式和标题
             if (data.success) {
                 alert.className = 'alert alert-success';
                 title.textContent = '批量导入成功！';
@@ -933,13 +2063,11 @@
                 title.textContent = '批量导入部分失败';
             }
 
-            // 构建消息
             let msg = '<strong>处理结果：</strong><br>';
             msg += '总Sheet数: ' + (data.totalSheets || 0) + '<br>';
             msg += '成功: ' + (data.successCount || 0) + ' 个Sheet<br>';
             msg += '失败: ' + (data.failCount || 0) + ' 个Sheet<br>';
 
-            // 显示文件路径
             if (data.sqlFilePath) {
                 msg += '<br><strong>SQL文件路径：</strong><br>';
                 msg += '<span style="color: #1890ff; font-family: monospace;">' + data.sqlFilePath + '</span><br>';
@@ -957,22 +2085,34 @@
             }
 
             message.innerHTML = msg;
-
-            // 不显示下载按钮，只显示文件路径
             actions.innerHTML = '';
-
-            // 显示结果区域
             resultArea.style.display = 'block';
-
-            // 滚动到结果区域
             resultArea.scrollIntoView({behavior: 'smooth'});
 
             // 清空文件选择
             document.getElementById('batchImportFile').value = '';
             document.getElementById('batchImportFileName').textContent = '';
 
-            // 根据成功/失败显示不同的提示
-            if (data.success) {
+            // 收集行级错误，回显到在线编辑表格
+            const errorsBySheet = {};
+            let hasRowErrors = false;
+            if (data.failed_sheets && data.failed_sheets.length > 0) {
+                data.failed_sheets.forEach(failed => {
+                    if (failed.rowErrors && failed.rowErrors.length > 0) {
+                        errorsBySheet[failed.sheet] = failed.rowErrors;
+                        hasRowErrors = true;
+                    }
+                });
+            }
+
+            if (hasRowErrors) {
+                pendingValidationErrors = errorsBySheet;
+                openOnlineEditor();
+                layui.layer.msg('校验失败，请查看在线编辑表格中的错误列', {icon: 2});
+            } else if (data.success) {
+                savedOnlineRowsPerSheet = {};
+                currentOnlineRowsPerSheet = {};
+                updateOnlineEditorStatus();
                 layui.layer.msg('批量导入完成！', {icon: 1});
             } else {
                 layui.layer.msg('批量导入部分失败，请查看下方详细信息', {icon: 0, time: 3000});

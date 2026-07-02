@@ -58,45 +58,56 @@ def download_merge_template(request):
                             'hasDefaultValue': bool(item.default_value)
                         })
 
-                    # 添加更新字段
+                    # 添加更新字段：新值列全部在前，原值列全部在后
                     update_items = FormUpdateItem.objects.filter(form_config=config).order_by('sort_order')
+                    new_headers = []
+                    origin_headers = []
                     for item in update_items:
                         # 跳过计算字段，计算字段由表达式自动生成
                         if item.input_type == 'calculated':
                             continue
 
                         if item.input_type == 'supplement':
-                            # 补充框：主字段（新值和原值都需要用户填写）
-                            headers.append({
+                            # 补充框主字段
+                            new_headers.append({
                                 'label': f'新{item.label}',
                                 'hasDefaultValue': bool(item.new_default_value)
                             })
-                            headers.append({
+                            origin_headers.append({
                                 'label': f'原{item.label}',
                                 'hasDefaultValue': bool(item.origin_default_value)
                             })
 
-                            # 添加子字段（只有原值需要填写，新值自动查询）
+                            # 辅助子字段（普通字段由后端自动回填，不显示）
                             sub_fields = item.sub_fields or []
                             for sub_field in sub_fields:
                                 if isinstance(sub_field, dict):
+                                    if sub_field.get('type') != 'auxiliary':
+                                        continue
                                     sub_label = sub_field.get('label', sub_field.get('bindingKey', ''))
                                 else:
-                                    sub_label = str(sub_field)
-                                headers.append({
+                                    continue
+                                new_headers.append({
+                                    'label': f'新{sub_label}',
+                                    'hasDefaultValue': False
+                                })
+                                origin_headers.append({
                                     'label': f'原{sub_label}',
                                     'hasDefaultValue': False
                                 })
                         else:
                             # 普通字段：新值和原值
-                            headers.append({
+                            new_headers.append({
                                 'label': f'新{item.label}',
                                 'hasDefaultValue': bool(item.new_default_value)
                             })
-                            headers.append({
+                            origin_headers.append({
                                 'label': f'原{item.label}',
                                 'hasDefaultValue': bool(item.origin_default_value)
                             })
+
+                    headers.extend(new_headers)
+                    headers.extend(origin_headers)
 
                     # 写入表头
                     for col_idx, header_info in enumerate(headers, 1):

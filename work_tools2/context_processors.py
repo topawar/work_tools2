@@ -43,6 +43,7 @@ def menus_context(request):
                 "id": menu.id,
                 "name": menu.name,
                 "pinyin": menu.pinyin or "",
+                "icon": menu.icon or "",
                 "url": menu.url,
                 "has_children": children.exists(),
                 "is_expanded": menu.id in expanded_menu_ids,
@@ -51,6 +52,7 @@ def menus_context(request):
                         "id": child.id,
                         "name": child.name,
                         "pinyin": child.pinyin or "",
+                        "icon": child.icon or "",
                         "url": child.url,
                     }
                     for child in children

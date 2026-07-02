@@ -16,55 +16,81 @@
             left: 0;
             z-index: 100;
             width: 100%;
-            max-width: 250px;
-            background-color: #2c3e50;
-            color: white;
+            max-width: 240px;
+            background-color: #1e293b;
+            color: #f1f5f9;
             overflow-y: auto;
             overflow-x: hidden;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
         }
 
         /* 自定义滚动条样式 */
         .sidebar::-webkit-scrollbar {
-            width: 6px;
+            width: 5px;
         }
 
         .sidebar::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
+            background: transparent;
         }
 
         .sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.15);
             border-radius: 3px;
         }
 
         .sidebar::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.3);
         }
 
         .sidebar .nav-link {
-            color: rgba(255, 255, 255, 0.8);
+            color: rgba(241, 245, 249, 0.75);
             font-size: 14px;
-            padding: 12px 20px;
-            border-radius: 4px;
-            margin: 2px 8px;
-            transition: all 0.2s;
+            padding: 8px 14px;
+            border-radius: 8px;
+            margin: 2px 10px;
+            transition: all 0.2s ease;
             display: flex;
             align-items: center;
+            position: relative;
+        }
+
+        .sidebar .nav-link .menu-icon {
+            margin-right: 10px;
+            font-size: 15px;
+            width: 18px;
+            text-align: center;
+            color: rgba(241, 245, 249, 0.55);
+            flex-shrink: 0;
         }
 
         .sidebar .nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: white;
+            background-color: rgba(255, 255, 255, 0.06);
+            color: #f8fafc;
         }
 
         .sidebar .nav-link.active {
-            background-color: #3498db;
-            color: white;
+            background-color: rgba(56, 189, 248, 0.12);
+            color: #38bdf8;
+        }
+
+        .sidebar .nav-link.active::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 18px;
+            border-radius: 0 3px 3px 0;
+            background-color: #38bdf8;
         }
 
         .sidebar .nav-link .arrow {
             margin-left: auto;
-            transition: transform 0.2s;
+            font-size: 12px;
+            color: rgba(241, 245, 249, 0.45);
+            transition: transform 0.25s ease;
         }
 
         .sidebar .nav-link[aria-expanded="true"] .arrow {
@@ -75,67 +101,116 @@
         .submenu {
             list-style: none;
             padding-left: 0;
-            margin: 0;
+            margin: 2px 10px 6px;
             display: none;
+            position: relative;
         }
 
         .submenu.show {
             display: block;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .submenu::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .submenu::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 2px;
+        }
+
+        .submenu::before {
+            content: "";
+            position: absolute;
+            left: 18px;
+            top: 6px;
+            bottom: 6px;
+            width: 1px;
+            background-color: rgba(255, 255, 255, 0.08);
         }
 
         .submenu .nav-link {
-            padding: 10px 20px 10px 50px;
+            font-size: 13px;
+            padding: 6px 14px 6px 34px;
             position: relative;
-        }
-
-        .submenu .nav-link::before {
-            content: "├";
-            position: absolute;
-            left: 35px;
-            color: rgba(255, 255, 255, 0.3);
+            color: rgba(241, 245, 249, 0.6);
+            border-radius: 6px;
+            margin: 1px 0;
         }
 
         .submenu .nav-link:hover {
             background-color: rgba(255, 255, 255, 0.05);
+            color: rgba(241, 245, 249, 0.95);
         }
 
         .submenu .nav-link.active {
-            background-color: #3498db;
-            color: white;
+            background-color: rgba(56, 189, 248, 0.1);
+            color: #38bdf8;
         }
 
         /* 搜索框样式 */
         .search-box {
-            padding: 15px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
             position: relative;
         }
 
         .search-box input {
-            background-color: rgba(255, 255, 255, 0.1);
-            border: none;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 20px;
+            background-color: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #f1f5f9;
+            padding: 9px 14px;
+            border-radius: 999px;
             width: 100%;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.2s ease;
         }
 
         .search-box input::placeholder {
-            color: rgba(255, 255, 255, 0.5);
+            color: rgba(241, 245, 249, 0.4);
         }
 
         .search-box input:focus {
-            background-color: rgba(255, 255, 255, 0.2);
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: rgba(56, 189, 248, 0.4);
             outline: none;
-            box-shadow: none;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
         }
 
         /* 主体内容区 */
-        .main-content {
-            margin-left: 250px;
-            background-color: #f8f9fa;
+        html, body {
             min-height: 100vh;
-            padding: 10px 15px;
+        }
+
+        body > .container-fluid {
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        body > .container-fluid > .row {
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        .main-content {
+            margin-left: 240px !important;
+            width: calc(100% - 240px);
+            background-color: #f1f5f9;
+            min-height: 100vh;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content-wrapper {
+            flex: 1;
+            background-color: #ffffff;
+            min-height: 100vh;
+            padding: 16px;
+            box-shadow: -2px 0 8px rgba(0, 0, 0, 0.03);
         }
 
         /* 搜索结果列表 */
@@ -157,23 +232,71 @@
             display: block;
         }
 
-        .search-results .nav-link {
+        .search-result-item {
             color: #333;
             padding: 10px 15px;
             border-bottom: 1px solid #eee;
             margin: 0;
             border-radius: 0;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
+            text-decoration: none;
+            transition: background-color 0.15s;
+            cursor: pointer;
         }
 
-        .search-results .nav-link:hover {
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item.selected {
             background-color: #f8f9fa;
         }
 
-        .search-results .nav-link i {
+        .search-result-item.selected {
+            background-color: #e9f5ff;
+        }
+
+        .search-result-item i {
             margin-right: 10px;
+            margin-top: 2px;
             color: #6c757d;
+            flex-shrink: 0;
+            width: 18px;
+            text-align: center;
+        }
+
+        .search-result-item .result-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .search-result-item .result-text {
+            font-size: 14px;
+            color: #000000;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .search-result-item .result-text .text-muted {
+            color: #6c757d;
+        }
+
+        .search-result-item mark {
+            padding: 0 1px;
+            border-radius: 2px;
+            background-color: #fff3cd;
+            color: inherit;
+            font-weight: 600;
+        }
+
+        .search-result-item mark.match-pinyin {
+            background-color: #d1ecf1;
+        }
+
+        .search-result-item mark.match-initial {
+            background-color: #d4edda;
         }
 
         .no-results {
@@ -184,12 +307,12 @@
 
         /* 菜单分组标题 */
         .menu-group-title {
-            padding: 15px 20px 5px;
-            font-size: 14px;
+            padding: 20px 20px 6px;
+            font-size: 11px;
             text-transform: uppercase;
-            color: rgba(255, 255, 255, 0.4);
-            font-weight: bold;
-            letter-spacing: 1px;
+            color: rgba(241, 245, 249, 0.35);
+            font-weight: 600;
+            letter-spacing: 1.5px;
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -223,6 +346,7 @@
                                     <li class="nav-item">
                                         <a class="nav-link {% if menu.is_expanded %}expanded{% endif %}" href="#" data-bs-toggle="collapse"
                                            data-bs-target="#menu{{ menu.id }}" aria-expanded="{% if menu.is_expanded %}true{% else %}false{% endif %}">
+                                            {% if menu.icon %}<i class="bi {{ menu.icon }} menu-icon"></i>{% endif %}
                                             {{ menu.name }}
                                             <i class="bi bi-chevron-right arrow"></i>
                                         </a>
@@ -242,6 +366,7 @@
                                     <li class="nav-item">
                                         <a class="nav-link {% if request.path == menu.url or request.path|add:'/' == menu.url %}active{% endif %}"
                                            href="{{ menu.url }}">
+                                            {% if menu.icon %}<i class="bi {{ menu.icon }} menu-icon"></i>{% endif %}
                                             {{ menu.name }}
                                         </a>
                                     </li>
@@ -253,9 +378,11 @@
             </nav>
 
             <!-- 主体内容 -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-3 main-content">
-                {% block main_content %}
-                {% endblock %}
+            <main class="main-content">
+                <div class="content-wrapper">
+                    {% block main_content %}
+                    {% endblock %}
+                </div>
             </main>
         </div>
     </div>
@@ -331,14 +458,15 @@
             {% for group, menu_list in menus.items %}
                 {% for menu in menu_list %}
                     {
-                        name: '{{ menu.name }}',
-                        pinyin: '{{ menu.pinyin }}',
-                        url: '{{ menu.url }}',
+                        name: '{{ menu.name|escapejs }}',
+                        pinyin: '{{ menu.pinyin|escapejs }}',
+                        icon: '{{ menu.icon|escapejs }}',
+                        url: '{{ menu.url|escapejs }}',
                         {% if menu.has_children %}
                         hasChildren: true,
                         children: [
                             {% for child in menu.children %}
-                            { name: '{{ child.name }}', pinyin: '{{ child.pinyin }}', url: '{{ child.url }}' },
+                            { name: '{{ child.name|escapejs }}', pinyin: '{{ child.pinyin|escapejs }}', icon: '{{ child.icon|escapejs }}', url: '{{ child.url|escapejs }}' },
                             {% endfor %}
                         ]
                         {% endif %}
@@ -349,55 +477,143 @@
 
         const searchInput = document.getElementById('sidebarSearch');
         const searchResults = document.getElementById('searchResults');
+        let selectedIndex = -1;
 
-        // 使用 pinyin-pro 库生成拼音
-        function getPinyin(str) {
-            if (window.pinyinPro) {
-                // 生成完整拼音（不带声调）
-                return window.pinyinPro.pinyin(str, { toneType: 'none' });
+        // 使用 pinyin-pro 库生成拼音数组
+        function getPinyinArray(str) {
+            if (!str || !window.pinyinPro) return [];
+            try {
+                const result = window.pinyinPro.pinyin(str, { toneType: 'none', type: 'array' });
+                if (Array.isArray(result)) {
+                    return result.map(p => String(p).trim()).filter(Boolean);
+                }
+                return String(result).split(/\s+/).filter(Boolean);
+            } catch (e) {
+                try {
+                    const result = window.pinyinPro.pinyin(str, { toneType: 'none' });
+                    return String(result).split(/\s+/).filter(Boolean);
+                } catch (err) {
+                    return [];
+                }
             }
-            return '';
         }
 
-        // 模糊搜索函数 - 支持中文、拼音、二级菜单
+        // 根据匹配类型和拼音位置计算需要高亮的字符范围
+        function getHighlightRange(name, matchType, start, end) {
+            if (matchType === 'name') {
+                return { start: start, end: Math.min(end, name.length) };
+            }
+
+            const pinyinArr = getPinyinArray(name);
+            if (matchType === 'initial') {
+                return { start: start, end: Math.min(end, name.length) };
+            }
+
+            if (matchType === 'pinyin') {
+                let currentIdx = 0;
+                let charStart = -1, charEnd = -1;
+                for (let i = 0; i < pinyinArr.length; i++) {
+                    const pinyinLen = pinyinArr[i].length;
+                    const segStart = currentIdx;
+                    const segEnd = currentIdx + pinyinLen;
+
+                    if (charStart === -1 && start < segEnd) {
+                        charStart = i;
+                    }
+                    if (charEnd === -1 && end <= segEnd) {
+                        charEnd = i + 1;
+                        break;
+                    }
+                    currentIdx += pinyinLen;
+                }
+                if (charStart !== -1) {
+                    if (charEnd === -1) charEnd = pinyinArr.length;
+                    return { start: charStart, end: charEnd };
+                }
+            }
+
+            return { start: 0, end: 0 };
+        }
+
+        // HTML 转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 高亮文本中的指定范围
+        function highlightText(text, start, end, matchType) {
+            if (start >= end || start < 0 || end > text.length) return escapeHtml(text);
+            const markClass = matchType === 'pinyin' ? 'match-pinyin' : (matchType === 'initial' ? 'match-initial' : '');
+            return escapeHtml(text.substring(0, start)) +
+                   `<mark class="${markClass}">${escapeHtml(text.substring(start, end))}</mark>` +
+                   escapeHtml(text.substring(end));
+        }
+
+        // 对菜单名称进行匹配，支持中文子串、全拼子串、拼音首字母
+        function matchMenu(name, query) {
+            const lowerName = name.toLowerCase();
+            const idx = lowerName.indexOf(query);
+            if (idx !== -1) {
+                return { type: 'name', start: idx, end: idx + query.length };
+            }
+
+            const pinyinArr = getPinyinArray(name);
+            const fullPinyin = pinyinArr.join('').toLowerCase();
+            const pinyinIdx = fullPinyin.indexOf(query);
+            if (pinyinIdx !== -1) {
+                return { type: 'pinyin', start: pinyinIdx, end: pinyinIdx + query.length };
+            }
+
+            const initials = pinyinArr.map(p => p.charAt(0)).join('').toLowerCase();
+            const initialIdx = initials.indexOf(query);
+            if (initialIdx !== -1) {
+                return { type: 'initial', start: initialIdx, end: initialIdx + query.length };
+            }
+
+            return null;
+        }
+
+        // 模糊搜索函数 - 支持中文、全拼、拼音首字母、二级菜单
         function fuzzySearch(query) {
             if (!query.trim()) return [];
 
-            query = query.toLowerCase().trim();
+            const normalizedQuery = query.toLowerCase().trim();
             const results = [];
+            const typeOrder = { name: 0, initial: 1, pinyin: 2 };
 
             menuItems.forEach(item => {
-                // 生成拼音
-                const itemPinyin = getPinyin(item.name);
-                const parentSearchText = (item.name + ' ' + itemPinyin).toLowerCase();
-                
-                if (parentSearchText.includes(query)) {
-                    // 一级菜单匹配，添加一级菜单和所有子菜单
+                // 一级菜单匹配：只有存在真实跳转地址时才加入结果
+                const parentMatch = matchMenu(item.name, normalizedQuery);
+                if (parentMatch && item.url && item.url !== '#') {
+                    const range = getHighlightRange(item.name, parentMatch.type, parentMatch.start, parentMatch.end);
                     results.push({
                         name: item.name,
                         url: item.url,
+                        icon: item.icon,
+                        matchType: parentMatch.type,
+                        highlightStart: range.start,
+                        highlightEnd: range.end,
                         isParent: true
                     });
-                    
-                    // 如果有子菜单，也添加
-                    if (item.hasChildren && item.children) {
-                        item.children.forEach(child => {
-                            results.push({
-                                name: `└ ${child.name}`,
-                                url: child.url,
-                                isChild: true
-                            });
-                        });
-                    }
-                } else if (item.hasChildren && item.children) {
-                    // 一级菜单不匹配，检查子菜单
+                }
+
+                // 子菜单匹配
+                if (item.hasChildren && item.children) {
                     item.children.forEach(child => {
-                        const childPinyin = getPinyin(child.name);
-                        const childSearchText = (child.name + ' ' + childPinyin).toLowerCase();
-                        if (childSearchText.includes(query)) {
+                        const childMatch = matchMenu(child.name, normalizedQuery);
+                        if (childMatch) {
+                            const range = getHighlightRange(child.name, childMatch.type, childMatch.start, childMatch.end);
                             results.push({
-                                name: `${item.name} > ${child.name}`,
+                                name: child.name,
                                 url: child.url,
+                                icon: child.icon,
+                                parentName: item.name,
+                                parentIcon: item.icon,
+                                matchType: childMatch.type,
+                                highlightStart: range.start,
+                                highlightEnd: range.end,
                                 isChild: true
                             });
                         }
@@ -405,25 +621,57 @@
                 }
             });
 
+            // 按匹配类型排序
+            results.sort((a, b) => typeOrder[a.matchType] - typeOrder[b.matchType]);
+
             return results;
         }
 
         // 渲染搜索结果
         function renderSearchResults(results) {
+            selectedIndex = -1;
             if (results.length === 0) {
                 searchResults.innerHTML = '<div class="no-results">未找到匹配的页面</div>';
                 searchResults.classList.add('show');
                 return;
             }
 
-            const html = results.map(item => `
-                <a class="nav-link" href="${item.url}">
-                    ${item.name}
-                </a>
-            `).join('');
+            const html = results.map((item, index) => {
+                const iconClass = escapeHtml(item.icon || 'bi-chevron-right');
+                const highlightedName = highlightText(item.name, item.highlightStart, item.highlightEnd, item.matchType);
+                const resultText = item.isChild
+                    ? `<span class="text-muted">${escapeHtml(item.parentName)} > </span>${highlightedName}`
+                    : highlightedName;
+                const safeUrl = escapeHtml(item.url || '#');
+
+                return `
+                    <a class="search-result-item" href="${safeUrl}" data-index="${index}">
+                        <i class="bi ${iconClass}"></i>
+                        <div class="result-info">
+                            <div class="result-text">${resultText}</div>
+                        </div>
+                    </a>
+                `;
+            }).join('');
 
             searchResults.innerHTML = html;
             searchResults.classList.add('show');
+        }
+
+        // 获取当前所有结果项
+        function getResultItems() {
+            return searchResults.querySelectorAll('.search-result-item');
+        }
+
+        // 设置选中项
+        function setSelectedIndex(index) {
+            const items = getResultItems();
+            items.forEach(item => item.classList.remove('selected'));
+            if (index >= 0 && index < items.length) {
+                items[index].classList.add('selected');
+                items[index].scrollIntoView({ block: 'nearest' });
+            }
+            selectedIndex = index;
         }
 
         // 搜索输入事件
@@ -431,6 +679,43 @@
             const query = e.target.value;
             const results = fuzzySearch(query);
             renderSearchResults(results);
+        });
+
+        // 键盘导航
+        searchInput.addEventListener('keydown', function(e) {
+            if (!searchResults.classList.contains('show')) return;
+
+            const items = getResultItems();
+            if (items.length === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSelectedIndex((selectedIndex + 1) % items.length);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSelectedIndex(selectedIndex <= 0 ? items.length - 1 : selectedIndex - 1);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (selectedIndex >= 0 && selectedIndex < items.length) {
+                    items[selectedIndex].click();
+                } else if (items.length > 0) {
+                    items[0].click();
+                }
+            } else if (e.key === 'Escape') {
+                searchResults.classList.remove('show');
+                searchInput.blur();
+            }
+        });
+
+        // 鼠标悬停自动选中
+        searchResults.addEventListener('mousemove', function(e) {
+            const item = e.target.closest('.search-result-item');
+            if (item) {
+                const index = parseInt(item.dataset.index, 10);
+                if (!isNaN(index)) {
+                    setSelectedIndex(index);
+                }
+            }
         });
 
         // 点击外部关闭搜索结果
@@ -461,6 +746,29 @@
                     }
                 }
             }
+
+            // 手风琴效果：展开一个父菜单时自动收起其他父菜单
+            const parentToggles = document.querySelectorAll('#mainNav [data-bs-toggle="collapse"]');
+            parentToggles.forEach(toggle => {
+                toggle.addEventListener('click', function() {
+                    const currentTarget = this.getAttribute('data-bs-target');
+                    parentToggles.forEach(other => {
+                        if (other !== this) {
+                            const otherTarget = other.getAttribute('data-bs-target');
+                            const otherSubmenu = document.querySelector(otherTarget);
+                            if (otherSubmenu && otherSubmenu.classList.contains('show')) {
+                                const bsCollapse = bootstrap.Collapse.getInstance(otherSubmenu);
+                                if (bsCollapse) {
+                                    bsCollapse.hide();
+                                } else {
+                                    otherSubmenu.classList.remove('show');
+                                    other.setAttribute('aria-expanded', 'false');
+                                }
+                            }
+                        }
+                    });
+                });
+            });
         });
     </script>
     {% block extra_js %}{% endblock %}

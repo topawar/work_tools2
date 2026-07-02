@@ -13,78 +13,57 @@
 
         <!-- 统计信息卡片 -->
         <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card bg-primary text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="card-title mb-0">总表数</h6>
-                                <h3 class="mb-0 mt-2" id="totalTables">0</h3>
-                            </div>
-                            <i class="bi bi-table display-4 opacity-50"></i>
-                        </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="stat-card stat-card-primary">
+                    <div class="stat-icon"><i class="bi bi-table"></i></div>
+                    <div class="stat-info">
+                        <div class="stat-label">总表数</div>
+                        <div class="stat-value" id="totalTables">0</div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-success text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="card-title mb-0">总记录数</h6>
-                                <h3 class="mb-0 mt-2" id="totalRecords">0</h3>
-                            </div>
-                            <i class="bi bi-file-earmark-text display-4 opacity-50"></i>
-                        </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="stat-card stat-card-success">
+                    <div class="stat-icon"><i class="bi bi-file-earmark-text"></i></div>
+                    <div class="stat-info">
+                        <div class="stat-label">总记录数</div>
+                        <div class="stat-value" id="totalRecords">0</div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-info text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="card-title mb-0">今日导入</h6>
-                                <h3 class="mb-0 mt-2" id="todayImports">0</h3>
-                            </div>
-                            <i class="bi bi-cloud-upload display-4 opacity-50"></i>
-                        </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="stat-card stat-card-info">
+                    <div class="stat-icon"><i class="bi bi-cloud-upload"></i></div>
+                    <div class="stat-info">
+                        <div class="stat-label">今日导入</div>
+                        <div class="stat-value" id="todayImports">0</div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card bg-warning text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="card-title mb-0">数据库大小</h6>
-                                <h3 class="mb-0 mt-2" id="dbSize">0 MB</h3>
-                            </div>
-                            <i class="bi bi-hdd display-4 opacity-50"></i>
-                        </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="stat-card stat-card-warning">
+                    <div class="stat-icon"><i class="bi bi-hdd"></i></div>
+                    <div class="stat-info">
+                        <div class="stat-label">数据库大小</div>
+                        <div class="stat-value" id="dbSize">0 MB</div>
                     </div>
                 </div>
             </div>
         </div>
 
-               <!-- 操作按钮区 -->
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-tools"></i> 快捷操作</span>
-            </div>
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#createTableModal">
-                            <i class="bi bi-plus-circle"></i> 创建新表
-                        </button>
-                    </div>
-
-                    <div class="col-md-6">
-                        <button type="button" class="btn btn-info w-100" onclick="showImportTasksModal()">
-                            <i class="bi bi-list-task"></i> 导入任务队列
-                        </button>
-                    </div>
+        <!-- 操作按钮区 -->
+        <div class="quick-actions mb-4">
+            <div class="quick-actions-title"><i class="bi bi-tools"></i> 快捷操作</div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#createTableModal">
+                        <i class="bi bi-plus-circle"></i> 创建新表
+                    </button>
+                </div>
+                <div class="col-md-6">
+                    <button type="button" class="btn btn-info w-100" onclick="showImportTasksModal()">
+                        <i class="bi bi-list-task"></i> 导入任务队列
+                    </button>
                 </div>
             </div>
         </div>
@@ -93,10 +72,12 @@
 
 
         <!-- 表列表 -->
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-list-ul"></i> 表列表</span>
-                <div class="input-group" style="width: 300px;">
+        <div class="table-list-section">
+            <div class="table-list-header">
+                <div class="table-list-title">
+                    <i class="bi bi-list-ul"></i> 表列表
+                </div>
+                <div class="input-group table-search-group">
                     <span class="input-group-text"><i class="bi bi-search"></i></span>
                     <input type="text" class="form-control" id="tableSearchInput" placeholder="搜索表名..." oninput="filterTables()">
                     <button class="btn btn-outline-secondary" type="button" onclick="clearTableSearch()">
@@ -104,43 +85,40 @@
                     </button>
                 </div>
             </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
+            <div class="table-responsive modern-table-wrap">
+                <table class="table table-hover modern-table mb-0" id="tableListBody">
+                    <thead>
                         <tr>
                             <th style="width: 50px;">#</th>
-                            <th>表名</th>
-                            <th>字段数</th>
-                            <th>记录数</th>
-                            <th>创建时间</th>
-                            <th>最后更新</th>
-                            <th style="width: 350px;">操作</th>
+                            <th style="width: 200px; max-width: 200px;">表名</th>
+                            <th style="width: 70px;">字段</th>
+                            <th style="width: 80px;">记录</th>
+                            <th style="width: 140px;">更新时间</th>
+                            <th class="operation-header">操作</th>
                         </tr>
-                        </thead>
-                        <tbody id="tableListBody">
+                    </thead>
+                    <tbody>
                         <tr>
-                            <td colspan="7" class="text-center">
+                            <td colspan="6" class="text-center py-5">
                                 <div class="spinner-border text-primary" role="status">
                                     <span class="visually-hidden">加载中...</span>
                                 </div>
                             </td>
                         </tr>
-                        </tbody>
-                    </table>
-                </div>
+                    </tbody>
+                </table>
+            </div>
 
-                <!-- 分页 -->
-                <nav class="mt-3">
-                    <ul class="pagination pagination-sm justify-content-center" id="tablePagination">
-                        <!-- 动态生成分页 -->
-                    </ul>
-                </nav>
+            <!-- 分页 -->
+            <nav class="mt-3">
+                <ul class="pagination pagination-sm justify-content-center" id="tablePagination">
+                    <!-- 动态生成分页 -->
+                </ul>
+            </nav>
 
-                <!-- 分页信息 -->
-                <div class="text-center text-muted small mt-2" id="tablePageInfo">
-                    共 0 条，第 0/0 页
-                </div>
+            <!-- 分页信息 -->
+            <div class="text-center text-muted small mt-2" id="tablePageInfo">
+                共 0 条，第 0/0 页
             </div>
         </div>
     </div>
@@ -149,55 +127,57 @@
     <div class="modal fade" id="createTableModal" tabindex="-1" aria-labelledby="createTableModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+                <div class="modal-header modal-header-gradient-primary">
                     <h5 class="modal-title" id="createTableModalLabel">
                         <i class="bi bi-plus-circle"></i> 创建新表
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">表名 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="newTableName" placeholder="例如: users">
-                            <small class="text-muted">只能包含字母、数字和下划线</small>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">表备注</label>
-                            <input type="text" class="form-control" id="newTableComment" placeholder="可选">
-                        </div>
-                    </div>
-
-                    <hr>
-
-                  <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="mb-0">字段定义</h6>
-                        <div class="d-flex gap-2">
-                            <div class="btn-group btn-group-sm" role="group">
-                                <input type="radio" class="btn-check" name="fieldMode" id="simpleMode" autocomplete="off" checked onchange="toggleFieldMode('simple')">
-                                <label class="btn btn-outline-primary" for="simpleMode"><i class="bi bi-lightning"></i> 简略</label>
-
-                                <input type="radio" class="btn-check" name="fieldMode" id="fullMode" autocomplete="off" onchange="toggleFieldMode('full')">
-                                <label class="btn btn-outline-primary" for="fullMode"><i class="bi bi-gear"></i> 完整</label>
+                    <div class="modal-section-card">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="modal-form-label">表名 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm" id="newTableName" placeholder="例如: users">
+                                <small class="text-muted" style="font-size: 0.75rem;">只能包含字母、数字和下划线</small>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addFieldRow()">
-                                <i class="bi bi-plus-lg"></i> 添加字段
-                            </button>
+                            <div class="col-md-6">
+                                <label class="modal-form-label">表备注</label>
+                                <input type="text" class="form-control form-control-sm" id="newTableComment" placeholder="可选">
+                            </div>
                         </div>
                     </div>
 
-                    <div id="fieldsContainer">
-                        <!-- 动态生成字段行 -->
-                    </div>
+                    <div class="modal-section-card">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="modal-section-title"><i class="bi bi-layers"></i> 字段定义</div>
+                            <div class="d-flex gap-2">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <input type="radio" class="btn-check" name="fieldMode" id="simpleMode" autocomplete="off" checked onchange="toggleFieldMode('simple')">
+                                    <label class="btn btn-outline-primary" for="simpleMode"><i class="bi bi-lightning"></i> 简略</label>
 
-                    <div class="alert alert-info mt-3">
-                        <i class="bi bi-info-circle"></i>
-                        <strong>提示：</strong>至少需要定义一个字段。主键字段会自动创建。
+                                    <input type="radio" class="btn-check" name="fieldMode" id="fullMode" autocomplete="off" onchange="toggleFieldMode('full')">
+                                    <label class="btn btn-outline-primary" for="fullMode"><i class="bi bi-gear"></i> 完整</label>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="addFieldRow()">
+                                    <i class="bi bi-plus-lg"></i> 添加字段
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="fieldsContainer">
+                            <!-- 动态生成字段行 -->
+                        </div>
+
+                        <div class="alert alert-info modern-alert mt-3 mb-0">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>提示：</strong>至少需要定义一个字段。主键字段会自动创建。
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" onclick="createTable()">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary btn-modal-action" onclick="createTable()">
                         <i class="bi bi-check-circle"></i> 创建表
                     </button>
                 </div>
@@ -209,46 +189,48 @@
     <div class="modal fade" id="editTableModal" tabindex="-1" aria-labelledby="editTableModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header bg-warning text-dark">
+                <div class="modal-header modal-header-gradient-warning">
                     <h5 class="modal-title" id="editTableModalLabel">
                         <i class="bi bi-pencil-square"></i> 编辑表结构
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-warning">
+                    <div class="alert alert-warning modern-alert">
                         <i class="bi bi-exclamation-triangle"></i>
                         <strong>警告：</strong>修改表结构可能导致数据丢失，请谨慎操作！
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">表名</label>
-                        <input type="text" class="form-control" id="editTableName" readonly>
+                    <div class="modal-section-card">
+                        <label class="modal-form-label">表名</label>
+                        <input type="text" class="form-control form-control-sm" id="editTableName" readonly>
                     </div>
 
-                   <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="mb-0">字段列表</h6>
-                        <div class="d-flex gap-2">
-                            <div class="btn-group btn-group-sm" role="group">
-                                <input type="radio" class="btn-check" name="editFieldMode" id="editSimpleMode" autocomplete="off" checked onchange="toggleFieldMode('simple', true)">
-                                <label class="btn btn-outline-warning" for="editSimpleMode"><i class="bi bi-lightning"></i> 简略</label>
+                    <div class="modal-section-card">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="modal-section-title"><i class="bi bi-layers"></i> 字段列表</div>
+                            <div class="d-flex gap-2">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <input type="radio" class="btn-check" name="editFieldMode" id="editSimpleMode" autocomplete="off" checked onchange="toggleFieldMode('simple', true)">
+                                    <label class="btn btn-outline-warning" for="editSimpleMode"><i class="bi bi-lightning"></i> 简略</label>
 
-                                <input type="radio" class="btn-check" name="editFieldMode" id="editFullMode" autocomplete="off" onchange="toggleFieldMode('full', true)">
-                                <label class="btn btn-outline-warning" for="editFullMode"><i class="bi bi-gear"></i> 完整</label>
+                                    <input type="radio" class="btn-check" name="editFieldMode" id="editFullMode" autocomplete="off" onchange="toggleFieldMode('full', true)">
+                                    <label class="btn btn-outline-warning" for="editFullMode"><i class="bi bi-gear"></i> 完整</label>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="addEditFieldRow()">
+                                    <i class="bi bi-plus-lg"></i> 添加字段
+                                </button>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEditFieldRow()">
-                                <i class="bi bi-plus-lg"></i> 添加字段
-                            </button>
                         </div>
-                    </div>
 
-                    <div id="editFieldsContainer">
-                        <!-- 动态生成字段行 -->
+                        <div id="editFieldsContainer">
+                            <!-- 动态生成字段行 -->
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-warning" onclick="saveTableStructure()">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-warning btn-modal-action" onclick="saveTableStructure()">
                         <i class="bi bi-save"></i> 保存修改
                     </button>
                 </div>
@@ -260,20 +242,19 @@
     <div class="modal fade" id="importCsvModal" tabindex="-1" aria-labelledby="importCsvModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header bg-success text-white">
+                <div class="modal-header modal-header-gradient-success">
                     <h5 class="modal-title" id="importCsvModalLabel">
                         <i class="bi bi-file-earmark-spreadsheet"></i> 导入CSV数据
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">目标表</label>
-                        <input type="text" class="form-control" id="importTableName" readonly>
+                    <div class="modal-section-card">
+                        <label class="modal-form-label">目标表</label>
+                        <input type="text" class="form-control form-control-sm" id="importTableName" readonly>
                     </div>
 
-                    <!-- Tab导航 -->
-                    <ul class="nav nav-tabs mb-3" role="tablist">
+                    <ul class="nav nav-tabs-modern" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#querySqlTab" type="button">
                                 <i class="bi bi-code-slash"></i> 查询SQL
@@ -286,18 +267,17 @@
                         </li>
                     </ul>
 
-                    <!-- Tab内容 -->
-                    <div class="tab-content">
+                    <div class="tab-content tab-content-modern">
                         <!-- 查询SQL Tab -->
                         <div class="tab-pane fade show active" id="querySqlTab">
-                            <div class="alert alert-info">
+                            <div class="alert alert-info modern-alert">
                                 <i class="bi bi-info-circle"></i>
                                 <strong>说明：</strong>编写查询SQL，复制到外部系统执行，导出CSV后再导入。
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label">查询SQL语句</label>
-                                <textarea class="form-control font-monospace" id="querySqlText" rows="8"
+                                <label class="modal-form-label">查询SQL语句</label>
+                                <textarea class="form-control form-control-sm font-monospace" id="querySqlText" rows="8"
                                           placeholder="输入查询SQL语句...&#10;例如: SELECT id, name, email FROM users WHERE status = 'active'"></textarea>
                                 <div class="d-flex gap-2 mt-2">
                                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copyQuerySql()">
@@ -309,7 +289,7 @@
                                 </div>
                             </div>
 
-                            <div class="alert alert-warning">
+                            <div class="alert alert-warning modern-alert mb-0">
                                 <i class="bi bi-lightbulb"></i>
                                 <strong>使用步骤：</strong><br>
                                 1. 编写查询SQL语句<br>
@@ -318,21 +298,19 @@
                                 4. 将查询结果导出为CSV文件<br>
                                 5. 切换到"CSV文件导入"标签页导入
                             </div>
-
-
                         </div>
 
                         <!-- CSV文件导入Tab -->
                         <div class="tab-pane fade" id="csvFileTab">
                             <div class="mb-3">
-                                <label class="form-label">选择CSV文件 <span class="text-danger">*</span></label>
-                                <input type="file" class="form-control" id="csvFileInput" accept=".csv" onchange="previewCsvData()">
-                                <small class="text-muted">支持UTF-8编码的CSV文件，第一行必须为表头</small>
+                                <label class="modal-form-label">选择CSV文件 <span class="text-danger">*</span></label>
+                                <input type="file" class="form-control form-control-sm" id="csvFileInput" accept=".csv" onchange="previewCsvData()">
+                                <small class="text-muted" style="font-size: 0.75rem;">支持UTF-8编码的CSV文件，第一行必须为表头</small>
                             </div>
 
                             <!-- 预览区域 -->
                             <div id="csvPreview" style="display: none;">
-                                <h6>数据预览（前5行）</h6>
+                                <div class="modal-section-title"><i class="bi bi-eye"></i> 数据预览（前5行）</div>
                                 <div class="table-responsive">
                                     <table class="table table-sm table-bordered" id="previewTable">
                                         <!-- 动态生成预览 -->
@@ -343,10 +321,10 @@
                             <!-- 进度条 -->
                             <div id="importProgress" style="display: none;">
                                 <div class="mb-2 d-flex justify-content-between">
-                                    <span>导入进度</span>
+                                    <span class="modal-form-label">导入进度</span>
                                     <span id="progressText">0%</span>
                                 </div>
-                                <div class="progress">
+                                <div class="progress progress-modern">
                                     <div class="progress-bar progress-bar-striped progress-bar-animated"
                                          role="progressbar"
                                          id="progressBar"
@@ -360,8 +338,8 @@
                     </div>
                 </div>
                  <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-success" onclick="startImport()" id="startImportBtn">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-success btn-modal-action" onclick="startImport()" id="startImportBtn">
                         <i class="bi bi-cloud-upload"></i> 开始导入
                     </button>
                 </div>
@@ -373,41 +351,46 @@
     <div class="modal fade" id="importTasksModal" tabindex="-1" aria-labelledby="importTasksModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header bg-info text-white">
+                <div class="modal-header modal-header-gradient-info">
                     <h5 class="modal-title" id="importTasksModalLabel">
                         <i class="bi bi-list-task"></i> 导入任务队列
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                            <tr>
-                                <th style="width: 100px;">任务ID</th>
-                                <th>表名</th>
-                                <th style="width: 120px;">状态</th>
-                                <th style="width: 150px;">进度</th>
-                                <th style="width: 120px;">成功/失败</th>
-                                <th style="width: 160px;">创建时间</th>
-                                <th style="width: 100px;">操作</th>
-                            </tr>
-                            </thead>
-                            <tbody id="importTasksList">
-                            <tr>
-                                <td colspan="7" class="text-center">
-                                    <div class="spinner-border text-primary" role="status">
-                                        <span class="visually-hidden">加载中...</span>
-                                    </div>
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
+                    <div class="modal-section-card p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover modern-table mb-0">
+                                <thead>
+                                <tr>
+                                    <th style="width: 90px;">任务ID</th>
+                                    <th style="width: 160px;">表名</th>
+                                    <th style="width: 110px;">状态</th>
+                                    <th style="width: 160px;">进度</th>
+                                    <th style="width: 120px;">成功/失败</th>
+                                    <th style="width: 150px;">创建时间</th>
+                                    <th style="width: 90px;">操作</th>
+                                </tr>
+                                </thead>
+                                <tbody id="importTasksList">
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                    <button type="button" class="btn btn-outline-primary" onclick="refreshImportTasks()">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-outline-danger btn-modal-action" onclick="clearCompletedImportTasks()">
+                        <i class="bi bi-trash"></i> 清空已完成
+                    </button>
+                    <button type="button" class="btn btn-info btn-modal-action" onclick="refreshImportTasks()">
                         <i class="bi bi-arrow-clockwise"></i> 刷新
                     </button>
                 </div>
@@ -419,74 +402,73 @@
     <div class="modal fade" id="sqlQueryModal" tabindex="-1" aria-labelledby="sqlQueryModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header bg-info text-white">
+                <div class="modal-header modal-header-gradient-info">
                     <h5 class="modal-title" id="sqlQueryModalLabel">
                         <i class="bi bi-code-slash"></i> SQL查询编辑器
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">目标表</label>
-                        <input type="text" class="form-control" id="queryTableName" readonly>
+                    <div class="modal-section-card">
+                        <label class="modal-form-label">目标表</label>
+                        <input type="text" class="form-control form-control-sm" id="queryTableName" readonly>
                     </div>
 
-                    <!-- 快捷查询按钮 -->
-                    <div class="mb-3">
-                        <label class="form-label">快捷查询</label>
+                    <div class="modal-section-card">
+                        <label class="modal-form-label">快捷查询</label>
                         <div class="btn-group w-100" role="group">
-                            <button type="button" class="btn btn-outline-primary" onclick="generateSelectAll()">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateSelectAll()">
                                 <i class="bi bi-list-check"></i> SELECT *
                             </button>
-                            <button type="button" class="btn btn-outline-primary" onclick="generateCount()">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateCount()">
                                 <i class="bi bi-calculator"></i> COUNT
                             </button>
-                            <button type="button" class="btn btn-outline-primary" onclick="generateInsertTemplate()">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateInsertTemplate()">
                                 <i class="bi bi-plus-circle"></i> INSERT模板
                             </button>
-                            <button type="button" class="btn btn-outline-primary" onclick="generateUpdateTemplate()">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateUpdateTemplate()">
                                 <i class="bi bi-pencil"></i> UPDATE模板
                             </button>
-                            <button type="button" class="btn btn-outline-primary" onclick="generateDeleteTemplate()">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateDeleteTemplate()">
                                 <i class="bi bi-trash"></i> DELETE模板
                             </button>
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">SQL语句</label>
-                        <textarea class="form-control font-monospace" id="sqlEditor" rows="8"
+                    <div class="modal-section-card">
+                        <label class="modal-form-label">SQL语句</label>
+                        <textarea class="form-control form-control-sm font-monospace" id="sqlEditor" rows="8"
                                   placeholder="输入SQL查询语句..."></textarea>
                         <div class="d-flex justify-content-between mt-2">
                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="copySqlToClipboard()">
                                 <i class="bi bi-clipboard"></i> 复制SQL
                             </button>
-                            <small class="text-muted">支持SELECT、INSERT、UPDATE、DELETE语句</small>
+                            <small class="text-muted" style="font-size: 0.75rem;">支持SELECT、INSERT、UPDATE、DELETE语句</small>
                         </div>
                     </div>
 
                     <!-- 查询结果 -->
-                    <div id="queryResult" style="display: none;">
+                    <div id="queryResult" class="modal-section-card" style="display: none;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h6 class="mb-0">查询结果</h6>
+                            <div class="modal-section-title mb-0"><i class="bi bi-table"></i> 查询结果</div>
                             <span class="badge bg-success" id="resultCount">0 条记录</span>
                         </div>
                         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                            <table class="table table-sm table-striped table-bordered" id="resultTable">
+                            <table class="table sql-result-table" id="resultTable">
                                 <!-- 动态生成结果 -->
                             </table>
                         </div>
                     </div>
 
                     <!-- 错误信息 -->
-                    <div id="queryError" class="alert alert-danger" style="display: none;">
+                    <div id="queryError" class="alert alert-danger modern-alert mb-0" style="display: none;">
                         <i class="bi bi-exclamation-triangle"></i>
                         <span id="errorText"></span>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                    <button type="button" class="btn btn-info" onclick="executeSql()">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-info btn-modal-action" onclick="executeSql()">
                         <i class="bi bi-play-fill"></i> 执行查询
                     </button>
                 </div>
@@ -494,34 +476,102 @@
         </div>
     </div>
 
+    <!-- 数据管理模态框 -->
+    <div class="modal fade" id="dataManageModal" tabindex="-1" aria-labelledby="dataManageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen-lg-down modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header modal-header-gradient-primary">
+                    <h5 class="modal-title" id="dataManageModalLabel">
+                        <i class="bi bi-table"></i> 数据管理 - <span id="dataManageTableName"></span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- 查询条件区 -->
+                    <div class="modal-section-card">
+                        <div class="modal-section-title"><i class="bi bi-funnel"></i> 查询条件</div>
+                        <div id="dataQueryConditions" class="row g-2">
+                            <!-- 动态生成查询条件输入框 -->
+                        </div>
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="queryTableData()">
+                                <i class="bi bi-search"></i> 查询
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetDataQuery()">
+                                <i class="bi bi-x-lg"></i> 重置
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 新增记录区 -->
+                    <div class="modal-section-card">
+                        <div class="modal-section-title"><i class="bi bi-plus-circle"></i> 新增记录</div>
+                        <div id="dataInsertForm" class="row g-2">
+                            <!-- 动态生成新增表单 -->
+                        </div>
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-sm btn-success" onclick="insertTableData()">
+                                <i class="bi bi-plus-lg"></i> 新增记录
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 数据表格区 -->
+                    <div class="modal-section-card p-0">
+                        <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                            <div class="modal-section-title mb-0"><i class="bi bi-list-ul"></i> 数据列表</div>
+                            <span class="text-muted small" id="dataQueryResultInfo">共 0 条</span>
+                        </div>
+                        <div class="table-responsive" style="max-height: 400px;">
+                            <table class="table table-sm table-hover table-bordered mb-0" id="dataQueryResultTable">
+                                <thead>
+                                    <tr>
+                                        <th>加载中...</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <nav class="mt-2">
+                            <ul class="pagination pagination-sm justify-content-center mb-0" id="dataQueryPagination"></ul>
+                        </nav>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 删除表确认模态框 -->
     <div class="modal fade" id="deleteTableModal" tabindex="-1" aria-labelledby="deleteTableModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
+                <div class="modal-header modal-header-gradient-danger">
                     <h5 class="modal-title" id="deleteTableModalLabel">
                         <i class="bi bi-exclamation-triangle"></i> 确认删除
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-danger">
+                    <div class="alert alert-danger modern-alert">
                         <i class="bi bi-exclamation-triangle-fill"></i>
                         <strong>警告：</strong>此操作不可恢复！
                     </div>
                     <p>确定要删除表 <strong id="deleteTableName"></strong> 吗？</p>
-                    <p class="text-muted">该表的所有数据都将被永久删除。</p>
+                    <p class="text-muted" style="font-size: 0.85rem;">该表的所有数据都将被永久删除。</p>
 
                     <div class="form-check mt-3">
                         <input class="form-check-input" type="checkbox" id="confirmDelete">
-                        <label class="form-check-label" for="confirmDelete">
+                        <label class="form-check-label" for="confirmDelete" style="font-size: 0.85rem;">
                             我已知晓风险，确认删除
                         </label>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-danger" onclick="confirmDeleteTable()" id="confirmDeleteBtn" disabled>
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger btn-modal-action" onclick="confirmDeleteTable()" id="confirmDeleteBtn" disabled>
                         <i class="bi bi-trash"></i> 确认删除
                     </button>
                 </div>
@@ -531,33 +581,60 @@
 
     <!-- 清空表确认模态框 -->
     <div class="modal fade" id="truncateTableModal" tabindex="-1" aria-labelledby="truncateTableModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header bg-warning text-dark">
+                <div class="modal-header modal-header-gradient-warning">
                     <h5 class="modal-title" id="truncateTableModalLabel">
                         <i class="bi bi-exclamation-triangle"></i> 确认清空
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-warning">
+                    <div class="alert alert-warning modern-alert">
                         <i class="bi bi-exclamation-triangle-fill"></i>
                         <strong>警告：</strong>此操作不可恢复！
                     </div>
                     <p>确定要清空表 <strong id="truncateTableName"></strong> 的所有数据吗？</p>
-                    <p class="text-muted">表结构将保留，但所有数据都将被删除。</p>
+                    <p class="text-muted" style="font-size: 0.85rem;">表结构将保留，但所有数据都将被删除。</p>
 
                     <div class="form-check mt-3">
                         <input class="form-check-input" type="checkbox" id="confirmTruncate">
-                        <label class="form-check-label" for="confirmTruncate">
+                        <label class="form-check-label" for="confirmTruncate" style="font-size: 0.85rem;">
                             我已知晓风险，确认清空
                         </label>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-warning" onclick="confirmTruncateTable()" id="confirmTruncateBtn" disabled>
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-warning btn-modal-action" onclick="confirmTruncateTable()" id="confirmTruncateBtn" disabled>
                         <i class="bi bi-trash"></i> 确认清空
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 重命名表模态框 -->
+    <div class="modal fade" id="renameTableModal" tabindex="-1" aria-labelledby="renameTableModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header modal-header-gradient-info">
+                    <h5 class="modal-title" id="renameTableModalLabel">
+                        <i class="bi bi-input-cursor-text"></i> 重命名表
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-section-card">
+                        <p class="mb-2">将表 <strong id="renameTableOldName"></strong> 重命名为：</p>
+                        <input type="text" class="form-control form-control-sm" id="renameTableNewName" placeholder="请输入新表名">
+                        <small class="text-muted" style="font-size: 0.75rem;">只能包含字母、数字和下划线；重命名后会同步更新所有表单配置中引用该表名的字段。</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-info btn-modal-action" onclick="confirmRenameTable()">
+                        <i class="bi bi-check-lg"></i> 确认重命名
                     </button>
                 </div>
             </div>
@@ -575,6 +652,433 @@
 
         .field-row:hover {
             background-color: #f8f9fa;
+        }
+
+        /* 现代化表列表 - 无卡片式 */
+        .table-list-section {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            overflow: hidden;
+        }
+
+        .table-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border-bottom: 1px solid #eef1f4;
+        }
+
+        .table-list-title {
+            font-weight: 600;
+            font-size: 1rem;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .table-search-group {
+            width: 280px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .table-search-group .input-group-text,
+        .table-search-group .form-control,
+        .table-search-group .btn {
+            border-color: #e2e8f0;
+            font-size: 0.85rem;
+        }
+
+        .modern-table-wrap {
+            padding: 0;
+        }
+
+        .modern-table {
+            font-size: 0.88rem;
+            margin-bottom: 0;
+        }
+
+        .modern-table thead th {
+            background-color: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            color: #475569;
+            white-space: nowrap;
+            padding: 0.65rem 0.85rem;
+            font-size: 0.82rem;
+            letter-spacing: 0.02em;
+        }
+
+        .modern-table thead th.operation-header {
+            width: 1%;
+            white-space: nowrap;
+            text-align: right;
+            padding-right: 1rem;
+        }
+
+        .modern-table tbody td .table-actions {
+            justify-content: flex-end;
+        }
+
+        .modern-table tbody td {
+            padding: 0.6rem 0.85rem;
+            vertical-align: middle;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+        }
+
+        .modern-table tbody tr {
+            transition: background-color 0.15s ease;
+        }
+
+        .modern-table tbody tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .modern-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .table-name-cell {
+            min-width: 120px;
+            max-width: 200px;
+        }
+
+        .table-name-text {
+            font-weight: 600;
+            color: #1e293b;
+            word-break: break-all;
+            font-size: 0.9rem;
+        }
+
+        .table-comment-text {
+            font-size: 0.75rem;
+            word-break: break-all;
+            color: #64748b;
+            margin-top: 0.15rem;
+        }
+
+        .table-actions {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 0.3rem;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .table-actions .btn {
+            padding: 0.26rem 0.48rem;
+            font-size: 0.74rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            border-radius: 8px;
+            font-weight: 500;
+            border-width: 1px;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .table-actions .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+
+        .table-actions .btn .btn-text {
+            display: inline;
+        }
+
+        @media (max-width: 1400px) {
+            .table-actions .btn {
+                padding: 0.26rem 0.42rem;
+            }
+            .table-actions .btn .btn-text {
+                display: none;
+            }
+        }
+
+        /* 统计卡片 */
+        .stat-card {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            background: #fff;
+            border-radius: 14px;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            border-left: 4px solid;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .stat-card-primary { border-left-color: #4f46e5; }
+        .stat-card-success { border-left-color: #10b981; }
+        .stat-card-info { border-left-color: #0ea5e9; }
+        .stat-card-warning { border-left-color: #f59e0b; }
+
+        .stat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .stat-card-primary .stat-icon { background: linear-gradient(135deg, #4f46e5, #6366f1); }
+        .stat-card-success .stat-icon { background: linear-gradient(135deg, #059669, #10b981); }
+        .stat-card-info .stat-icon { background: linear-gradient(135deg, #0284c7, #0ea5e9); }
+        .stat-card-warning .stat-icon { background: linear-gradient(135deg, #d97706, #f59e0b); }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1e293b;
+            line-height: 1.2;
+        }
+
+        /* 快捷操作 */
+        .quick-actions {
+            background: #fff;
+            border-radius: 14px;
+            padding: 1rem 1.25rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .quick-actions-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #2c3e50;
+            margin-bottom: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* 现代化模态框 */
+        .modal-content {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+            overflow: hidden;
+        }
+
+        .modal-header {
+            border-bottom: none;
+            padding: 1rem 1.5rem;
+        }
+
+        .modal-header-gradient-primary {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: #fff;
+        }
+
+        .modal-header-gradient-success {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            color: #fff;
+        }
+
+        .modal-header-gradient-info {
+            background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+            color: #fff;
+        }
+
+        .modal-header-gradient-warning {
+            background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+            color: #fff;
+        }
+
+        .modal-header-gradient-danger {
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+            color: #fff;
+        }
+
+        .modal-header-gradient-dark {
+            background: linear-gradient(135deg, #334155 0%, #475569 100%);
+            color: #fff;
+        }
+
+        .modal-title {
+            font-weight: 600;
+            font-size: 1.05rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            background-color: #f8fafc;
+        }
+
+        .modal-footer {
+            border-top: 1px solid #e2e8f0;
+            background-color: #fff;
+            padding: 1rem 1.5rem;
+        }
+
+        .modal-section-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            border: 1px solid #e2e8f0;
+        }
+
+        .modal-section-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .modal-section-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #334155;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .modal-form-label {
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: #475569;
+            margin-bottom: 0.25rem;
+        }
+
+        .modal-form-control,
+        .modal-form-control .form-control,
+        .modal-form-control .form-select {
+            font-size: 0.88rem;
+            border-radius: 8px;
+            border-color: #d1d5db;
+        }
+
+        .modal-form-control .form-control:focus,
+        .modal-form-control .form-select:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.12);
+        }
+
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .btn-modal-action {
+            border-radius: 8px;
+            padding: 0.45rem 1rem;
+            font-weight: 500;
+            font-size: 0.88rem;
+        }
+
+        .modern-alert {
+            border-radius: 10px;
+            border: none;
+            font-size: 0.85rem;
+        }
+
+        .nav-tabs-modern {
+            border-bottom: 1px solid #e2e8f0;
+            gap: 0.25rem;
+        }
+
+        .nav-tabs-modern .nav-link {
+            border: none;
+            border-radius: 8px 8px 0 0;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #64748b;
+            padding: 0.55rem 1rem;
+        }
+
+        .nav-tabs-modern .nav-link.active {
+            color: #4f46e5;
+            background-color: #eef2ff;
+        }
+
+        .tab-content-modern {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            padding: 1.25rem;
+        }
+
+        .progress-modern {
+            height: 10px;
+            border-radius: 999px;
+            background-color: #e2e8f0;
+            overflow: hidden;
+        }
+
+        .progress-modern .progress-bar {
+            border-radius: 999px;
+        }
+
+        /* SQL 查询结果表格 */
+        .sql-result-table {
+            font-size: 0.82rem;
+            border-collapse: separate;
+            border-spacing: 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 0;
+        }
+
+        .sql-result-table thead th {
+            background-color: #f1f5f9;
+            color: #334155;
+            font-weight: 600;
+            padding: 0.55rem 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            white-space: nowrap;
+        }
+
+        .sql-result-table tbody td {
+            padding: 0.45rem 0.75rem;
+            border-bottom: 1px solid #f1f5f9;
+            color: #475569;
+            vertical-align: middle;
+        }
+
+        .sql-result-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .sql-result-table tbody tr:hover td {
+            background-color: #f8fafc;
+        }
+
+        .sql-result-table tbody tr:nth-child(even) td {
+            background-color: #fafbfc;
+        }
+
+        .sql-result-table tbody tr:nth-child(even):hover td {
+            background-color: #f1f5f9;
         }
     </style>
 
@@ -706,42 +1210,51 @@
             const end = start + tablePageSize;
             const pageTables = filteredTables.slice(start, end);
 
-            // 渲染表格
-            const tbody = document.getElementById('tableListBody');
+            // 渲染表列表
+            const tableBody = document.querySelector('#tableListBody tbody');
 
             if (pageTables.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">暂无数据表</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">暂无数据表</td></tr>';
             } else {
-                tbody.innerHTML = pageTables.map((table, index) => `
-                    <tr>
-                        <td>${start + index + 1}</td>
+                tableBody.innerHTML = pageTables.map((table, index) => `
+                    <tr class="align-middle">
+                        <td class="text-muted">${start + index + 1}</td>
                         <td>
-                            <strong>${table.name}</strong>
-                            ${table.comment ? `<br><small class="text-muted">${table.comment}</small>` : ''}
+                            <div class="table-name-cell" title="${table.name}">
+                                <span class="table-name-text">${table.name}</span>
+                                ${table.comment ? `<small class="table-comment-text d-block text-muted">${table.comment}</small>` : ''}
+                            </div>
                         </td>
-                        <td><span class="badge bg-info">${table.field_count || 0}</span></td>
-                        <td><span class="badge bg-success">${table.record_count || 0}</span></td>
-                        <td>${table.created_at || '-'}</td>
-                        <td>${table.updated_at || '-'}</td>
+                        <td><span class="badge bg-info bg-opacity-10 text-info">${table.field_count || 0}</span></td>
+                        <td><span class="badge bg-success bg-opacity-10 text-success">${table.record_count || 0}</span></td>
+                        <td class="text-muted small">${table.updated_at || table.created_at || '-'}</td>
                         <td>
-                            <button class="btn btn-sm btn-outline-primary me-1" onclick="viewTableStructure('${table.name}')" title="查看结构">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-warning me-1" onclick="editTableStructure('${table.name}')" title="编辑结构">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-success me-1" onclick="showImportCsvModal('${table.name}')" title="导入CSV">
-                                <i class="bi bi-file-earmark-spreadsheet"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-info me-1" onclick="showSqlQueryModal('${table.name}')" title="SQL查询">
-                                <i class="bi bi-code-slash"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger me-1" onclick="showTruncateModal('${table.name}')" title="清空表">
-                                <i class="bi bi-eraser"></i>
-                            </button>
-                            <button class="btn btn-sm btn-danger" onclick="showDeleteModal('${table.name}')" title="删除表">
-                                <i class="bi bi-trash"></i>
-                            </button>
+                            <div class="table-actions">
+                                <button class="btn btn-outline-primary" onclick="showDataManageModal('${table.name}')" title="数据管理">
+                                    <i class="bi bi-table"></i><span class="btn-text">数据</span>
+                                </button>
+                                <button class="btn btn-outline-success" onclick="showImportCsvModal('${table.name}')" title="导入CSV">
+                                    <i class="bi bi-file-earmark-spreadsheet"></i><span class="btn-text">导入</span>
+                                </button>
+                                <button class="btn btn-outline-info" onclick="showSqlQueryModal('${table.name}')" title="SQL查询">
+                                    <i class="bi bi-code-slash"></i><span class="btn-text">SQL</span>
+                                </button>
+                                <button class="btn btn-outline-warning" onclick="editTableStructure('${table.name}')" title="编辑结构">
+                                    <i class="bi bi-pencil-square"></i><span class="btn-text">编辑</span>
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="viewTableStructure('${table.name}')" title="查看结构">
+                                    <i class="bi bi-eye"></i><span class="btn-text">结构</span>
+                                </button>
+                                <button class="btn btn-outline-dark" onclick="showRenameTableModal('${table.name}')" title="重命名">
+                                    <i class="bi bi-input-cursor-text"></i><span class="btn-text">重命名</span>
+                                </button>
+                                <button class="btn btn-outline-warning" onclick="showTruncateModal('${table.name}')" title="清空表">
+                                    <i class="bi bi-eraser"></i><span class="btn-text">清空</span>
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="showDeleteModal('${table.name}')" title="删除表">
+                                    <i class="bi bi-trash"></i><span class="btn-text">删除</span>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `).join('');
@@ -1655,6 +2168,407 @@
 
 
 
+        // ==================== 数据管理（查询/新增/编辑/删除）====================
+
+        let currentDataManageTable = null;
+        let currentDataManageFields = [];
+        let currentDataManageRows = [];
+        let currentDataManagePage = 1;
+        let currentDataManagePageSize = 20;
+        let currentEditingRowIndex = null;
+
+        function showDataManageModal(tableName) {
+            currentDataManageTable = tableName;
+            currentDataManagePage = 1;
+            currentEditingRowIndex = null;
+            document.getElementById('dataManageTableName').textContent = tableName;
+
+            const modal = new bootstrap.Modal(document.getElementById('dataManageModal'));
+            modal.show();
+
+            // 加载表结构
+            loadTableStructureForDataManage(tableName);
+        }
+
+        function loadTableStructureForDataManage(tableName) {
+            fetch(`/api/db/table-structure/?table_name=${encodeURIComponent(tableName)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentDataManageFields = data.data.fields;
+                        renderDataQueryConditions();
+                        renderDataInsertForm();
+                        queryTableData();
+                    } else {
+                        showToast('加载表结构失败：' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('加载表结构失败', 'error');
+                });
+        }
+
+        function renderDataQueryConditions() {
+            const container = document.getElementById('dataQueryConditions');
+            // 自动管理字段不用于查询条件
+            const autoFields = ['id', 'created_at', 'updated_at', 'create_time', 'update_time', 'created_time', 'updated_time'];
+            const fields = currentDataManageFields.filter(f => !autoFields.includes(f.name));
+
+            if (fields.length === 0) {
+                container.innerHTML = '<div class="col-12 text-muted">该表没有可查询字段</div>';
+                return;
+            }
+
+            container.innerHTML = fields.map(field => `
+                <div class="col-md-3 col-sm-6">
+                    <label class="form-label small">${field.name}</label>
+                    <input type="text" class="form-control form-control-sm data-query-field"
+                           data-field="${field.name}" placeholder="模糊匹配">
+                </div>
+            `).join('');
+        }
+
+        function renderDataInsertForm() {
+            const container = document.getElementById('dataInsertForm');
+            // id 等自增字段不显示
+            const autoFields = ['id', 'created_at', 'updated_at', 'create_time', 'update_time', 'created_time', 'updated_time'];
+            const fields = currentDataManageFields.filter(f => !autoFields.includes(f.name));
+
+            if (fields.length === 0) {
+                container.innerHTML = '<div class="col-12 text-muted">该表没有可插入字段</div>';
+                return;
+            }
+
+            container.innerHTML = fields.map(field => `
+                <div class="col-md-3 col-sm-6">
+                    <label class="form-label small">${field.name}</label>
+                    <input type="text" class="form-control form-control-sm data-insert-field"
+                           data-field="${field.name}" placeholder="${field.type}">
+                </div>
+            `).join('');
+        }
+
+        function getDataQueryConditions() {
+            const conditions = {};
+            document.querySelectorAll('#dataQueryConditions .data-query-field').forEach(input => {
+                const value = input.value.trim();
+                if (value) {
+                    conditions[input.dataset.field] = value;
+                }
+            });
+            return conditions;
+        }
+
+        function queryTableData() {
+            if (!currentDataManageTable) return;
+
+            const conditions = getDataQueryConditions();
+
+            fetch('/api/db/table-data/query/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    table_name: currentDataManageTable,
+                    conditions: conditions,
+                    page: currentDataManagePage,
+                    page_size: currentDataManagePageSize
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentDataManageFields = data.data.fields;
+                    currentDataManageRows = data.data.rows;
+                    renderDataQueryResult(data.data);
+                } else {
+                    showToast('查询失败：' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('查询失败', 'error');
+            });
+        }
+
+        function renderDataQueryResult(result) {
+            const table = document.getElementById('dataQueryResultTable');
+            const thead = table.querySelector('thead tr');
+            const tbody = table.querySelector('tbody');
+
+            document.getElementById('dataQueryResultInfo').textContent =
+                `共 ${result.total} 条，第 ${result.page}/${result.total_pages} 页`;
+
+            // 表头
+            if (result.fields.length === 0) {
+                thead.innerHTML = '<th>无字段</th>';
+            } else {
+                thead.innerHTML = result.fields.map(field => `<th>${field}</th>`).join('') +
+                    '<th style="width: 120px;">操作</th>';
+            }
+
+            // 数据行
+            if (result.rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${result.fields.length + 1}" class="text-center text-muted py-4">暂无数据</td></tr>`;
+            } else {
+                tbody.innerHTML = result.rows.map((row, index) => {
+                    const cells = result.fields.map(field => {
+                        const value = row[field];
+                        return `<td>${value !== null && value !== undefined ? value : ''}</td>`;
+                    }).join('');
+                    return `
+                        <tr data-index="${index}">
+                            ${cells}
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary mb-1" onclick="editTableDataRow(${index})" title="编辑">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteTableDataRow(${index})" title="删除">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // 分页
+            renderDataQueryPagination(result.total_pages);
+        }
+
+        function renderDataQueryPagination(totalPages) {
+            const pagination = document.getElementById('dataQueryPagination');
+            if (!pagination) return;
+
+            let html = '';
+            html += `<li class="page-item ${currentDataManagePage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changeDataQueryPage(${currentDataManagePage - 1}); return false;">上一页</a>
+            </li>`;
+
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentDataManagePage - 2 && i <= currentDataManagePage + 2)) {
+                    html += `<li class="page-item ${i === currentDataManagePage ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changeDataQueryPage(${i}); return false;">${i}</a>
+                    </li>`;
+                } else if (i === currentDataManagePage - 3 || i === currentDataManagePage + 3) {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                }
+            }
+
+            html += `<li class="page-item ${currentDataManagePage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changeDataQueryPage(${currentDataManagePage + 1}); return false;">下一页</a>
+            </li>`;
+
+            pagination.innerHTML = html;
+        }
+
+        function changeDataQueryPage(page) {
+            if (page < 1) return;
+            currentDataManagePage = page;
+            queryTableData();
+        }
+
+        function resetDataQuery() {
+            document.querySelectorAll('#dataQueryConditions .data-query-field').forEach(input => {
+                input.value = '';
+            });
+            currentDataManagePage = 1;
+            queryTableData();
+        }
+
+        function insertTableData() {
+            if (!currentDataManageTable) return;
+
+            const record = {};
+            document.querySelectorAll('#dataInsertForm .data-insert-field').forEach(input => {
+                const value = input.value.trim();
+                if (value !== '') {
+                    record[input.dataset.field] = value;
+                }
+            });
+
+            if (Object.keys(record).length === 0) {
+                showToast('请至少填写一个字段', 'warning');
+                return;
+            }
+
+            fetch('/api/db/table-data/insert/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    table_name: currentDataManageTable,
+                    record: record
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    // 清空表单
+                    document.querySelectorAll('#dataInsertForm .data-insert-field').forEach(input => {
+                        input.value = '';
+                    });
+                    queryTableData();
+                    refreshTableList();
+                } else {
+                    showToast('插入失败：' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('插入失败', 'error');
+            });
+        }
+
+        function editTableDataRow(index) {
+            const row = currentDataManageRows[index];
+            if (!row) return;
+
+            // 找到主键字段（通常为 id）
+            const pkField = currentDataManageFields.find(f => f.name === 'id')?.name || currentDataManageFields[0]?.name;
+            if (!pkField || row[pkField] === undefined) {
+                showToast('无法确定该行主键，无法编辑', 'warning');
+                return;
+            }
+
+            // 自动管理字段不可编辑
+            const autoFields = ['id', 'created_at', 'updated_at', 'create_time', 'update_time', 'created_time', 'updated_time'];
+            const editableFields = currentDataManageFields.filter(f => !autoFields.includes(f.name));
+
+            let html = '<div class="row g-2">';
+            editableFields.forEach(field => {
+                const value = row[field.name] !== null && row[field.name] !== undefined ? row[field.name] : '';
+                html += `
+                    <div class="col-md-4 col-sm-6">
+                        <label class="form-label small">${field.name}</label>
+                        <input type="text" class="form-control form-control-sm edit-data-field"
+                               data-field="${field.name}" value="${value}">
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            const modalId = 'editDataRowModal_' + Date.now();
+            const modalHtml = `
+                <div class="modal fade" id="${modalId}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header modal-header-gradient-warning">
+                                <h5 class="modal-title"><i class="bi bi-pencil"></i> 编辑记录</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="modal-section-card mb-0">${html}</div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                                <button type="button" class="btn btn-warning btn-modal-action" onclick="saveTableDataRow('${modalId}', ${index}, '${pkField}')">
+                                    <i class="bi bi-save"></i> 保存
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const modal = new bootstrap.Modal(document.getElementById(modalId));
+            modal.show();
+
+            document.getElementById(modalId).addEventListener('hidden.bs.modal', function() {
+                this.remove();
+            });
+        }
+
+        function saveTableDataRow(modalId, index, pkField) {
+            const row = currentDataManageRows[index];
+            const record = {};
+            document.querySelectorAll(`#${modalId} .edit-data-field`).forEach(input => {
+                record[input.dataset.field] = input.value;
+            });
+
+            const whereConditions = {};
+            whereConditions[pkField] = row[pkField];
+
+            fetch('/api/db/table-data/update/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    table_name: currentDataManageTable,
+                    record: record,
+                    where_conditions: whereConditions
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
+                    queryTableData();
+                    refreshTableList();
+                } else {
+                    showToast('更新失败：' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('更新失败', 'error');
+            });
+        }
+
+        function deleteTableDataRow(index) {
+            const row = currentDataManageRows[index];
+            if (!row) return;
+
+            const pkField = currentDataManageFields.find(f => f.name === 'id')?.name || currentDataManageFields[0]?.name;
+            if (!pkField || row[pkField] === undefined) {
+                showToast('无法确定该行主键，无法删除', 'warning');
+                return;
+            }
+
+            if (!confirm(`确定要删除这条记录吗？\n${pkField} = ${row[pkField]}`)) {
+                return;
+            }
+
+            const whereConditions = {};
+            whereConditions[pkField] = row[pkField];
+
+            fetch('/api/db/table-data/delete/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    table_name: currentDataManageTable,
+                    where_conditions: whereConditions
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    queryTableData();
+                    refreshTableList();
+                } else {
+                    showToast('删除失败：' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('删除失败', 'error');
+            });
+        }
+
         // ==================== 删除表 ====================
 
         function showDeleteModal(tableName) {
@@ -1734,6 +2648,63 @@
             .catch(error => {
                 console.error('Error:', error);
                 showToast('清空表失败', 'error');
+            });
+        }
+
+        // ==================== 重命名表 ====================
+
+        let currentRenamingTable = null;
+
+        function showRenameTableModal(tableName) {
+            currentRenamingTable = tableName;
+            document.getElementById('renameTableOldName').textContent = tableName;
+            document.getElementById('renameTableNewName').value = '';
+
+            const modal = new bootstrap.Modal(document.getElementById('renameTableModal'));
+            modal.show();
+        }
+
+        function confirmRenameTable() {
+            if (!currentRenamingTable) return;
+
+            const newName = document.getElementById('renameTableNewName').value.trim();
+            if (!newName) {
+                showToast('请输入新表名', 'warning');
+                return;
+            }
+            if (!/^[a-zA-Z0-9_]+$/.test(newName)) {
+                showToast('表名只能包含字母、数字和下划线', 'warning');
+                return;
+            }
+            if (newName === currentRenamingTable) {
+                showToast('新表名与旧表名相同', 'warning');
+                return;
+            }
+
+            fetch('/api/db/rename-table/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    old_name: currentRenamingTable,
+                    new_name: newName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('renameTableModal')).hide();
+                    refreshTableList();
+                } else {
+                    showToast('重命名失败：' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('重命名表失败', 'error');
             });
         }
 
@@ -1824,6 +2795,33 @@
             loadImportTasks();
         }
 
+        function clearCompletedImportTasks() {
+            if (!confirm('确定要清空所有已完成/失败的任务记录吗？')) {
+                return;
+            }
+
+            fetch('/api/db/clear-tasks/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    loadImportTasks();
+                } else {
+                    showToast('清理失败：' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('清理任务失败', 'error');
+            });
+        }
+
           function viewTaskErrors(taskId) {
             fetch(`/api/db/task-status/?task_id=${taskId}`)
                 .then(response => response.json())
@@ -1905,17 +2903,17 @@
             const modalId = 'detailModal_' + Date.now();
             const modalHtml = `
                 <div class="modal fade" id="${modalId}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
                         <div class="modal-content">
-                            <div class="modal-header bg-info text-white">
+                            <div class="modal-header modal-header-gradient-info">
                                 <h5 class="modal-title"><i class="bi bi-info-circle"></i> ${title}</h5>
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
-                                ${content}
+                                <div class="modal-section-card mb-0">${content}</div>
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                                <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">关闭</button>
                             </div>
                         </div>
                     </div>

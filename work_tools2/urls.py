@@ -51,15 +51,22 @@ urlpatterns = [
     path("api/db/update-table/", views.update_table_structure, name="update_table_structure"),
     path("api/db/delete-table/", views.delete_table, name="delete_table"),
     path("api/db/truncate-table/", views.truncate_table, name="truncate_table"),
+    path("api/db/rename-table/", views.rename_table, name="rename_table"),
     path("api/db/import-csv/", views.import_csv_data, name="import_csv_data"),
     path("api/db/statistics/", views.get_database_statistics, name="get_database_statistics"),
     path("api/db/execute-sql/", views.execute_sql_query, name="execute_sql_query"),
     # 在 urls.py 中添加
     path('api/db/task-status/', views.get_import_task_status, name='get_import_task_status'),
     path('api/db/tasks-list/', views.get_import_tasks_list, name='get_import_tasks_list'),
+    path('api/db/clear-tasks/', views.clear_import_tasks, name='clear_import_tasks'),
     # 查询SQL保存/加载
     path('api/db/save-query-sql/', views.save_query_sql, name='save_query_sql'),
     path('api/db/load-query-sql/', views.load_query_sql, name='load_query_sql'),
+    # 表数据管理（查询/新增/编辑/删除）
+    path('api/db/table-data/query/', views.query_table_data, name='query_table_data'),
+    path('api/db/table-data/insert/', views.insert_table_data, name='insert_table_data'),
+    path('api/db/table-data/update/', views.update_table_data, name='update_table_data'),
+    path('api/db/table-data/delete/', views.delete_table_data, name='delete_table_data'),
     # 数据库IP配置API
     path("api/database-ip-configs/", views.get_database_ip_configs, name="get_database_ip_configs"),
     path("api/database-ip-config/save/", views.save_database_ip_config, name="save_database_ip_config"),

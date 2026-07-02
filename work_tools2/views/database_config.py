@@ -2,6 +2,7 @@
 import csv
 import io
 import os
+import re
 import sqlite3
 import time
 from datetime import datetime
@@ -12,6 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from work_tools2.task import get_all_tasks, create_import_task, get_task_status
+from work_tools2.models import FormConfig, FormQueryItem, FormUpdateItem, ImportTaskModel
 
 # 系统表集合 - 这些表不允许删除、清空或修改
 SYSTEM_TABLES = {
@@ -36,7 +38,8 @@ SYSTEM_TABLES = {
     '_table_metadata',
     'work_tools2_databaseipconfig',
     'work_tools2_filepathconfig',
-    '_query_sql_config'
+    '_query_sql_config',
+    'work_tools2_importtask'
 }
 
 
@@ -672,6 +675,131 @@ def truncate_table(request):
         }, status=500)
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def rename_table(request):
+    """重命名表，并同步更新表单配置中的表名引用"""
+    try:
+        import json
+        data = json.loads(request.body)
+
+        old_name = data.get('old_name', '').strip()
+        new_name = data.get('new_name', '').strip()
+
+        if not old_name or not new_name:
+            return JsonResponse({
+                'success': False,
+                'message': '旧表名和新表名均不能为空'
+            }, status=400)
+
+        if old_name == new_name:
+            return JsonResponse({
+                'success': False,
+                'message': '新表名与旧表名相同'
+            }, status=400)
+
+        if not re.match(r'^[a-zA-Z0-9_]+$', new_name):
+            return JsonResponse({
+                'success': False,
+                'message': '新表名只能包含字母、数字和下划线'
+            }, status=400)
+
+        # 检查是否为系统表
+        if is_system_table(old_name):
+            return JsonResponse({
+                'success': False,
+                'message': f'表 "{old_name}" 是系统表，不允许重命名'
+            }, status=403)
+
+        if is_system_table(new_name):
+            return JsonResponse({
+                'success': False,
+                'message': f'表名 "{new_name}" 与系统表冲突'
+            }, status=403)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # 检查旧表是否存在
+        cursor.execute("""
+                       SELECT name
+                       FROM sqlite_master
+                       WHERE type = 'table'
+                         AND name = ?
+                       """, (old_name,))
+        if not cursor.fetchone():
+            conn.close()
+            return JsonResponse({
+                'success': False,
+                'message': f'表 {old_name} 不存在'
+            }, status=404)
+
+        # 检查新表名是否已存在
+        cursor.execute("""
+                       SELECT name
+                       FROM sqlite_master
+                       WHERE type = 'table'
+                         AND name = ?
+                       """, (new_name,))
+        if cursor.fetchone():
+            conn.close()
+            return JsonResponse({
+                'success': False,
+                'message': f'表名 {new_name} 已存在'
+            }, status=409)
+
+        # 执行重命名
+        cursor.execute(f"ALTER TABLE {old_name} RENAME TO {new_name}")
+        conn.commit()
+        conn.close()
+
+        # 同步更新表单配置中的表名引用
+        updated_configs = 0
+        for config in FormConfig.objects.all():
+            if isinstance(config.table_name_list, list) and old_name in config.table_name_list:
+                config.table_name_list = [
+                    new_name if name == old_name else name
+                    for name in config.table_name_list
+                ]
+                config.save(update_fields=['table_name_list'])
+                updated_configs += 1
+
+        updated_query_items = 0
+        for item in FormQueryItem.objects.all():
+            if isinstance(item.connected_table, list) and old_name in item.connected_table:
+                item.connected_table = [
+                    new_name if name == old_name else name
+                    for name in item.connected_table
+                ]
+                item.save(update_fields=['connected_table'])
+                updated_query_items += 1
+
+        updated_update_items = 0
+        for item in FormUpdateItem.objects.all():
+            if isinstance(item.connected_table, list) and old_name in item.connected_table:
+                item.connected_table = [
+                    new_name if name == old_name else name
+                    for name in item.connected_table
+                ]
+                # 补充框的主表字段也可能引用该表名
+                if item.main_table == old_name:
+                    item.main_table = new_name
+                    item.save(update_fields=['connected_table', 'main_table'])
+                else:
+                    item.save(update_fields=['connected_table'])
+                updated_update_items += 1
+
+        return JsonResponse({
+            'success': True,
+            'message': f'表 {old_name} 已重命名为 {new_name}，并更新了 {updated_configs} 个表单配置、{updated_query_items} 个查询字段、{updated_update_items} 个更新字段的表名引用'
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'重命名表失败: {str(e)}'
+        }, status=500)
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -878,14 +1006,12 @@ def get_database_statistics(request):
         db_size_bytes = os.path.getsize(db_path)
         db_size_mb = round(db_size_bytes / (1024 * 1024), 2)
 
-        # 获取今日导入次数（从任务队列中统计）
-        from work_tools2.task import import_tasks
+        # 获取今日导入次数（从持久化任务中统计）
         today = datetime.now().strftime('%Y-%m-%d')
-        today_imports = 0
-
-        for task in import_tasks.values():
-            if task.created_at.startswith(today) and task.status == 'completed':
-                today_imports += 1
+        today_imports = ImportTaskModel.objects.filter(
+            status='completed',
+            completed_at__date=today
+        ).count()
 
         return JsonResponse({
             'success': True,
@@ -1041,7 +1167,12 @@ def import_csv_data(request):
         truncate_before = request.POST.get('truncate_before', 'false').lower() == 'true'
 
         # 创建异步任务
-        task_id = create_import_task(table_name, csv_content, truncate_before)
+        task_id = create_import_task(
+            table_name=table_name,
+            file_content=csv_content,
+            truncate_before=truncate_before,
+            original_filename=csv_file.name
+        )
 
         return JsonResponse({
             'success': True,
@@ -1255,3 +1386,252 @@ def load_query_sql(request):
             'success': False,
             'message': f'加载失败: {str(e)}'
         }, status=500)
+
+
+# ==================== 表数据管理（查询/新增/编辑/删除）====================
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def query_table_data(request):
+    """分页查询表数据，支持按字段模糊/精确匹配"""
+    try:
+        import json
+        data = json.loads(request.body)
+        table_name = data.get('table_name', '').strip()
+        conditions = data.get('conditions', {})
+        page = int(data.get('page', 1))
+        page_size = int(data.get('page_size', 20))
+
+        if not table_name:
+            return JsonResponse({'success': False, 'message': '表名不能为空'}, status=400)
+
+        if is_system_table(table_name):
+            return JsonResponse({'success': False, 'message': '系统表禁止操作'}, status=403)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # 检查表是否存在
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+        if not cursor.fetchone():
+            conn.close()
+            return JsonResponse({'success': False, 'message': f'表 {table_name} 不存在'}, status=404)
+
+        # 获取字段信息
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        fields = [row['name'] for row in cursor.fetchall()]
+
+        # 构建 WHERE 子句
+        where_clauses = []
+        params = []
+        for field, value in conditions.items():
+            if field in fields and value:
+                where_clauses.append(f"{field} LIKE ?")
+                params.append(f'%{value}%')
+
+        where_sql = ''
+        if where_clauses:
+            where_sql = 'WHERE ' + ' AND '.join(where_clauses)
+
+        # 查询总数
+        count_sql = f"SELECT COUNT(*) as total FROM {table_name} {where_sql}"
+        cursor.execute(count_sql, params)
+        total = cursor.fetchone()['total']
+
+        # 分页查询
+        offset = (page - 1) * page_size
+        query_sql = f"SELECT * FROM {table_name} {where_sql} LIMIT ? OFFSET ?"
+        cursor.execute(query_sql, params + [page_size, offset])
+        rows = [dict(row) for row in cursor.fetchall()]
+
+        conn.close()
+
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'fields': fields,
+                'rows': rows,
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+                'total_pages': max(1, (total + page_size - 1) // page_size)
+            }
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'查询失败: {str(e)}'}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def insert_table_data(request):
+    """向表中插入单条记录"""
+    try:
+        import json
+        data = json.loads(request.body)
+        table_name = data.get('table_name', '').strip()
+        record = data.get('record', {})
+
+        if not table_name:
+            return JsonResponse({'success': False, 'message': '表名不能为空'}, status=400)
+
+        if is_system_table(table_name):
+            return JsonResponse({'success': False, 'message': '系统表禁止操作'}, status=403)
+
+        if not record:
+            return JsonResponse({'success': False, 'message': '插入数据不能为空'}, status=400)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+        if not cursor.fetchone():
+            conn.close()
+            return JsonResponse({'success': False, 'message': f'表 {table_name} 不存在'}, status=404)
+
+        # 过滤掉空值，避免违反非空约束
+        valid_fields = {k: v for k, v in record.items() if v is not None and str(v).strip() != ''}
+
+        if not valid_fields:
+            conn.close()
+            return JsonResponse({'success': False, 'message': '没有有效的字段数据'}, status=400)
+
+        columns = ', '.join(valid_fields.keys())
+        placeholders = ', '.join(['?' for _ in valid_fields])
+        values = list(valid_fields.values())
+
+        cursor.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})", values)
+        conn.commit()
+        conn.close()
+
+        return JsonResponse({
+            'success': True,
+            'message': '数据插入成功',
+            'data': {'inserted_id': cursor.lastrowid}
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'插入失败: {str(e)}'}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def update_table_data(request):
+    """更新表中记录，必须指定 WHERE 条件"""
+    try:
+        import json
+        data = json.loads(request.body)
+        table_name = data.get('table_name', '').strip()
+        record = data.get('record', {})
+        where_conditions = data.get('where_conditions', {})
+
+        if not table_name:
+            return JsonResponse({'success': False, 'message': '表名不能为空'}, status=400)
+
+        if is_system_table(table_name):
+            return JsonResponse({'success': False, 'message': '系统表禁止操作'}, status=403)
+
+        if not where_conditions:
+            return JsonResponse({'success': False, 'message': '更新操作必须指定 WHERE 条件'}, status=400)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+        if not cursor.fetchone():
+            conn.close()
+            return JsonResponse({'success': False, 'message': f'表 {table_name} 不存在'}, status=404)
+
+        set_clauses = []
+        set_values = []
+        for k, v in record.items():
+            set_clauses.append(f"{k} = ?")
+            set_values.append(v)
+
+        where_clauses = []
+        where_values = []
+        for k, v in where_conditions.items():
+            where_clauses.append(f"{k} = ?")
+            where_values.append(v)
+
+        sql = f"UPDATE {table_name} SET {', '.join(set_clauses)} WHERE {' AND '.join(where_clauses)}"
+        cursor.execute(sql, set_values + where_values)
+        conn.commit()
+        affected_rows = cursor.rowcount
+        conn.close()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'更新成功，影响 {affected_rows} 行',
+            'data': {'affected_rows': affected_rows}
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'更新失败: {str(e)}'}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@csrf_exempt
+@require_http_methods(["POST"])
+def clear_import_tasks(request):
+    """清空所有已完成/失败的导入任务"""
+    try:
+        from work_tools2.task import clear_completed_tasks
+        deleted_count = clear_completed_tasks()
+        return JsonResponse({
+            'success': True,
+            'message': f'已清理 {deleted_count} 个已完成/失败的任务'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'清理任务失败: {str(e)}'
+        }, status=500)
+
+
+def delete_table_data(request):
+    """删除表中记录，必须指定 WHERE 条件"""
+    try:
+        import json
+        data = json.loads(request.body)
+        table_name = data.get('table_name', '').strip()
+        where_conditions = data.get('where_conditions', {})
+
+        if not table_name:
+            return JsonResponse({'success': False, 'message': '表名不能为空'}, status=400)
+
+        if is_system_table(table_name):
+            return JsonResponse({'success': False, 'message': '系统表禁止操作'}, status=403)
+
+        if not where_conditions:
+            return JsonResponse({'success': False, 'message': '删除操作必须指定 WHERE 条件'}, status=400)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+        if not cursor.fetchone():
+            conn.close()
+            return JsonResponse({'success': False, 'message': f'表 {table_name} 不存在'}, status=404)
+
+        where_clauses = []
+        where_values = []
+        for k, v in where_conditions.items():
+            where_clauses.append(f"{k} = ?")
+            where_values.append(v)
+
+        sql = f"DELETE FROM {table_name} WHERE {' AND '.join(where_clauses)}"
+        cursor.execute(sql, where_values)
+        conn.commit()
+        affected_rows = cursor.rowcount
+        conn.close()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'删除成功，影响 {affected_rows} 行',
+            'data': {'affected_rows': affected_rows}
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'}, status=500)

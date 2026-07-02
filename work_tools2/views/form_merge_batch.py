@@ -3,37 +3,137 @@ import os
 from datetime import datetime
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
 from work_tools2.models import FormConfig, FormQueryItem, FormUpdateItem, DatabaseIPConfig
 from work_tools2.path_utils import get_save_path_from_config
 
 
+def _build_form_config_data(config):
+    """从 FormConfig ORM 对象构建 query/update 配置数据"""
+    query_items_data = []
+    for item in FormQueryItem.objects.filter(form_config=config).order_by('sort_order'):
+        query_items_data.append({
+            'label': item.label,
+            'bindingKey': item.binding_key,
+            'type': item.field_type,
+            'defaultValue': item.default_value,
+            'ValidRule': item.valid_rule,
+            'connectedTable': item.connected_table or [],
+        })
+
+    update_items_data = []
+    for item in FormUpdateItem.objects.filter(form_config=config).order_by('sort_order'):
+        update_item = {
+            'label': item.label,
+            'bindingKey': item.binding_key,
+            'inputType': item.input_type,
+            'type': item.field_type,
+            'newDefaultValue': item.new_default_value,
+            'originDefaultValue': item.origin_default_value,
+            'newValidRule': item.new_valid_rule,
+            'originValidRule': item.origin_valid_rule,
+            'mainTable': item.main_table,
+            'mainField': item.main_field,
+            'subFields': item.sub_fields or [],
+            'connectedTable': item.connected_table or [],
+        }
+        if item.input_type == 'calculated':
+            update_item['expressions'] = item.expressions or {}
+        if item.component_name:
+            from work_tools2.models import ComponentConfig
+            component = ComponentConfig.objects.filter(name=item.component_name).first()
+            if component:
+                update_item['options'] = component.options
+            else:
+                update_item['options'] = item.options or []
+        else:
+            update_item['options'] = item.options or []
+        update_items_data.append(update_item)
+
+    return query_items_data, update_items_data
+
+
+def _build_worksheet_from_rows(ws, query_items, update_items, rows):
+    """根据配置和在线编辑行数据构造 openpyxl worksheet"""
+    # 构造表头：查询字段 -> 所有新值列 -> 所有原值列
+    headers = []
+    for item in query_items:
+        headers.append(item.get('label', ''))
+
+    new_headers = []
+    origin_headers = []
+    for item in update_items:
+        input_type = item.get('inputType', '')
+        if input_type == 'calculated':
+            continue
+        if input_type == 'supplement':
+            new_headers.append(f'新{item.get("label", "")}')
+            origin_headers.append(f'原{item.get("label", "")}')
+            for sf in item.get('subFields', []):
+                if isinstance(sf, dict) and sf.get('type') == 'auxiliary':
+                    sub_label = sf.get('label', sf.get('bindingKey', ''))
+                    new_headers.append(f'新{sub_label}')
+                    origin_headers.append(f'原{sub_label}')
+        else:
+            new_headers.append(f'新{item.get("label", "")}')
+            origin_headers.append(f'原{item.get("label", "")}')
+    headers.extend(new_headers)
+    headers.extend(origin_headers)
+
+    # 写入表头
+    for col_idx, header in enumerate(headers, 1):
+        ws.cell(row=1, column=col_idx, value=header)
+
+    # 写入数据行
+    for row_idx, row_data in enumerate(rows, 2):
+        for col_idx, header in enumerate(headers, 1):
+            value = row_data.get(header, '')
+            ws.cell(row=row_idx, column=col_idx, value=value)
+
+    return headers
+
+
 @csrf_exempt
 def batch_import_merge(request):
-    """批量导入并合并多个表单的SQL"""
+    """批量导入并合并多个表单的SQL（支持文件上传和在线编辑器JSON数据）"""
     if request.method == 'POST':
         try:
-            file = request.FILES.get('file')
-            form_ids_json = request.POST.get('formIds')
-            query_values_json = request.POST.get('queryValues')  # 公共字段值
-            
-            if not file or not form_ids_json:
-                return JsonResponse({'success': False, 'message': '缺少文件或表单ID参数'}, status=400)
-            
-            form_ids = json.loads(form_ids_json)
-            if not form_ids or len(form_ids) == 0:
-                return JsonResponse({'success': False, 'message': '请至少选择一个表单'}, status=400)
-            
-            # 解析公共字段
-            query_values = {}
-            if query_values_json:
-                try:
-                    query_values = json.loads(query_values_json)
-                except json.JSONDecodeError:
-                    query_values = {}
-            
+            content_type = request.content_type or ''
+            is_json = 'application/json' in content_type
+
+            if is_json:
+                # 在线编辑器模式
+                data = json.loads(request.body)
+                query_values = data.get('queryValues', {})
+                rows_per_sheet = data.get('rowsPerSheet', {})
+                if not rows_per_sheet:
+                    return JsonResponse({'success': False, 'message': '没有数据可导入'}, status=400)
+                wb = None
+            else:
+                # 文件上传模式
+                file = request.FILES.get('file')
+                form_ids_json = request.POST.get('formIds')
+                query_values_json = request.POST.get('queryValues')
+
+                if not file or not form_ids_json:
+                    return JsonResponse({'success': False, 'message': '缺少文件或表单ID参数'}, status=400)
+
+                form_ids = json.loads(form_ids_json)
+                if not form_ids or len(form_ids) == 0:
+                    return JsonResponse({'success': False, 'message': '请至少选择一个表单'}, status=400)
+
+                query_values = {}
+                if query_values_json:
+                    try:
+                        query_values = json.loads(query_values_json)
+                    except json.JSONDecodeError:
+                        query_values = {}
+
+                wb = load_workbook(file)
+                rows_per_sheet = None
+
             # 验证公共字段
-            common_fields = ['filePrefix', 'onesLink', 'dynamicNo']
+            common_fields = ['filePrefix', 'onesLink', 'dynamicNo', 'ops_remark']
             for field_name in common_fields:
                 value_data = query_values.get(field_name, {})
                 if isinstance(value_data, dict):
@@ -42,118 +142,146 @@ def batch_import_merge(request):
                     value = value_data
                 else:
                     value = ''
-                
+
                 if not value or str(value).strip() == '':
                     return JsonResponse({'success': False, 'message': f'{field_name}不能为空'}, status=400)
-            
-            # 加载Excel文件
-            wb = load_workbook(file)
-            
+
             # 存储所有SQL语句
             all_forward_sqls = []
             all_backward_sqls = []
-            failed_sheets = []  # 存储失败的Sheet信息（包含worksheet对象）
+            failed_sheets = []
             success_count = 0
             total_processed = 0
-            
-            # 遍历每个Sheet
-            for sheet_name in wb.sheetnames:
-                ws = wb[sheet_name]
-                total_processed += 1
-                
-                # 根据Sheet名称查找对应的表单配置
-                config = FormConfig.objects.filter(form_name=sheet_name).first()
-                if not config:
-                    failed_sheets.append({
-                        'sheet': sheet_name,
-                        'error': f'未找到表单配置：{sheet_name}',
-                        'ws': ws
-                    })
-                    continue
-                
-                try:
-                    # 获取表单配置
-                    query_items_data = []
-                    for item in FormQueryItem.objects.filter(form_config=config).order_by('sort_order'):
-                        query_items_data.append({
-                            'label': item.label,
-                            'bindingKey': item.binding_key,
-                            'type': item.field_type,
-                            'defaultValue': item.default_value,
-                            'ValidRule': item.valid_rule,
-                            'connectedTable': item.connected_table or [],  # 添加关联表
+
+            # 在线编辑器模式下保留每个 Sheet 的 worksheet，用于生成错误报告
+            json_mode_sheets = {}
+            # 在线编辑器模式下记录实际处理到的表单ID（用于生成SQL文件时写入数据库信息）
+            json_form_ids = []
+
+            def _extract_row_errors(ws):
+                """从 worksheet 的失败原因列提取行级错误"""
+                headers = {}
+                for col in range(1, ws.max_column + 1):
+                    val = ws.cell(row=1, column=col).value
+                    if val is not None:
+                        headers[str(val).strip()] = col
+                error_col = headers.get('失败原因')
+                if not error_col:
+                    return []
+                errors = []
+                for row_idx in range(2, ws.max_row + 1):
+                    val = ws.cell(row=row_idx, column=error_col).value
+                    if val is not None and str(val).strip():
+                        errors.append({
+                            'rowIndex': row_idx,
+                            'failReason': str(val).strip()
                         })
-                    
-                    update_items_data = []
-                    for item in FormUpdateItem.objects.filter(form_config=config).order_by('sort_order'):
-                        update_item = {
-                            'label': item.label,
-                            'bindingKey': item.binding_key,
-                            'inputType': item.input_type,
-                            'type': item.field_type,
-                            'newDefaultValue': item.new_default_value,
-                            'originDefaultValue': item.origin_default_value,
-                            'newValidRule': item.new_valid_rule,
-                            'originValidRule': item.origin_valid_rule,
-                            'mainTable': item.main_table,
-                            'mainField': item.main_field,
-                            'subFields': item.sub_fields or [],
-                            'connectedTable': item.connected_table or [],  # 添加关联表
-                        }
-                        
-                        # 如果是计算字段，添加表达式配置
-                        if item.input_type == 'calculated':
-                            # 从数据库获取表达式配置（假设存储在某个字段中）
-                            # 这里需要根据实际的数据库结构来调整
-                            update_item['expressions'] = item.expressions or {}  # 假设有expressions字段
-                        
-                        # 如果有componentName，从ComponentConfig表获取最新的options
-                        if item.component_name:
-                            from work_tools2.models import ComponentConfig
-                            component = ComponentConfig.objects.filter(name=item.component_name).first()
-                            if component:
-                                update_item['options'] = component.options
-                            else:
-                                update_item['options'] = item.options or []
-                        else:
-                            update_item['options'] = item.options or []
-                        
-                        update_items_data.append(update_item)
-                    
-                    # 调用现有的batch_import逻辑处理这个Sheet
-                    from work_tools2.views.dynamic_views import process_single_sheet_import
-                    
-                    result = process_single_sheet_import(
-                        ws, 
-                        query_items_data, 
-                        update_items_data, 
-                        query_values,
-                        config.form_name,
-                        config.table_name_list,  # 添加表名列表
-                        config.query_mode,  # 添加查询模式（strict/loose）
-                        config.append_ops_remark  # 添加操作备注配置
-                    )
-                    
-                    if result['success']:
-                        all_forward_sqls.extend(result['forward_sqls'])
-                        all_backward_sqls.extend(result['backward_sqls'])
-                        success_count += 1
-                    else:
+                return errors
+
+            if is_json:
+                # 在线编辑器模式：每个 Sheet 名对应一个表单名
+                for sheet_name, rows in rows_per_sheet.items():
+                    total_processed += 1
+                    config = FormConfig.objects.filter(form_name=sheet_name).first()
+                    if not config:
                         failed_sheets.append({
                             'sheet': sheet_name,
-                            'error': result.get('message', '处理失败'),
-                            'ws': ws  # 保留worksheet对象，已标记失败原因
+                            'error': f'未找到表单配置：{sheet_name}'
                         })
-                
-                except Exception as e:
-                    import traceback
-                    error_detail = traceback.format_exc()
-                    print(f"处理Sheet '{sheet_name}' 失败: {error_detail}")
-                    failed_sheets.append({
-                        'sheet': sheet_name,
-                        'error': f'处理失败：{str(e)}',
-                        'ws': ws
-                    })
+                        continue
+
+                    try:
+                        query_items_data, update_items_data = _build_form_config_data(config)
+
+                        # 构造虚拟 worksheet
+                        temp_wb = Workbook()
+                        ws = temp_wb.active
+                        ws.title = sheet_name
+                        _build_worksheet_from_rows(ws, query_items_data, update_items_data, rows)
+                        json_mode_sheets[sheet_name] = ws
+
+                        from work_tools2.views.dynamic_views import process_single_sheet_import
+                        result = process_single_sheet_import(
+                            ws,
+                            query_items_data,
+                            update_items_data,
+                            query_values,
+                            config.form_name,
+                            config.table_name_list,
+                            config.query_mode,
+                            config.append_ops_remark
+                        )
+
+                        row_errors = _extract_row_errors(ws)
+
+                        if result['success']:
+                            all_forward_sqls.extend(result['forward_sqls'])
+                            all_backward_sqls.extend(result['backward_sqls'])
+                            success_count += 1
+                            json_form_ids.append(config.id)
+                        else:
+                            failed_sheets.append({
+                                'sheet': sheet_name,
+                                'error': result.get('message', '处理失败'),
+                                'rowErrors': row_errors
+                            })
+                    except Exception as e:
+                        import traceback
+                        error_detail = traceback.format_exc()
+                        print(f"处理Sheet '{sheet_name}' 失败: {error_detail}")
+                        failed_sheets.append({
+                            'sheet': sheet_name,
+                            'error': f'处理失败：{str(e)}'
+                        })
+            else:
+                # 文件上传模式
+                for sheet_name in wb.sheetnames:
+                    ws = wb[sheet_name]
+                    total_processed += 1
+
+                    config = FormConfig.objects.filter(form_name=sheet_name).first()
+                    if not config:
+                        failed_sheets.append({
+                            'sheet': sheet_name,
+                            'error': f'未找到表单配置：{sheet_name}'
+                        })
+                        continue
+
+                    try:
+                        query_items_data, update_items_data = _build_form_config_data(config)
+
+                        from work_tools2.views.dynamic_views import process_single_sheet_import
+                        result = process_single_sheet_import(
+                            ws,
+                            query_items_data,
+                            update_items_data,
+                            query_values,
+                            config.form_name,
+                            config.table_name_list,
+                            config.query_mode,
+                            config.append_ops_remark
+                        )
+
+                        row_errors = _extract_row_errors(ws)
+
+                        if result['success']:
+                            all_forward_sqls.extend(result['forward_sqls'])
+                            all_backward_sqls.extend(result['backward_sqls'])
+                            success_count += 1
+                        else:
+                            failed_sheets.append({
+                                'sheet': sheet_name,
+                                'error': result.get('message', '处理失败'),
+                                'rowErrors': row_errors
+                            })
+                    except Exception as e:
+                        import traceback
+                        error_detail = traceback.format_exc()
+                        print(f"处理Sheet '{sheet_name}' 失败: {error_detail}")
+                        failed_sheets.append({
+                            'sheet': sheet_name,
+                            'error': f'处理失败：{str(e)}'
+                        })
             
             # 合并所有SQL语句
             now = datetime.now()
@@ -197,9 +325,8 @@ def batch_import_merge(request):
                     del wb_result['Sheet']
 
                 # 复制所有Sheet（包括成功和失败的）- process_single_sheet_import已经在每行标记了具体的错误信息
-                for sheet_name in wb.sheetnames:
-                    original_ws = wb[sheet_name]
-
+                source_sheets = json_mode_sheets if is_json else {name: wb[name] for name in wb.sheetnames}
+                for sheet_name, original_ws in source_sheets.items():
                     # 复制Sheet（Sheet名称最多31字符）
                     result_ws = wb_result.create_sheet(title=sheet_name[:31])
 
@@ -270,7 +397,8 @@ def batch_import_merge(request):
                 
                 # 收集所有表单的databaseIpIds（去重）
                 all_database_ip_ids = set()
-                for form_id in form_ids:
+                source_form_ids = json_form_ids if is_json else form_ids
+                for form_id in source_form_ids:
                     form_config = FormConfig.objects.filter(id=form_id).first()
                     if form_config and form_config.database_ip_ids:
                         all_database_ip_ids.update(form_config.database_ip_ids)

@@ -4,126 +4,116 @@ import io
 import sqlite3
 import threading
 import time
-from datetime import datetime
+import uuid
+from datetime import datetime, timedelta
+
 from django.conf import settings
 
-# 全局任务队列
-import_tasks = {}
-task_lock = threading.Lock()
-# 任务执行队列（FIFO）
+from work_tools2.models import ImportTaskModel
+
+# 内存中的任务执行队列（FIFO）
 task_queue = []
 queue_lock = threading.Lock()
 # 标记是否有任务正在执行
 is_executing = False
 
 
-class ImportTask:
-    """导入任务类"""
-    
-    def __init__(self, task_id, table_name, file_content, truncate_before=False):
-        self.task_id = task_id
-        self.table_name = table_name
-        self.file_content = file_content
-        self.truncate_before = truncate_before
-        self.status = 'pending'  # pending, running, completed, failed
-        self.progress = 0
-        self.total_records = 0
-        self.processed_records = 0
-        self.inserted_count = 0
-        self.failed_count = 0
-        self.errors = []
-        self.created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.completed_at = None
-        self.message = ''
-    
-    def to_dict(self):
-        return {
-            'task_id': self.task_id,
-            'table_name': self.table_name,
-            'status': self.status,
-            'progress': self.progress,
-            'total_records': self.total_records,
-            'processed_records': self.processed_records,
-            'inserted_count': self.inserted_count,
-            'failed_count': self.failed_count,
-            'errors': self.errors[:10],  # 只返回前10个错误
-            'created_at': self.created_at,
-            'completed_at': self.completed_at,
-            'message': self.message
-        }
-
-
 def process_task_queue():
     """处理任务队列（FIFO）"""
     global is_executing
-    
+
     with queue_lock:
         # 如果正在执行或队列为空，直接返回
         if is_executing or not task_queue:
             return
-        
+
         # 取出第一个任务
         task_id = task_queue.pop(0)
         is_executing = True
         print(f"[任务队列] 开始执行任务: {task_id}, 队列剩余: {len(task_queue)}")
-    
+
     # 在锁外执行任务
-    with task_lock:
-        task = import_tasks.get(task_id)
-    
-    if task:
-        try:
-            execute_import_task(task)
-            print(f"[任务队列] 任务完成: {task_id}, 状态: {task.status}")
-        except Exception as e:
-            print(f"[任务队列] 任务执行异常: {task_id}, 错误: {str(e)}")
-    else:
-        print(f"[任务队列] 任务不存在: {task_id}")
-    
+    try:
+        execute_import_task(task_id)
+        print(f"[任务队列] 任务完成: {task_id}")
+    except Exception as e:
+        print(f"[任务队列] 任务执行异常: {task_id}, 错误: {str(e)}")
+
     # 任务完成后，标记为可执行下一个
     with queue_lock:
         is_executing = False
-    
+
     # 检查是否还有待执行的任务
     process_task_queue()
 
 
-def execute_import_task(task):
+def _update_task_status(task_id, **kwargs):
+    """更新数据库中的任务状态"""
+    try:
+        ImportTaskModel.objects.filter(task_id=task_id).update(**kwargs)
+    except Exception as e:
+        print(f"[任务队列] 更新任务状态失败 {task_id}: {str(e)}")
+
+
+def execute_import_task(task_id):
     """执行导入任务（在后台线程中运行）"""
     try:
-        task.status = 'running'
-        task.progress = 10
-        
-        # 读取CSV内容
-        csv_reader = csv.reader(io.StringIO(task.file_content))
-        
+        task_obj = ImportTaskModel.objects.get(task_id=task_id)
+    except ImportTaskModel.DoesNotExist:
+        print(f"[任务队列] 任务不存在: {task_id}")
+        return
+
+    # 将状态改为 running
+    task_obj.status = 'running'
+    task_obj.progress = 5
+    task_obj.save(update_fields=['status', 'progress', 'processed_records'])
+
+    conn = None
+    try:
+        file_content = task_obj.file_content
+        if isinstance(file_content, bytes):
+            file_content = file_content.decode('utf-8', errors='replace')
+
+        # 流式读取 CSV
+        csv_file = io.StringIO(file_content)
+        csv_reader = csv.reader(csv_file)
+
         # 读取表头
-        headers = next(csv_reader)
+        try:
+            headers = next(csv_reader)
+        except StopIteration:
+            raise ValueError('CSV文件为空，未找到表头')
+
         headers = [h.strip().replace(' ', '_').replace('-', '_') for h in headers]
-        
+
+        # 快速估算总行数（通过换行符数量 - 表头行），避免二次全量扫描
+        total_records = max(0, file_content.count('\n') - 1)
+        # 若文件末尾无换行，实际可能多一行，这里取保守值即可
+
         # 获取数据库连接
         db_path = os.path.join(settings.BASE_DIR, 'db.sqlite3')
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        
+
         # 检查表是否存在
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (task.table_name,))
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (task_obj.table_name,))
         if not cursor.fetchone():
-            task.status = 'failed'
-            task.message = f'表 {task.table_name} 不存在'
+            task_obj.status = 'failed'
+            task_obj.progress = 100
+            task_obj.message = f'表 {task_obj.table_name} 不存在'
+            task_obj.completed_at = datetime.now()
+            task_obj.save()
             conn.close()
             return
-        
+
         # 获取表的字段信息
-        cursor.execute(f"PRAGMA table_info({task.table_name})")
+        cursor.execute(f"PRAGMA table_info({task_obj.table_name})")
         table_fields = {row[1]: row for row in cursor.fetchall()}
-        
-        # 创建小写字段名映射（用于大小写不敏感匹配）
         table_fields_lower = {name.lower(): name for name in table_fields.keys()}
 
         # 过滤掉表中不存在的字段（大小写不敏感）
         valid_headers = []
-        header_mapping = {}  # CSV表头 -> 表字段名的映射
+        header_mapping = {}
         for h in headers:
             h_lower = h.lower()
             if h_lower in table_fields_lower:
@@ -132,150 +122,213 @@ def execute_import_task(task):
                 header_mapping[h] = actual_field_name
 
         if not valid_headers:
-            task.status = 'failed'
             csv_headers_str = ', '.join(headers)
             table_fields_str = ', '.join(table_fields.keys())
-            task.message = f'CSV文件中的字段与表结构完全不匹配\n\nCSV文件表头: {csv_headers_str}\n\n表字段列表: {table_fields_str}\n\n请检查CSV文件的列名是否正确'
+            task_obj.status = 'failed'
+            task_obj.progress = 100
+            task_obj.message = f'CSV文件中的字段与表结构完全不匹配\n\nCSV文件表头: {csv_headers_str}\n\n表字段列表: {table_fields_str}'
+            task_obj.completed_at = datetime.now()
+            task_obj.save()
             conn.close()
             return
 
-        # 如果有部分字段不匹配，记录警告信息
+        errors = []
         invalid_headers = [h for h in headers if h.lower() not in table_fields_lower]
         if invalid_headers:
-            task.errors.append(f"以下字段在表中不存在，将被忽略: {', '.join(invalid_headers)}")
+            errors.append(f"以下字段在表中不存在，将被忽略: {', '.join(invalid_headers)}")
 
-    # 清空表（如果需要）
-        if task.truncate_before:
-            cursor.execute(f"DELETE FROM {task.table_name}")
+        # 清空表（如果需要）
+        if task_obj.truncate_before:
+            cursor.execute(f"DELETE FROM {task_obj.table_name}")
             conn.commit()
-        
-        # 计算总记录数（用于进度显示）
-        all_rows = list(csv_reader)
-        task.total_records = len(all_rows)
-        task.progress = 20
-        
+
+        # 更新总记录数（扣除表头行）
+        task_obj.total_records = total_records
+        task_obj.progress = 10
+        task_obj.save(update_fields=['total_records', 'progress'])
+
         # 批量插入数据
         placeholders = ','.join(['?' for _ in valid_headers])
         columns = ','.join(valid_headers)
-        insert_sql = f"INSERT INTO {task.table_name} ({columns}) VALUES ({placeholders})"
-        
-        batch_size = 100
-        for i in range(0, len(all_rows), batch_size):
-            batch = all_rows[i:i + batch_size]
-            
-            for row_num, row in enumerate(batch, start=i):
-                try:
-                    if len(row) < len(headers):
-                        row.extend([''] * (len(headers) - len(row)))
-                    
-                    # 提取有效字段的数据
-                    values = []
-                    for j, header in enumerate(headers):
-                        # 使用映射后的实际字段名
-                        if header in header_mapping:
-                            actual_field_name = header_mapping[header]
-                            value = row[j].strip() if j < len(row) else ''
-                            
-                            # 数据类型转换
-                            if actual_field_name in table_fields:
-                                field_type = table_fields[actual_field_name][2]
-                                if field_type == 'INTEGER' and value:
-                                    try:
-                                        value = int(value)
-                                    except ValueError:
-                                        value = 0
-                                elif field_type == 'REAL' and value:
-                                    try:
-                                        value = float(value)
-                                    except ValueError:
-                                        value = 0.0
-                            
-                            values.append(value)
-                    
-                    if values:
+        insert_sql = f"INSERT INTO {task_obj.table_name} ({columns}) VALUES ({placeholders})"
+
+        batch_size = 1000
+        inserted_count = 0
+        failed_count = 0
+        processed_records = 0
+        pending_values = []
+        last_reported_progress = 10
+        batches_since_report = 0
+
+        def convert_value(value, actual_field_name):
+            if actual_field_name in table_fields:
+                field_type = table_fields[actual_field_name][2]
+                if field_type == 'INTEGER' and value:
+                    try:
+                        return int(value)
+                    except ValueError:
+                        return 0
+                elif field_type == 'REAL' and value:
+                    try:
+                        return float(value)
+                    except ValueError:
+                        return 0.0
+            return value
+
+        def report_progress(force=False):
+            nonlocal last_reported_progress, batches_since_report
+            batches_since_report += 1
+            progress = 10 + int((processed_records / total_records) * 90) if total_records > 0 else 100
+            # 降低写库频率：每 5 批次 或 进度变化 >= 5% 或强制报告
+            if force or batches_since_report >= 5 or abs(progress - last_reported_progress) >= 5:
+                _update_task_status(
+                    task_id,
+                    progress=progress,
+                    processed_records=processed_records,
+                    inserted_count=inserted_count,
+                    failed_count=failed_count,
+                    errors=errors[:50]
+                )
+                last_reported_progress = progress
+                batches_since_report = 0
+
+        def flush_batch():
+            nonlocal pending_values, inserted_count, failed_count
+            if not pending_values:
+                return
+            try:
+                cursor.executemany(insert_sql, pending_values)
+                inserted_count += len(pending_values)
+            except Exception as e:
+                # executemany 失败后逐条执行，记录具体失败行
+                for idx, values in enumerate(pending_values):
+                    try:
                         cursor.execute(insert_sql, values)
-                        task.inserted_count += 1
-                    
-                    task.processed_records += 1
-                    
-                except Exception as e:
-                    task.failed_count += 1
-                    task.errors.append(f"第{task.processed_records + 2}行: {str(e)}")
-            
-            # 每批提交一次
+                        inserted_count += 1
+                    except Exception as row_e:
+                        failed_count += 1
+                        errors.append(f"第{processed_records - len(pending_values) + idx + 2}行: {str(row_e)}")
+            pending_values = []
             conn.commit()
-            
-            # 更新进度
-            task.progress = 20 + int((task.processed_records / task.total_records) * 80)
-        
+
+        for row in csv_reader:
+            processed_records += 1
+            try:
+                if len(row) < len(headers):
+                    row.extend([''] * (len(headers) - len(row)))
+
+                values = []
+                for j, header in enumerate(headers):
+                    if header in header_mapping:
+                        actual_field_name = header_mapping[header]
+                        value = row[j].strip() if j < len(row) else ''
+                        value = convert_value(value, actual_field_name)
+                        values.append(value)
+
+                if values:
+                    pending_values.append(values)
+
+                if len(pending_values) >= batch_size:
+                    flush_batch()
+                    report_progress()
+
+            except Exception as e:
+                failed_count += 1
+                errors.append(f"第{processed_records + 1}行: {str(e)}")
+
+        # 刷新剩余批次
+        flush_batch()
+        report_progress(force=True)
+
         conn.close()
-        
-        task.status = 'completed'
-        task.progress = 100
-        task.completed_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        task.message = f'导入完成！成功: {task.inserted_count}, 失败: {task.failed_count}'
-        
+        conn = None
+
+        task_obj.refresh_from_db()
+        task_obj.status = 'completed'
+        task_obj.progress = 100
+        task_obj.processed_records = processed_records
+        task_obj.inserted_count = inserted_count
+        task_obj.failed_count = failed_count
+        task_obj.errors = errors[:50]
+        task_obj.completed_at = datetime.now()
+        task_obj.message = f'导入完成！成功: {inserted_count}, 失败: {failed_count}'
+        task_obj.save()
+
     except Exception as e:
-        task.status = 'failed'
-        task.completed_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        task.message = f'导入失败: {str(e)}'
         import traceback
-        task.errors.append(traceback.format_exc())
+        task_obj.refresh_from_db()
+        task_obj.status = 'failed'
+        task_obj.progress = 100
+        task_obj.completed_at = datetime.now()
+        task_obj.message = f'导入失败: {str(e)}'
+        task_obj.errors = (task_obj.errors or []) + [traceback.format_exc()]
+        task_obj.save()
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
-def create_import_task(table_name, file_content, truncate_before=False):
+def create_import_task(table_name, file_content, truncate_before=False, original_filename=''):
     """创建导入任务并加入队列"""
-    import uuid
-    
     task_id = str(uuid.uuid4())[:8]
-    task = ImportTask(task_id, table_name, file_content, truncate_before)
-    
-    with task_lock:
-        import_tasks[task_id] = task
-    
+
+    if isinstance(file_content, bytes):
+        file_content = file_content.decode('utf-8', errors='replace')
+
+    # 持久化到数据库
+    ImportTaskModel.objects.create(
+        task_id=task_id,
+        table_name=table_name,
+        original_filename=original_filename,
+        file_content=file_content,
+        truncate_before=truncate_before,
+        status='pending',
+        progress=0,
+        errors=[]
+    )
+
     # 将任务ID加入队列
     with queue_lock:
         task_queue.append(task_id)
-    
+
     # 启动队列处理器（如果还没有在运行）
     thread = threading.Thread(target=process_task_queue)
     thread.daemon = True
     thread.start()
-    
+
     return task_id
 
 
 def get_task_status(task_id):
     """获取任务状态"""
-    with task_lock:
-        task = import_tasks.get(task_id)
-        if task:
-            return task.to_dict()
+    try:
+        task = ImportTaskModel.objects.get(task_id=task_id)
+        return task.to_dict()
+    except ImportTaskModel.DoesNotExist:
         return None
 
 
-def get_all_tasks():
+def get_all_tasks(limit=100):
     """获取所有任务列表"""
-    with task_lock:
-        return [task.to_dict() for task in sorted(
-            import_tasks.values(),
-            key=lambda x: x.created_at,
-            reverse=True
-        )]
+    tasks = ImportTaskModel.objects.order_by('-created_at')[:limit]
+    return [task.to_dict() for task in tasks]
 
 
 def cleanup_old_tasks(max_age_hours=24):
     """清理旧任务（超过指定时间的已完成/失败任务）"""
-    from datetime import timedelta
-    
     cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
-    
-    with task_lock:
-        to_remove = []
-        for task_id, task in import_tasks.items():
-            task_time = datetime.strptime(task.created_at, '%Y-%m-%d %H:%M:%S')
-            if task_time < cutoff_time and task.status in ['completed', 'failed']:
-                to_remove.append(task_id)
-        
-        for task_id in to_remove:
-            del import_tasks[task_id]
+    ImportTaskModel.objects.filter(
+        created_at__lt=cutoff_time,
+        status__in=['completed', 'failed']
+    ).delete()
+
+
+def clear_completed_tasks():
+    """清理所有已完成/失败的任务"""
+    deleted_count, _ = ImportTaskModel.objects.filter(
+        status__in=['completed', 'failed']
+    ).delete()
+    return deleted_count

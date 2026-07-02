@@ -624,6 +624,8 @@ def query_supplement_data(request):
         main_field = data.get('mainField', '').strip()
         sub_fields = data.get('subFields', [])
         search_value = data.get('searchValue', '').strip()
+        # 辅助字段查询条件（精确匹配）
+        auxiliary_values = data.get('auxiliaryValues', [])
         # 分页参数
         page = int(data.get('page', 1))
         limit = int(data.get('limit', 5))
@@ -649,6 +651,13 @@ def query_supplement_data(request):
             except:
                 sub_fields = []
 
+        # 处理auxiliaryValues可能是JSON字符串的情况
+        if isinstance(auxiliary_values, str) and auxiliary_values:
+            try:
+                auxiliary_values = json.loads(auxiliary_values)
+            except:
+                auxiliary_values = []
+
         if not table_name or not main_field:
             return JsonResponse({
                 'success': False,
@@ -669,15 +678,26 @@ def query_supplement_data(request):
         fields_str = ', '.join(select_fields)
         base_sql = "SELECT " + fields_str + " FROM " + table_name
 
-        # 如果有搜索值，添加 WHERE 条件
-        where_clause = ""
+        # 构建 WHERE 条件
+        where_conditions = []
         if search_value:
             if is_exact_search:
                 # 精确搜索（二次搜索）
-                where_clause = " WHERE " + main_field + " = '" + search_value.replace("'", "''") + "'"
+                where_conditions.append(main_field + " = '" + search_value.replace("'", "''") + "'")
             else:
                 # 模糊搜索（初始查询）
-                where_clause = " WHERE " + main_field + " LIKE '%" + search_value.replace("'", "''") + "%'"
+                where_conditions.append(main_field + " LIKE '%" + search_value.replace("'", "''") + "%'")
+
+        # 辅助字段精确匹配
+        if isinstance(auxiliary_values, list):
+            for av in auxiliary_values:
+                if isinstance(av, dict):
+                    db_field = av.get('dbField', '').strip()
+                    value = av.get('value', '').strip()
+                    if db_field and value:
+                        where_conditions.append(db_field + " = '" + value.replace("'", "''") + "'")
+
+        where_clause = " WHERE " + " AND ".join(where_conditions) if where_conditions else ""
 
         # 判断查询模式：quickCheck 只需判断是否只有1条数据
         if is_quick_check:
@@ -754,6 +774,14 @@ def batch_query_supplement_data(request):
             main_field = data.get('mainField', '').strip()
             sub_fields = data.get('subFields', [])
             main_values = data.get('mainValues', [])  # 主字段的值列表
+            auxiliary_values = data.get('auxiliaryValues', [])  # 辅助字段查询条件（精确匹配）
+
+            # 处理auxiliaryValues可能是JSON字符串的情况
+            if isinstance(auxiliary_values, str) and auxiliary_values:
+                try:
+                    auxiliary_values = json.loads(auxiliary_values)
+                except:
+                    auxiliary_values = []
 
             if not table_name or not main_field:
                 return JsonResponse({
@@ -791,9 +819,23 @@ def batch_query_supplement_data(request):
             # 构建 SELECT 语句
             fields_str = ', '.join(select_fields)
 
-            # 使用 IN 查询
+            # 构建 WHERE 条件
+            where_conditions = []
+
+            # 主字段 IN 查询
             values_str = ', '.join(["'" + str(v).replace("'", "''") + "'" for v in main_values])
-            sql = "SELECT " + fields_str + " FROM " + table_name + " WHERE " + main_field + " IN (" + values_str + ")"
+            where_conditions.append(main_field + " IN (" + values_str + ")")
+
+            # 辅助字段精确匹配
+            if isinstance(auxiliary_values, list):
+                for av in auxiliary_values:
+                    if isinstance(av, dict):
+                        db_field = av.get('dbField', '').strip()
+                        value = av.get('value', '').strip()
+                        if db_field and value:
+                            where_conditions.append(db_field + " = '" + value.replace("'", "''") + "'")
+
+            sql = "SELECT " + fields_str + " FROM " + table_name + " WHERE " + " AND ".join(where_conditions)
 
             print("=" * 50)
             print("批量补充框查询SQL:")
@@ -801,6 +843,7 @@ def batch_query_supplement_data(request):
             print("  表名:", table_name)
             print("  主字段:", main_field)
             print("  查询值数量:", len(main_values))
+            print("  辅助条件:", auxiliary_values)
             print("=" * 50)
 
             # 执行查询
