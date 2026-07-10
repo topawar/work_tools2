@@ -43,3 +43,8 @@ def database_config(request: str):
 def file_path_config(request: str):
     """Orders list page."""
     return render(request, "file_path_config.html", {"active_page": "file_path_config"})
+
+
+def usage_statistics(request):
+    """动态表单使用统计页面."""
+    return render(request, "usage_statistics.html", {"active_page": "usage_statistics"})

@@ -4,57 +4,82 @@
 
 {% block main_content %}
     <div class="container-fluid p-0">
-        <h4 class="mb-4" id="formName"></h4>
+        <div class="d-flex justify-content-between align-items-center">
+            <h4 class="form-page-title" id="formName"></h4>
+            <button type="button" id="viewDocumentBtn" class="btn btn-outline-info btn-sm" style="display: none;"
+                    onclick="openDocumentViewer()">
+                <i class="bi bi-journal-text me-1"></i>查看说明
+            </button>
+        </div>
 
-        <div class="card">
-            <div class="card-body">
-                <div class="row g-3 align-items-center">
-                    <div class="input-group mb-3" style="width: 1200px">
-                        <span class="input-group-text" required>onesLink</span>
-                        <input type="text" id="onesLink" class="form-control" placeholder="onesLink">
+        <!-- 公共字段 -->
+        <div class="form-section-card">
+            <div class="form-section-header">
+                <i class="bi bi-info-circle-fill"></i>
+                <h5>基础信息</h5>
+            </div>
+            <div class="form-section-body">
+                <div class="row g-3 align-items-center mb-3">
+                    <div class="input-group modern-input-group">
+                        <span class="input-group-text"><i class="bi bi-link-45deg me-1"></i>onesLink</span>
+                        <input type="text" id="onesLink" class="form-control" placeholder="请输入 onesLink">
                     </div>
                 </div>
-                <div class="row g-3 align-items-center">
-                    <div class="input-group mb-3" style="width: 500px">
-                        <span class="input-group-text">文件名</span>
-                        <input type="text" id="filePrefix" class="form-control" readonly>
-                        <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('filePrefix', this)"
-                                title="点击编辑">
-                            <i class="bi bi-pencil-square"></i>
-                        </button>
+                <div class="row g-3">
+                    <div class="col-xl-4 col-lg-6 col-md-6">
+                        <div class="input-group modern-input-group">
+                            <span class="input-group-text"><i class="bi bi-file-earmark-text me-1"></i>文件名</span>
+                            <input type="text" id="filePrefix" class="form-control" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('filePrefix', this)"
+                                    title="点击编辑">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-xl-4 col-lg-6 col-md-6">
+                        <div class="input-group modern-input-group">
+                            <span class="input-group-text"><i class="bi bi-hash me-1"></i>编号</span>
+                            <input type="text" id="dynamicNo" class="form-control" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('dynamicNo', this)"
+                                    title="点击编辑">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-xl-4 col-lg-6 col-md-6">
+                        <div class="input-group modern-input-group">
+                            <span class="input-group-text"><i class="bi bi-journal-text me-1"></i>操作备注</span>
+                            <input type="text" id="ops_remark" class="form-control" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('ops_remark', this)"
+                                    title="点击编辑">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div class="row g-3 align-items-center">
-                    <div class="input-group mb-3" style="width: 500px">
-                        <span class="input-group-text">编号</span>
-                        <input type="text" id="dynamicNo" class="form-control" readonly>
-                        <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('dynamicNo', this)"
-                                title="点击编辑">
-                            <i class="bi bi-pencil-square"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="row g-3 align-items-center">
-                    <div class="input-group mb-3" style="width: 500px">
-                        <span class="input-group-text">操作备注</span>
-                        <input type="text" id="ops_remark" class="form-control" readonly>
-                        <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('ops_remark', this)"
-                                title="点击编辑">
-                            <i class="bi bi-pencil-square"></i>
-                        </button>
-                    </div>
-                </div>
+            </div>
+        </div>
 
-                <h4>查询字段</h4>
-                <hr class="layui-border-blue">
-                <!-- 动态生成的文本类型输入框容器 -->
+        <!-- 查询字段 -->
+        <div class="form-section-card">
+            <div class="form-section-header">
+                <i class="bi bi-search"></i>
+                <h5>查询字段</h5>
+            </div>
+            <div class="form-section-body">
                 <div id="queryContainer">
-                    <!-- 所有文本类型的新值在一行，所有原值在一行 -->
+                    <!-- 动态生成的查询字段 -->
                 </div>
+            </div>
+        </div>
 
-
-                <h4>修改字段</h4>
-                <hr class="layui-border-blue">
+        <!-- 修改字段 -->
+        <div class="form-section-card">
+            <div class="form-section-header">
+                <i class="bi bi-pencil-square"></i>
+                <h5>修改字段</h5>
+            </div>
+            <div class="form-section-body">
                 <!-- 动态生成的下拉框容器 -->
                 <div id="selectContainer">
                     <!-- 每种下拉框单独一行 -->
@@ -84,115 +109,457 @@
                 <div id="supplementContainer">
                     <!-- 每个补充框单独一行，包含主输入框和子输入框 -->
                 </div>
-                <!-- 功能按钮区域 -->
-                <div class="row g-3 align-items-center mb-4" id="formActionButtons">
-                    <div class="col-auto">
-                        <a href="javascript:void(0)" onclick="downloadTemplate()" class="btn btn-outline-primary"
-                           id="downloadTemplateBtn">
-                            <i class="bi bi-download"></i> 下载导入模板
-                        </a>
-                    </div>
-                    <div class="col-auto">
-                        <input type="file" id="batchImportFile" accept=".xlsx" style="display: none;"
-                               onchange="handleBatchImportFile(this)">
-                        <button type="button" onclick="document.getElementById('batchImportFile').click()"
-                                class="btn btn-outline-secondary"
-                                id="batchImportBtn">
-                            <i class="bi bi-upload"></i> 从文件导入
-                        </button>
-                    </div>
-                    <div class="col-auto">
-                        <button type="button" onclick="openOnlineEditor()"
-                                class="btn btn-outline-success"
-                                id="onlineEditorBtn">
-                            <i class="bi bi-table"></i> 在线编辑导入
-                        </button>
-                    </div>
-                    <div class="col-auto">
-                        <button type="button" onclick="previewOnlineData()"
-                                class="btn btn-outline-primary"
-                                id="previewOnlineDataBtn">
-                            <i class="bi bi-eye"></i> 预览已保存数据
-                        </button>
-                    </div>
-                    <div class="col-auto">
-                        <span id="batchImportFileName" style="color: #666; margin-left: 10px;"></span>
-                    </div>
-                    <div class="col-auto">
-                        <span id="savedOnlineRowsStatus" style="margin-left: 10px;"></span>
-                    </div>
-                </div>
-
-                <!-- 在线编辑器容器（Bootstrap 全屏模态框） -->
-                <div class="modal fade" id="luckysheetModal" tabindex="-1" aria-labelledby="luckysheetModalLabel" aria-hidden="true" data-bs-focus="false">
-                    <div class="modal-dialog modal-fullscreen">
-                        <div class="modal-content">
-                            <div class="modal-header py-2">
-                                <h5 class="modal-title fs-6" id="luckysheetModalLabel">
-                                    <i class="bi bi-table me-1"></i>在线编辑导入数据
-                                </h5>
-                                <div class="d-flex align-items-center gap-2 flex-wrap">
-                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="importFromFile()">
-                                        <i class="bi bi-file-earmark-excel"></i> 从Excel导入
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearSpreadsheetData()">
-                                        <i class="bi bi-trash"></i> 清空数据
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="previewOnlineData()">
-                                        <i class="bi bi-eye"></i> 预览
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-secondary" onclick="closeOnlineEditor()">取消</button>
-                                    <button type="button" class="btn btn-sm btn-success" onclick="saveOnlineEditorData()">保存</button>
-                                </div>
-                            </div>
-                            <div class="modal-body p-0" style="overflow: hidden; background: #f5f5f5;">
-                                <div id="luckysheet" style="width: 100%; height: 100%;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 在线编辑数据预览弹窗 -->
-                <div class="modal fade" id="onlineDataPreviewModal" tabindex="-1" aria-labelledby="onlineDataPreviewModalLabel" aria-hidden="true" data-bs-focus="false">
-                    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title fs-6" id="onlineDataPreviewModalLabel">
-                                    <i class="bi bi-eye me-1"></i>已保存的在线编辑数据
-                                </h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div id="onlineDataPreviewTable" style="max-height: 60vh; overflow: auto;">
-                                    <p class="text-muted">暂无保存的数据</p>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <input type="file" id="xsImportFile" accept=".xlsx" style="display: none;" onchange="handleXsFileImport(this)">
-
-                <!-- 提交结果显示区域 -->
-                <div id="submitResultArea" style="display: none; margin-bottom: 20px;">
-                    <div class="alert" id="resultAlert" role="alert">
-                        <h5 class="alert-heading" id="resultTitle"></h5>
-                        <p id="resultMessage"></p>
-                        <hr>
-                        <div id="resultActions"></div>
-                    </div>
-                </div>
-                <button onclick="submit()" class="layui-btn">提交</button>
-
-
             </div>
         </div>
+
+        <!-- 功能按钮区域 -->
+        <div class="btn-toolbar-modern mb-4" id="formActionButtons">
+            <a href="javascript:void(0)" onclick="downloadTemplate()" class="btn btn-outline-primary"
+               id="downloadTemplateBtn">
+                <i class="bi bi-download"></i> 下载导入模板
+            </a>
+            <input type="file" id="batchImportFile" accept=".xlsx" style="display: none;"
+                   onchange="handleBatchImportFile(this)">
+            <button type="button" onclick="document.getElementById('batchImportFile').click()"
+                    class="btn btn-outline-secondary"
+                    id="batchImportBtn">
+                <i class="bi bi-upload"></i> 从文件导入
+            </button>
+            <button type="button" onclick="openOnlineEditor()"
+                    class="btn btn-outline-success"
+                    id="onlineEditorBtn">
+                <i class="bi bi-table"></i> 在线编辑导入
+            </button>
+            <button type="button" onclick="previewOnlineData()"
+                    class="btn btn-outline-primary"
+                    id="previewOnlineDataBtn">
+                <i class="bi bi-eye"></i> 预览已保存数据
+            </button>
+            <span id="batchImportFileName" style="color: #666; margin-left: 10px;"></span>
+            <span id="savedOnlineRowsStatus" style="margin-left: 10px;"></span>
+        </div>
+
+        <!-- 在线编辑器容器（Bootstrap 全屏模态框） -->
+        <div class="modal fade" id="luckysheetModal" tabindex="-1" aria-labelledby="luckysheetModalLabel" aria-hidden="true" data-bs-focus="false">
+            <div class="modal-dialog modal-fullscreen">
+                <div class="modal-content">
+                    <div class="modal-header py-2">
+                        <h5 class="modal-title fs-6" id="luckysheetModalLabel">
+                            <i class="bi bi-table me-1"></i>在线编辑导入数据
+                        </h5>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="importFromFile()">
+                                <i class="bi bi-file-earmark-excel"></i> 从Excel导入
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearSpreadsheetData()">
+                                <i class="bi bi-trash"></i> 清空数据
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="previewOnlineData()">
+                                <i class="bi bi-eye"></i> 预览
+                            </button>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="closeOnlineEditor()">取消</button>
+                            <button type="button" class="btn btn-sm btn-success" onclick="saveOnlineEditorData()">保存</button>
+                        </div>
+                    </div>
+                    <div class="modal-body p-0" style="overflow: hidden; background: #f5f5f5;">
+                        <div id="luckysheet" style="width: 100%; height: 100%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 在线编辑数据预览弹窗 -->
+        <div class="modal fade" id="onlineDataPreviewModal" tabindex="-1" aria-labelledby="onlineDataPreviewModalLabel" aria-hidden="true" data-bs-focus="false">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title fs-6" id="onlineDataPreviewModalLabel">
+                            <i class="bi bi-eye me-1"></i>已保存的在线编辑数据
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="onlineDataPreviewTable" style="max-height: 60vh; overflow: auto;">
+                            <p class="text-muted">暂无保存的数据</p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 补充框字段值预览弹窗（单条模式） -->
+        <div class="modal fade" id="supplementPreviewModal" tabindex="-1" aria-labelledby="supplementPreviewModalLabel" aria-hidden="true" data-bs-focus="false">
+            <div class="modal-dialog modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title fs-6" id="supplementPreviewModalLabel">
+                            <i class="bi bi-eye me-1"></i>补充字段预览
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="supplementPreviewContent">
+                            <p class="text-muted">暂无数据</p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 说明文档查看弹窗 -->
+        <div class="modal fade" id="documentViewerModal" tabindex="-1" aria-labelledby="documentViewerModalLabel" aria-hidden="true" data-bs-focus="false">
+            <div class="modal-dialog modal-fullscreen-lg-down modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title fs-6" id="documentViewerModalLabel">
+                            <i class="bi bi-journal-text me-1"></i>说明文档
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-0">
+                        <div class="doc-viewer-layout">
+                            <!-- 大纲侧边栏 -->
+                            <div class="doc-viewer-outline" id="documentViewerOutline">
+                                <div class="doc-viewer-outline-header">
+                                    <i class="bi bi-list-ul me-1"></i>文档大纲
+                                </div>
+                                <div class="doc-viewer-outline-empty" id="documentViewerOutlineEmpty">暂无标题</div>
+                                <div class="doc-viewer-outline-list" id="documentViewerOutlineList"></div>
+                            </div>
+                            <!-- 正文内容 -->
+                            <div class="doc-viewer-content-wrapper">
+                                <div id="documentViewerContent">
+                                    <p class="text-muted p-4">加载中...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <a id="documentViewerEditLink" href="#" target="_blank" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-pencil-square me-1"></i>编辑文档
+                        </a>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- 文档图片放大预览弹窗 -->
+        <div class="modal fade" id="imageZoomModal" tabindex="-1" aria-labelledby="imageZoomModalLabel" aria-hidden="true" data-bs-focus="false">
+            <div class="modal-dialog modal-fullscreen modal-dialog-centered">
+                <div class="modal-content bg-dark">
+                    <div class="modal-header border-0">
+                        <h5 class="modal-title fs-6 text-white" id="imageZoomModalLabel">
+                            <i class="bi bi-image me-1"></i>图片预览
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body d-flex align-items-center justify-content-center p-0" style="overflow: hidden;">
+                        <img id="imageZoomTarget" src="" alt="预览图片" draggable="false"
+                             style="max-width: 100%; max-height: 100%; transition: transform 0.2s ease; cursor: grab;">
+                    </div>
+                    <div class="modal-footer border-0 justify-content-center gap-2 pb-3">
+                        <button type="button" class="btn btn-outline-light btn-sm" onclick="adjustImageZoom(0.2)" title="放大">
+                            <i class="bi bi-zoom-in"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-light btn-sm" onclick="adjustImageZoom(-0.2)" title="缩小">
+                            <i class="bi bi-zoom-out"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-light btn-sm" onclick="resetImageZoom()" title="重置">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <input type="file" id="xsImportFile" accept=".xlsx" style="display: none;" onchange="handleXsFileImport(this)">
+
+        <!-- 提交结果显示区域 -->
+        <div id="submitResultArea" style="display: none; margin-bottom: 20px;">
+            <div class="alert" id="resultAlert" role="alert">
+                <h5 class="alert-heading" id="resultTitle"></h5>
+                <p id="resultMessage"></p>
+                <hr>
+                <div id="resultActions"></div>
+            </div>
+        </div>
+        <button onclick="submit()" class="layui-btn">提交</button>
+
     </div>
 
     <!-- Luckysheet 模态框自定义样式 -->
     <style>
+        /* 动态表单页面现代化样式 */
+        .form-page-title {
+            font-weight: 700;
+            font-size: 1.4rem;
+            color: #1e293b;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-section-card {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+            margin-bottom: 1.25rem;
+        }
+
+        .form-section-header {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-bottom: 1px solid #e2e8f0;
+            border-radius: 12px 12px 0 0;
+            padding: 0.85rem 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .form-section-body {
+            padding: 1.25rem;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .form-section-header h5 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1rem;
+            color: #1e293b;
+        }
+
+        .form-section-header i {
+            color: #0d6efd;
+            font-size: 1.1rem;
+        }
+
+        .modern-input-group .input-group-text {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+            color: #475569;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .modern-input-group .form-control,
+        .modern-input-group .form-select {
+            border-color: #e2e8f0;
+            font-size: 0.9rem;
+        }
+
+        .modern-input-group .form-control:focus,
+        .modern-input-group .form-select:focus {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+        }
+
+        .modern-input-group .btn-outline-secondary {
+            border-color: #e2e8f0;
+            color: #64748b;
+        }
+
+        .modern-input-group .btn-outline-secondary:hover {
+            background: #f1f5f9;
+            color: #0d6efd;
+            border-color: #dbeafe;
+        }
+
+        /* 下拉框原/新值行：两列紧凑排列，间距由 gap 控制 */
+        .select-pair-row {
+            gap: 0.5rem;
+        }
+
+        .select-pair-item {
+            flex: 0 1 auto;
+            min-width: 280px;
+            max-width: 100%;
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 1rem;
+        }
+
+        .field-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .field-card:hover {
+            border-color: #bfdbfe;
+            box-shadow: 0 4px 12px rgba(13, 110, 253, 0.06);
+        }
+
+        .field-label {
+            font-size: 0.8rem;
+            color: #64748b;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+        }
+
+        .field-input {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all 0.15s;
+        }
+
+        .field-input:focus {
+            outline: none;
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+        }
+
+        .btn-toolbar-modern {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            padding: 0.85rem 1rem;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .btn-toolbar-modern .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .supplement-main-label {
+            background: #dcfce7 !important;
+            color: #166534 !important;
+            border-color: #bbf7d0 !important;
+        }
+
+        .modern-input-group .btn-outline-secondary i {
+            font-size: 0.9rem;
+        }
+
+        .supplement-matched {
+            border-color: #10b981 !important;
+            background-color: #ecfdf5 !important;
+            box-shadow: 0 0 0 0.2rem rgba(16, 185, 129, 0.15) !important;
+        }
+
+        .supplement-error {
+            border-color: #ff4d4f !important;
+            background-color: #fff1f0 !important;
+            box-shadow: 0 0 0 0.2rem rgba(255, 77, 79, 0.15) !important;
+        }
+
+        .supplement-hint {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .supplement-preview-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .supplement-preview-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .supplement-preview-label {
+            font-weight: 500;
+            color: #475569;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+            margin-right: 0.75rem;
+        }
+
+        .supplement-preview-value {
+            color: #0f172a;
+            font-size: 0.9rem;
+            word-break: break-all;
+            text-align: right;
+        }
+
+        .radio-group-modern {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            padding: 0.35rem 0;
+        }
+
+        .radio-group-modern .form-check {
+            position: relative;
+            margin: 0;
+            padding: 0;
+        }
+
+        .radio-group-modern .form-check-input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+            margin: 0;
+            pointer-events: none;
+        }
+
+        .radio-group-modern .form-check-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 64px;
+            padding: 0.45rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 999px;
+            background: #fff;
+            color: #475569;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+
+        .radio-group-modern .form-check-label:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+        .radio-group-modern .form-check-input:checked + .form-check-label {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #2563eb;
+            font-weight: 500;
+        }
+
+        .radio-group-modern .form-check-input:focus + .form-check-label {
+            box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.2);
+        }
+
         /* 全屏模态框：给 Luckysheet 最大化编辑空间 */
         #luckysheetModal.modal {
             z-index: 1055;
@@ -209,14 +576,15 @@
             height: 100%;
         }
 
-        /* 确保 Luckysheet 内部弹出菜单、颜色选择器、函数提示框在模态框之上 */
+        /* 确保 Luckysheet 内部弹出菜单、颜色选择器、公式帮助/搜索框在模态框之上 */
         .luckysheet-cols-menu,
         .luckysheet-rightgclick-menu,
         .luckysheet-toolbar-button-hover,
         .luckysheet-toolbar-submenu,
         .luckysheet-color-picker,
-        .luckysheet-functionbox,
-        .luckysheet-formula-function-criteria {
+        .luckysheet-formula-help-c,
+        .luckysheet-formula-search-c,
+        .luckysheet-formula-functionrange {
             z-index: 1060 !important;
         }
         /* 部分 Luckysheet 弹窗使用行内 style，通过父容器层级兜底 */
@@ -273,6 +641,387 @@
             z-index: 9999 !important;
         }
 
+        /* 说明文档代码块样式 */
+        #documentViewerContent pre[class*="language-"],
+        #documentViewerContent pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            overflow-x: auto;
+            margin: 0.75rem 0;
+        }
+
+        #documentViewerContent pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        #documentViewerContent code:not(pre code) {
+            background: #f1f5f9;
+            color: #334155;
+            padding: 0.15em 0.35em;
+            border-radius: 4px;
+            font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.9em;
+        }
+
+        /* 说明文档查看弹窗 - 块式布局 */
+        .doc-viewer-layout {
+            display: flex;
+            min-height: 60vh;
+            max-height: 75vh;
+        }
+
+        .doc-viewer-outline {
+            width: 240px;
+            flex-shrink: 0;
+            border-right: 1px solid #e2e8f0;
+            background: #f8fafc;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .doc-viewer-outline-header {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        .doc-viewer-outline-empty {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 1rem 0;
+        }
+
+        .doc-viewer-outline-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .doc-viewer-outline-item {
+            display: block;
+            padding: 0.35rem 0.6rem;
+            border-radius: 6px;
+            color: #475569;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            text-decoration: none;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .doc-viewer-outline-item:hover,
+        .doc-viewer-outline-item.active {
+            background: #eff6ff;
+            color: #2563eb;
+        }
+
+        .doc-viewer-outline-item.level-1 { padding-left: 0.5rem; font-weight: 600; }
+        .doc-viewer-outline-item.level-2 { padding-left: 1rem; }
+        .doc-viewer-outline-item.level-3 { padding-left: 1.5rem; }
+        .doc-viewer-outline-item.level-4 { padding-left: 2rem; }
+        .doc-viewer-outline-item.level-5 { padding-left: 2.5rem; }
+        .doc-viewer-outline-item.level-6 { padding-left: 3rem; }
+
+        .doc-viewer-content-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            background: #fff;
+        }
+
+        #documentViewerContent {
+            padding: 2rem 3rem;
+            max-width: 900px;
+            margin: 0 auto;
+            line-height: 1.8;
+            font-size: 16px;
+            color: #1f2937;
+        }
+
+        #documentViewerContent h1,
+        #documentViewerContent h2,
+        #documentViewerContent h3,
+        #documentViewerContent h4,
+        #documentViewerContent h5,
+        #documentViewerContent h6 {
+            color: #111827;
+            font-weight: 600;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            scroll-margin-top: 20px;
+        }
+
+        #documentViewerContent h1 { font-size: 2rem; }
+        #documentViewerContent h2 { font-size: 1.6rem; }
+        #documentViewerContent h3 { font-size: 1.35rem; }
+        #documentViewerContent h4 { font-size: 1.15rem; }
+        #documentViewerContent h5 { font-size: 1rem; }
+        #documentViewerContent h6 { font-size: 0.9rem; }
+
+        #documentViewerContent p {
+            margin-bottom: 1rem;
+        }
+
+        #documentViewerContent img {
+            max-width: 100%;
+            border-radius: 8px;
+            margin: 1rem 0;
+            cursor: zoom-in;
+        }
+
+        #imageZoomModal .modal-body img {
+            object-fit: contain;
+            user-select: none;
+        }
+
+        #imageZoomModal .modal-body img:active {
+            cursor: grabbing;
+        }
+
+        #documentViewerContent blockquote {
+            border-left: 4px solid #3b82f6;
+            background: #f8fafc;
+            padding: 1rem 1.25rem;
+            border-radius: 0 8px 8px 0;
+            margin: 1rem 0;
+        }
+
+        #documentViewerContent table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #documentViewerContent th,
+        #documentViewerContent td {
+            border: 1px solid #e2e8f0;
+            padding: 0.6rem 0.8rem;
+        }
+
+        #documentViewerContent th {
+            background: #f8fafc;
+            font-weight: 600;
+        }
+
+        #documentViewerContent ul,
+        #documentViewerContent ol {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+        }
+
+        #documentViewerContent li {
+            margin-bottom: 0.35rem;
+        }
+
+        #documentViewerContent hr {
+            margin: 1.5rem 0;
+            border-color: #e2e8f0;
+        }
+
+        /* 代码块复制按钮 */
+        .doc-code-wrapper {
+            position: relative;
+            margin: 1rem 0;
+        }
+
+        .doc-code-wrapper pre {
+            margin: 0 !important;
+            padding-top: 2.5rem !important;
+        }
+
+        .doc-code-copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            color: #cbd5e1;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            z-index: 2;
+        }
+
+        .doc-code-copy-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .doc-code-copy-btn.copied {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: rgba(34, 197, 94, 0.3);
+            color: #4ade80;
+        }
+
+        @media (max-width: 991.98px) {
+            .doc-viewer-outline {
+                display: none;
+            }
+            #documentViewerContent {
+                padding: 1.5rem;
+            }
+        }
+
+        /* 在线编辑数据预览 - 表单块风格 */
+        .preview-data-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+        }
+
+        .preview-data-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .preview-data-index {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: #3b82f6;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .preview-data-title {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .preview-data-body {
+            padding: 1rem;
+        }
+
+        .preview-section {
+            margin-bottom: 1rem;
+        }
+
+        .preview-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .preview-section-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .preview-section-body {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .preview-field-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+
+        .preview-field-label {
+            width: 120px;
+            flex-shrink: 0;
+            color: #64748b;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .preview-field-values {
+            flex: 1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            min-width: 0;
+        }
+
+        .preview-value-tag {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            color: #1e293b;
+            font-size: 0.85rem;
+            word-break: break-all;
+        }
+
+        .preview-value-tag.new {
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+            color: #065f46;
+        }
+
+        .preview-value-tag.origin {
+            background: #fff1f2;
+            border-color: #fecdd3;
+            color: #9f1239;
+        }
+
+        .preview-value-tag.computed {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #1e40af;
+            font-style: italic;
+        }
+
+        .preview-sub-field {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            width: 100%;
+            margin-top: 0.25rem;
+            padding-top: 0.25rem;
+            border-top: 1px dashed #e2e8f0;
+        }
+
+        .preview-sub-label {
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
     </style>
 
     <!-- 引入 Layui 样式 -->
@@ -326,6 +1075,9 @@
         // 存储待回显到在线表格的行级校验错误
         let pendingValidationErrors = null;
 
+        // 记录当前已显示在表格中的校验错误行，用于快速清空
+        let displayedValidationErrors = [];
+
         /**
          * 切换输入框的编辑状态
          * @param {string} inputId - 输入框ID
@@ -367,7 +1119,7 @@
 
         /**
          * 从ones链接中解析内容
-         * @param {string} url - ones链接
+         * @param {string} url - ones链接（可包含 #编号 任务名 和 URL）
          * @returns {Object} 解析结果 {taskId, taskName}
          */
         function parseOnesLink(url) {
@@ -376,36 +1128,42 @@
             }
 
             try {
-                // 匹配格式: #72480 框架协议导入-崔正华 https://...
-                // 或者从URL中提取任务信息
+                // 把 URL 和前面的文本分开，避免 URL 中的 #/team/... 被误识别
+                const urlMatch = url.match(/https?:\/\/\S+/);
+                const linkUrl = urlMatch ? urlMatch[0] : '';
+                const textPart = urlMatch
+                    ? url.substring(0, url.indexOf(linkUrl)).trim()
+                    : url.trim();
 
-                // 方法1: 尝试从URL路径中提取任务ID
-                // 例如: /task/QGTJmPVYqMYfCdRb
-                const taskMatch = url.match(/\/task\/([A-Za-z0-9]+)/);
-
-                // 方法2: 尝试从文本中提取 #编号 和 任务名称
-                // 例如: #72480 框架协议导入-崔正华
-                const hashMatch = url.match(/#(\d+)\s+([^\shttps]+)/);
-
-                if (hashMatch) {
-                    return {
-                        taskId: hashMatch[1],
-                        taskName: hashMatch[2]
-                    };
+                // 提取开头的 #编号，支持多个编号用 & / 空格 / # / 中英文逗号分隔
+                // 例如: #98835&98732、#123 #456、#123,456
+                let taskId = '';
+                const numChunkMatch = textPart.match(/^#[\d]+(?:[&，,\s#]*[\d]+)*/);
+                if (numChunkMatch) {
+                    const digits = numChunkMatch[0].match(/\d+/g);
+                    if (digits && digits.length > 0) {
+                        taskId = digits.join('&');
+                    }
                 }
 
-                // 如果URL中包含任务信息，尝试从页面标题或其他地方获取
-                // 这里暂时返回null，需要用户手动输入或通过API获取
-                if (taskMatch) {
-                    console.log('从URL中提取到任务ID:', taskMatch[1]);
-                    // 注意：仅从URL无法获取任务名称，需要通过API查询
-                    return {
-                        taskId: taskMatch[1],
-                        taskName: null
-                    };
+                // 剩余部分作为任务名称，并去掉前导分隔符
+                let taskName = textPart.replace(/^#[\d]+(?:[&，,\s#]*[\d]+)*/, '').trim();
+                taskName = taskName.replace(/^[-—_/\s]+/, '');
+
+                // 如果文本中没有 #编号，尝试从 URL 路径提取任务ID
+                const taskMatch = (linkUrl || url).match(/\/task\/([A-Za-z0-9]+)/);
+                if (!taskId && taskMatch) {
+                    taskId = taskMatch[1];
                 }
 
-                return null;
+                if (!taskId && !taskName) {
+                    return null;
+                }
+
+                return {
+                    taskId: taskId || null,
+                    taskName: taskName || null
+                };
             } catch (error) {
                 console.error('解析ones链接失败:', error);
                 return null;
@@ -469,6 +1227,16 @@
 
 
         /**
+         * 通过 ID 安全获取输入框的值。
+         * 表名中可能包含 `.` 等特殊字符，直接使用 jQuery 选择器 `#id` 会解析失败，
+         * 因此改用 document.getElementById。
+         */
+        function getInputValueById(id) {
+            const el = document.getElementById(id);
+            return el ? (el.value || '').trim() : '';
+        }
+
+        /**
          * 获取所有输入框的值（全局方法）
          */
         window.getAllFormValues = function () {
@@ -476,26 +1244,54 @@
             var $ = layui.$;
 
             // 1. 获取查询字段的值（动态生成的）
+            // 查询字段使用独立的 query_{bindingKey} 键，避免与修改字段冲突
             gQueryItems.forEach(function (item) {
-                // 为查询字段生成唯一的 ID，格式：query_bindingKey_tableName
-                const tableName = item.connectedTable && item.connectedTable.length > 0 
-                    ? item.connectedTable[0] 
-                    : '';
-                const queryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
-                const queryVal = ($('#' + queryId).val() || '').trim();
+                const connectedTables = item.connectedTable || [];
+                const fieldType = item.type || 'text';
 
-                // 为查询字段生成唯一的键，格式：bindingKey_tableName
-                const uniqueKey = tableName ? `${item.bindingKey}_${tableName}` : item.bindingKey;
+                // 普通查询字段：所有关联表共享同一个值
+                const tableName = connectedTables.length > 0 ? connectedTables[0] : '';
+                const baseQueryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
+                const queryKey = baseQueryId;
 
-                result[uniqueKey] = {
-                    label: item.label,
-                    value: queryVal,
-                    inputType: 'query',
-                    fieldType: item.type,
-                    ValidRule: item.ValidRule,
-                    bindingKey: item.bindingKey,  // 保留原始 bindingKey
-                    connectedTable: item.connectedTable  // 保留关联表信息
-                };
+                if (fieldType === 'difference_condition') {
+                    const newQueryId = `new_${baseQueryId}`;
+                    const originQueryId = `origin_${baseQueryId}`;
+                    const newVal = getInputValueById(newQueryId);
+                    const originVal = getInputValueById(originQueryId);
+                    result[queryKey] = {
+                        label: item.label,
+                        newValue: newVal,
+                        originValue: originVal,
+                        inputType: 'query',
+                        fieldType: 'difference_condition',
+                        ValidRule: item.ValidRule,
+                        bindingKey: item.bindingKey,
+                        connectedTable: item.connectedTable
+                    };
+                } else if (fieldType === 'calculated' || fieldType === 'subquery') {
+                    // 计算字段/子查询字段：无输入值，由后端表达式计算
+                    result[queryKey] = {
+                        label: item.label,
+                        value: '',
+                        inputType: 'query',
+                        fieldType: fieldType,
+                        ValidRule: item.ValidRule,
+                        bindingKey: item.bindingKey,
+                        connectedTable: item.connectedTable
+                    };
+                } else {
+                    const queryVal = getInputValueById(baseQueryId);
+                    result[queryKey] = {
+                        label: item.label,
+                        value: queryVal,
+                        inputType: 'query',
+                        fieldType: fieldType,
+                        ValidRule: item.ValidRule,
+                        bindingKey: item.bindingKey,
+                        connectedTable: item.connectedTable
+                    };
+                }
             });
 
             // 2. 获取公用字段的值（硬编码的三个输入框）
@@ -663,25 +1459,49 @@
             var $ = layui.$;
 
             // 获取动态生成的查询字段
+            // 查询字段使用独立的 query_{bindingKey} 键，避免与修改字段冲突
             gQueryItems.forEach(function (item) {
-                // 为查询字段生成唯一的 ID，格式：query_bindingKey_tableName
-                const tableName = item.connectedTable && item.connectedTable.length > 0 
-                    ? item.connectedTable[0] 
-                    : '';
-                const queryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
-                
-                // 为查询字段生成唯一的键，格式：bindingKey_tableName
-                const uniqueKey = tableName ? `${item.bindingKey}_${tableName}` : item.bindingKey;
-                
-                result[uniqueKey] = {
-                    label: item.label,
-                    value: ($('#' + queryId).val() || '').trim(),
-                    inputType: 'query',
-                    fieldType: item.type,
-                    ValidRule: item.ValidRule,
-                    bindingKey: item.bindingKey,  // 保留原始 bindingKey
-                    connectedTable: item.connectedTable  // 保留关联表信息
-                };
+                const connectedTables = item.connectedTable || [];
+                const fieldType = item.type || 'text';
+
+                const tableName = connectedTables.length > 0 ? connectedTables[0] : '';
+                const baseQueryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
+                const queryKey = baseQueryId;
+
+                if (fieldType === 'difference_condition') {
+                    const newQueryId = `new_${baseQueryId}`;
+                    const originQueryId = `origin_${baseQueryId}`;
+                    result[queryKey] = {
+                        label: item.label,
+                        newValue: getInputValueById(newQueryId),
+                        originValue: getInputValueById(originQueryId),
+                        inputType: 'query',
+                        fieldType: 'difference_condition',
+                        ValidRule: item.ValidRule,
+                        bindingKey: item.bindingKey,
+                        connectedTable: item.connectedTable
+                    };
+                } else if (fieldType === 'calculated' || fieldType === 'subquery') {
+                    result[queryKey] = {
+                        label: item.label,
+                        value: '',
+                        inputType: 'query',
+                        fieldType: fieldType,
+                        ValidRule: item.ValidRule,
+                        bindingKey: item.bindingKey,
+                        connectedTable: item.connectedTable
+                    };
+                } else {
+                    result[queryKey] = {
+                        label: item.label,
+                        value: getInputValueById(baseQueryId),
+                        inputType: 'query',
+                        fieldType: fieldType,
+                        ValidRule: item.ValidRule,
+                        bindingKey: item.bindingKey,
+                        connectedTable: item.connectedTable
+                    };
+                }
             });
 
             // 获取硬编码的公用字段
@@ -706,7 +1526,12 @@
         window.handleSupplementInput = function (bindingKey, element, valueType) {
             const value = element.value;
             const isOriginValue = valueType === 'originValue';
-            
+
+            // 用户重新输入时，移除之前的匹配成功/失败样式和提示
+            element.classList.remove('supplement-matched', 'supplement-error');
+            element.removeAttribute('title');
+            hideSupplementHint(element.id);
+
             console.log('=== 补充框输入 ===');
             console.log('bindingKey:', bindingKey);
             console.log('value:', value);
@@ -743,7 +1568,18 @@
             if (!supplementItem) {
                 return;
             }
-            
+
+            // 清除主输入框的匹配成功/失败样式和提示
+            const mainId = isOriginValue
+                ? `originMain${bindingKey.charAt(0).toUpperCase() + bindingKey.slice(1)}`
+                : `newMain${bindingKey.charAt(0).toUpperCase() + bindingKey.slice(1)}`;
+            const mainInput = document.getElementById(mainId);
+            if (mainInput) {
+                mainInput.classList.remove('supplement-matched', 'supplement-error');
+                mainInput.removeAttribute('title');
+                hideSupplementHint(mainId);
+            }
+
             supplementItem.subFields.forEach((subField, index) => {
                 const subId = isOriginValue 
                     ? `originSub${bindingKey.charAt(0).toUpperCase() + bindingKey.slice(1)}_${index}`
@@ -764,6 +1600,34 @@
                     subInput.style.backgroundColor = '';
                 }
             });
+        }
+
+
+        /**
+         * 显示补充框提示（成功/失败），与生成时统一放在输入框下方
+         * @param {string} inputId - 主输入框 ID
+         * @param {string} type - 'success' 或 'error'
+         * @param {string} message - 提示文本
+         */
+        function showSupplementHint(inputId, type, message) {
+            const hintEl = document.getElementById(`supplementHint_${inputId}`);
+            if (!hintEl) return;
+            const iconClass = type === 'success' ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger';
+            const textClass = type === 'success' ? 'text-success' : 'text-danger';
+            hintEl.innerHTML = `<i class="bi ${iconClass}"></i> <span class="${textClass}">${escapeHtml(message)}</span>`;
+            hintEl.style.display = 'flex';
+        }
+
+        /**
+         * 隐藏补充框提示
+         * @param {string} inputId - 主输入框 ID
+         */
+        function hideSupplementHint(inputId) {
+            const hintEl = document.getElementById(`supplementHint_${inputId}`);
+            if (hintEl) {
+                hintEl.style.display = 'none';
+                hintEl.innerHTML = '';
+            }
         }
 
 
@@ -837,10 +1701,18 @@
                     // 只有一条数据，直接填充，不弹出表格
                     console.log('只查到一条数据，直接填充:', resultData[0]);
                     fillInputWithData(resultData[0], currentSupplementItem, element);
-                } else {
-                    // 多条或无数据，弹出表格选择器
-                    console.log('查到 ' + (resultData ? resultData.length : 0) + ' 条数据，弹出表格选择框');
+                } else if (resultData && resultData.length > 1) {
+                    // 多条数据，弹出表格选择器
+                    console.log('查到 ' + resultData.length + ' 条数据，弹出表格选择框');
                     showTablePicker(bindingKey, value, fieldType);
+                } else {
+                    // 无数据，清空子字段并在输入框下方显示红色提示，避免提交旧值
+                    console.log('未查到数据，清空中字段并显示失败提示');
+                    clearSupplementSubFields(bindingKey, isOriginInput);
+                    element.classList.remove('supplement-matched');
+                    element.classList.add('supplement-error');
+                    element.title = '未找到匹配数据';
+                    showSupplementHint(element.id, 'error', '未找到匹配数据');
                 }
             }).catch(function(error) {
                 console.error('查询失败，弹出表格选择框:', error);
@@ -1324,6 +2196,11 @@
                 mainInputElement.style.borderColor = '';
                 mainInputElement.style.boxShadow = '';
                 mainInputElement.style.backgroundColor = '';
+                // 匹配成功提示
+                mainInputElement.classList.remove('supplement-error');
+                mainInputElement.classList.add('supplement-matched');
+                mainInputElement.title = '已匹配到补充数据';
+                showSupplementHint(targetMainId, 'success', '已匹配到补充数据');
             }
 
             // 填充子输入框（根据是新值还是原值来决定填充哪一行的子输入框）
@@ -1360,6 +2237,94 @@
 
             console.log('数据填充完成');
             console.log('已填充数据:', data);
+        };
+
+
+        /**
+         * 预览补充框所有字段值（单条模式）
+         * @param {string} bindingKey - 补充框 bindingKey
+         * @param {boolean} isOrigin - 是否预览原值
+         */
+        window.showSupplementPreview = function (bindingKey, isOrigin) {
+            const supplementItem = gSupplementItems.find(item => item.bindingKey === bindingKey);
+            if (!supplementItem) {
+                showToast('未找到补充框配置', 'warning');
+                return;
+            }
+            if (!supplementItem.mainTable || !supplementItem.mainField) {
+                showToast('补充框配置不完整：缺少主表或主字段', 'warning');
+                return;
+            }
+
+            const mainId = isOrigin
+                ? `originMain${bindingKey.charAt(0).toUpperCase() + bindingKey.slice(1)}`
+                : `newMain${bindingKey.charAt(0).toUpperCase() + bindingKey.slice(1)}`;
+            const mainInput = document.getElementById(mainId);
+            const mainValue = mainInput ? (mainInput.value || '').trim() : '';
+
+            const previewTitle = isOrigin ? '原值' : '新值';
+            const modalTitle = `${escapeHtml(supplementItem.label)} - ${previewTitle}补充字段预览`;
+            document.getElementById('supplementPreviewModalLabel').innerHTML = `<i class="bi bi-eye me-1"></i>${modalTitle}`;
+
+            if (!mainValue) {
+                document.getElementById('supplementPreviewContent').innerHTML = '<p class="text-muted">请先输入主字段值</p>';
+                const modal = new bootstrap.Modal(document.getElementById('supplementPreviewModal'));
+                modal.show();
+                return;
+            }
+
+            const auxiliaryValues = collectAuxiliaryValues(supplementItem, isOrigin);
+
+            fetch('/api/supplement/query/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    tableName: supplementItem.mainTable,
+                    mainField: supplementItem.mainField,
+                    subFields: supplementItem.subFields || [],
+                    searchValue: mainValue,
+                    auxiliaryValues: auxiliaryValues,
+                    quickCheck: true
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        document.getElementById('supplementPreviewContent').innerHTML = `<p class="text-danger">查询失败：${escapeHtml(data.message || '未知错误')}</p>`;
+                    } else if (!data.data || data.data.length === 0) {
+                        document.getElementById('supplementPreviewContent').innerHTML = '<p class="text-muted">未找到匹配数据</p>';
+                    } else if (data.data.length > 1) {
+                        document.getElementById('supplementPreviewContent').innerHTML = '<p class="text-warning">匹配到多条数据，请通过数据选择器选择具体一条</p>';
+                    } else {
+                        const row = data.data[0];
+                        const mainField = supplementItem.mainField || 'main_value';
+                        let html = '<div class="supplement-preview-list">';
+                        html += `<div class="supplement-preview-item">
+                                    <span class="supplement-preview-label">${escapeHtml(supplementItem.label)}</span>
+                                    <span class="supplement-preview-value">${escapeHtml(row[mainField] !== undefined && row[mainField] !== null ? row[mainField] : '')}</span>
+                                 </div>`;
+                        (supplementItem.subFields || []).forEach(subField => {
+                            const dbField = subField.dbField || subField.bindingKey;
+                            const value = row[dbField];
+                            html += `<div class="supplement-preview-item">
+                                        <span class="supplement-preview-label">${escapeHtml(subField.label)}</span>
+                                        <span class="supplement-preview-value">${escapeHtml(value !== undefined && value !== null ? value : '')}</span>
+                                     </div>`;
+                        });
+                        html += '</div>';
+                        document.getElementById('supplementPreviewContent').innerHTML = html;
+                    }
+                    const modal = new bootstrap.Modal(document.getElementById('supplementPreviewModal'));
+                    modal.show();
+                })
+                .catch(error => {
+                    console.error('预览补充字段失败:', error);
+                    document.getElementById('supplementPreviewContent').innerHTML = '<p class="text-danger">查询请求失败</p>';
+                    const modal = new bootstrap.Modal(document.getElementById('supplementPreviewModal'));
+                    modal.show();
+                });
         };
 
 
@@ -1446,15 +2411,42 @@
             // 1. 查询字段
             const queryItems = dynamicTableConfig.queryItems || [];
             queryItems.forEach(item => {
-                columns.push({
-                    index: colIndex++,
-                    key: item.label,
-                    label: item.label,
-                    type: item.type || 'text',
-                    category: 'query',
-                    bindingKey: item.bindingKey,
-                    width: 120
-                });
+                const fieldType = item.type || 'text';
+                if (fieldType === 'difference_condition') {
+                    columns.push({
+                        index: colIndex++,
+                        key: '新' + item.label,
+                        label: '新' + item.label,
+                        type: 'text',
+                        category: 'query',
+                        queryValueType: 'new',
+                        bindingKey: item.bindingKey,
+                        width: calculateOptimalColumnWidth('新' + item.label)
+                    });
+                    columns.push({
+                        index: colIndex++,
+                        key: '原' + item.label,
+                        label: '原' + item.label,
+                        type: 'text',
+                        category: 'query',
+                        queryValueType: 'origin',
+                        bindingKey: item.bindingKey,
+                        width: calculateOptimalColumnWidth('原' + item.label)
+                    });
+                } else if (fieldType === 'calculated' || fieldType === 'subquery') {
+                    // 计算字段/子查询字段不显示在在线编辑表格中（由后端表达式计算）
+                    return;
+                } else {
+                    columns.push({
+                        index: colIndex++,
+                        key: item.label,
+                        label: item.label,
+                        type: fieldType,
+                        category: 'query',
+                        bindingKey: item.bindingKey,
+                        width: calculateOptimalColumnWidth(item.label)
+                    });
+                }
             });
 
             const updateItems = dynamicTableConfig.updateItems || [];
@@ -1591,6 +2583,21 @@
         }
 
         /**
+         * 构造 Luckysheet 文本格式单元格对象，避免前导零被当作数字截断
+         * @param {string} value - 单元格值
+         * @returns {Object} Luckysheet 单元格对象
+         */
+        function buildTextCell(value) {
+            const s = String(value);
+            return {
+                v: s,
+                m: s,
+                ct: { fa: '@', t: 's' },
+                tb: '0'
+            };
+        }
+
+        /**
          * 获取某一列对应的当前表单默认值
          * @param {Object} col - 列定义
          * @param {Object} allValues - getAllFormValues 的结果
@@ -1600,7 +2607,14 @@
             if (!allValues) return '';
 
             // 查找当前列对应的表单值对象
-            let item = allValues[col.bindingKey];
+            let item = null;
+            if (col.category === 'query') {
+                // 查询字段使用独立的 query_{bindingKey} 键
+                item = allValues['query_' + col.bindingKey];
+            }
+            if (!item) {
+                item = allValues[col.bindingKey];
+            }
             if (!item) {
                 const keys = Object.keys(allValues);
                 for (const k of keys) {
@@ -1613,11 +2627,55 @@
             if (!item) return '';
 
             if (col.category === 'query') {
+                if (col.queryValueType === 'new') {
+                    return item.newValue || '';
+                } else if (col.queryValueType === 'origin') {
+                    return item.originValue || '';
+                }
                 return item.value || '';
             } else if (col.category === 'update' || col.category === 'sub') {
                 const key = col.key && col.key.startsWith('新') ? 'newValue' : 'originValue';
                 return item[key] || '';
             }
+            return '';
+        }
+
+        /**
+         * 从配置中读取列的默认值（不读取页面当前输入值）
+         * @param {Object} col - 列定义
+         * @returns {string} 配置默认值，无则返回空字符串
+         */
+        function getColumnConfigDefaultValue(col) {
+            if (!dynamicTableConfig) return '';
+
+            if (col.category === 'query') {
+                const item = (dynamicTableConfig.queryItems || []).find(q => q.bindingKey === col.bindingKey);
+                if (!item) return '';
+                if (item.type === 'difference_condition' || item.type === 'calculated' || item.type === 'subquery') {
+                    return '';
+                }
+                return item.defaultValue || '';
+            }
+
+            if (col.category === 'update' || col.category === 'sub') {
+                const isNew = col.key && col.key.startsWith('新');
+                const defaultValueKey = isNew ? 'newDefaultValue' : 'originDefaultValue';
+
+                if (col.category === 'update') {
+                    const item = (dynamicTableConfig.updateItems || []).find(u => u.bindingKey === col.bindingKey);
+                    return item ? (item[defaultValueKey] || '') : '';
+                }
+
+                if (col.category === 'sub') {
+                    for (const item of (dynamicTableConfig.updateItems || [])) {
+                        const sub = (item.subFields || []).find(s => s.bindingKey === col.bindingKey);
+                        if (sub) {
+                            return sub[defaultValueKey] || '';
+                        }
+                    }
+                }
+            }
+
             return '';
         }
 
@@ -1654,10 +2712,9 @@
             const totalRows = 500;
             // 保证右侧始终有可编辑的空白列，最少 20 列或比配置列多 10 列
             const totalCols = Math.max(luckyColumns.length + 10, 20);
-            const allFormValues = window.getAllFormValues ? window.getAllFormValues() : {};
             const celldata = [];
             luckyColumns.forEach((col, idx) => {
-                const defaultValue = getColumnDefaultValue(col, allFormValues);
+                const defaultValue = getColumnConfigDefaultValue(col);
                 const hasDefault = String(defaultValue).trim() !== '';
                 celldata.push({
                     r: 0,
@@ -1685,18 +2742,19 @@
                 container: 'luckysheet',
                 title: '在线编辑导入数据',
                 lang: 'zh',
-                // 显示顶部信息栏、底部 Sheet 标签栏和统计栏，接近原生 WPS/Office
-                showinfobar: true,
+                // 隐藏顶部信息栏（表格标题）和统计栏，保留底部 Sheet 标签栏以支持新增 Sheet
+                // 公式栏由 sheetFormulaBar 默认开启；通过 CSS 确保公式提示框在模态框之上
+                showinfobar: false,
                 showsheetbar: true,
-                showstatisticBar: true,
+                showstatisticBar: false,
                 showtoolbar: true,
                 showtoolbarConfig: true,
                 sheetBarConfig: {
                     add: true,
                     delete: true,
                     rename: true,
-                    color: true,
-                    move: true
+                    color: false,
+                    move: false
                 },
                 enableAddRow: true,
                 enableAddBackTop: true,
@@ -1727,7 +2785,13 @@
                         try {
                             if (savedOnlineRows && savedOnlineRows.length > 0) {
                                 fillSavedOnlineRows();
+                            } else {
+                                fillDefaultValuesToFirstRow();
                             }
+
+                            // 将所有数据单元格设置为文本格式，防止粘贴/输入时前导零丢失
+                            setDataCellsToTextFormat();
+
                             // 如果有待回显的校验错误，追加错误列
                             if (pendingValidationErrors && pendingValidationErrors.length > 0) {
                                 fillValidationErrors(pendingValidationErrors);
@@ -1849,7 +2913,12 @@
                     }
 
                     rangeValues.forEach(item => {
-                        data[item.r - minR][item.c - minC] = item.v;
+                        const val = item.v;
+                        if (val !== '' && val !== null && val !== undefined) {
+                            data[item.r - minR][item.c - minC] = buildTextCell(val);
+                        } else {
+                            data[item.r - minR][item.c - minC] = '';
+                        }
                     });
 
                     const range = {
@@ -1864,9 +2933,14 @@
                 }
             }
 
-            // 回退：逐个写入
+            // 回退：逐个写入（使用文本格式保持前导零）
             rangeValues.forEach(item => {
-                luckysheet.setCellValue(item.r, item.c, item.v);
+                const val = item.v;
+                if (val !== '' && val !== null && val !== undefined) {
+                    luckysheet.setCellValue(item.r, item.c, buildTextCell(val));
+                } else {
+                    luckysheet.setCellValue(item.r, item.c, '');
+                }
             });
         }
 
@@ -1970,6 +3044,49 @@
         };
 
         /**
+         * 将当前表单默认值填充到在线编辑器第 1 行
+         */
+        function fillDefaultValuesToFirstRow() {
+            if (!luckySheetReady || typeof luckysheet === 'undefined') return;
+
+            let filledCount = 0;
+            luckyColumns.forEach(col => {
+                const defaultValue = getColumnConfigDefaultValue(col);
+                if (String(defaultValue).trim() !== '') {
+                    luckysheet.setCellValue(1, col.index, buildTextCell(defaultValue));
+                    filledCount++;
+                }
+            });
+
+            if (filledCount > 0) {
+                console.log('[DEBUG] 已填充 ' + filledCount + ' 列默认值到第 1 行');
+            }
+        }
+
+        /**
+         * 将所有数据单元格（第1行起、所有配置列）设置为文本格式
+         * 防止用户粘贴/输入 01067621 这类字符串时被解析为数字并截断前导零
+         */
+        function setDataCellsToTextFormat() {
+            if (!luckySheetReady || typeof luckysheet === 'undefined' || !luckyColumns.length) return;
+
+            try {
+                const lastRow = 499; // 与 totalRows=500 对应，索引 0~499，数据行 1~499
+                const lastCol = luckyColumns.length - 1;
+                if (typeof luckysheet.setRangeFormat === 'function') {
+                    luckysheet.setRangeFormat('ct', { fa: '@', t: 's' }, {
+                        range: {
+                            row: [1, lastRow],
+                            column: [0, lastCol]
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('[WARN] 设置数据单元格文本格式失败:', e);
+            }
+        }
+
+        /**
          * 将已保存的在线编辑数据回显到 Luckysheet
          */
         function fillSavedOnlineRows() {
@@ -1985,7 +3102,7 @@
                 const sheetRow = rowIndex + 1; // 第 0 行是表头
                 luckyColumns.forEach(col => {
                     if (row[col.key] !== undefined && row[col.key] !== null && String(row[col.key]).trim() !== '') {
-                        luckysheet.setCellValue(sheetRow, col.index, String(row[col.key]));
+                        luckysheet.setCellValue(sheetRow, col.index, buildTextCell(row[col.key]));
                     }
                 });
             });
@@ -1994,16 +3111,24 @@
         }
 
         /**
-         * 清空错误信息列
+         * 清空错误信息列（只清空实际显示过错误的单元格，避免全表逐行 setCellValue 导致卡顿）
          */
         function clearErrorColumn() {
             if (!luckySheetReady || typeof luckysheet === 'undefined') return;
+            if (!displayedValidationErrors || displayedValidationErrors.length === 0) return;
+
             const errorColIndex = luckyColumns.length;
-            const sheetData = luckysheet.getSheetData();
-            const rowCount = sheetData.length;
-            for (let r = 0; r < rowCount; r++) {
-                luckysheet.setCellValue(r, errorColIndex, '');
-            }
+            const rangeValues = [{ r: 0, c: errorColIndex, v: '' }];
+
+            displayedValidationErrors.forEach(function (err) {
+                const frontendRow = (err.rowIndex || 0) - 1;
+                if (frontendRow > 0) {
+                    rangeValues.push({ r: frontendRow, c: errorColIndex, v: '' });
+                }
+            });
+
+            batchSetRangeValues(rangeValues);
+            displayedValidationErrors = [];
         }
 
         /**
@@ -2029,15 +3154,18 @@
                 vt: 0
             });
 
-            // 设置错误列宽度
+            // 设置错误列宽度（setColumnWidth 接收 {列索引: 宽度} 对象）
             if (typeof luckysheet.setColumnWidth === 'function') {
-                luckysheet.setColumnWidth([{ col: errorColIndex, len: 280 }]);
+                luckysheet.setColumnWidth({ [errorColIndex]: 280 });
             } else {
                 const config = luckysheet.getConfig ? luckysheet.getConfig() : {};
                 if (config && config.columnlen) {
                     config.columnlen[errorColIndex] = 280;
                 }
             }
+
+            // 记录当前显示的错误，用于后续快速清空
+            displayedValidationErrors = rowErrors.slice();
 
             // 后端 rowIndex 从 2 开始（第 1 行为表头），前端数据行从第 1 行开始
             rowErrors.forEach(function (err) {
@@ -2084,9 +3212,14 @@
                     const colDef = luckyColumns[c];
 
                     // Luckysheet cell format: { v: value, m: displayValue, ... }
+                    // 优先取显示值 m，避免数字格式导致前导零丢失
                     let cellValue = '';
                     if (cell && typeof cell === 'object') {
-                        cellValue = cell.v !== undefined ? cell.v : (cell.m !== undefined ? cell.m : '');
+                        if (cell.m !== undefined && cell.m !== null) {
+                            cellValue = cell.m;
+                        } else if (cell.v !== undefined && cell.v !== null) {
+                            cellValue = cell.v;
+                        }
                     } else if (cell !== undefined && cell !== null) {
                         cellValue = cell;
                     }
@@ -2114,8 +3247,8 @@
                 return;
             }
 
-            // 清空错误信息列，避免旧错误随数据一起保存
-            clearErrorColumn();
+            // 错误列在提取数据时不会被读取；关闭弹窗后表格会销毁，
+            // 因此保存前不必清空错误列，避免触发大量 setCellValue / Web Worker
 
             // 如果已选择文件导入，清空它，改用在线编辑数据
             if (batchImportFile) {
@@ -2168,7 +3301,7 @@
         };
 
         /**
-         * 预览已保存的在线编辑数据
+         * 预览已保存的在线编辑数据（按表单块结构渲染）
          */
         window.previewOnlineData = function () {
             const previewContainer = document.getElementById('onlineDataPreviewTable');
@@ -2177,20 +3310,7 @@
             if (!savedOnlineRows || savedOnlineRows.length === 0) {
                 previewContainer.innerHTML = '<p class="text-muted">暂无保存的数据</p>';
             } else {
-                let html = '<table class="table table-sm table-bordered table-striped"><thead><tr>';
-                luckyColumns.forEach(col => {
-                    html += '<th>' + escapeHtml(col.label) + '</th>';
-                });
-                html += '</tr></thead><tbody>';
-                savedOnlineRows.forEach(row => {
-                    html += '<tr>';
-                    luckyColumns.forEach(col => {
-                        html += '<td>' + escapeHtml(row[col.key] || '') + '</td>';
-                    });
-                    html += '</tr>';
-                });
-                html += '</tbody></table>';
-                previewContainer.innerHTML = html;
+                previewContainer.innerHTML = savedOnlineRows.map((row, index) => buildPreviewBlock(row, index + 1)).join('');
             }
 
             const modalEl = document.getElementById('onlineDataPreviewModal');
@@ -2201,6 +3321,139 @@
             }
             modalInstance.show();
         };
+
+        /**
+         * 构建单行预览卡片（模拟动态表单块结构）
+         */
+        function buildPreviewBlock(row, index) {
+            const queryHtml = buildPreviewQuerySection(row);
+            const updateHtml = buildPreviewUpdateSection(row);
+
+            return `
+                <div class="preview-data-card">
+                    <div class="preview-data-header">
+                        <span class="preview-data-index">#${index}</span>
+                        <span class="preview-data-title">数据行 ${index}</span>
+                    </div>
+                    <div class="preview-data-body">
+                        ${queryHtml}
+                        ${updateHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * 构建预览查询字段区
+         */
+        function buildPreviewQuerySection(row) {
+            const queryItems = (dynamicTableConfig && dynamicTableConfig.queryItems) || [];
+            if (!queryItems.length) return '';
+
+            const fields = queryItems.map(item => {
+                const fieldType = item.type || 'text';
+                let valueHtml = '';
+
+                if (fieldType === 'difference_condition') {
+                    const newVal = escapeHtml(row['新' + item.label] || '');
+                    const originVal = escapeHtml(row['原' + item.label] || '');
+                    valueHtml = `<span class="preview-value-tag new">新：${newVal || '空'}</span><span class="preview-value-tag origin">原：${originVal || '空'}</span>`;
+                } else if (fieldType === 'calculated' || fieldType === 'subquery') {
+                    // 计算/子查询字段不在线编辑中，显示表达式占位
+                    const expr = item.expressions ? Object.values(item.expressions)[0] : '';
+                    valueHtml = `<span class="preview-value-tag computed">${escapeHtml(expr ? '由表达式计算' : '自动计算')}</span>`;
+                } else {
+                    const val = escapeHtml(row[item.label] || '');
+                    valueHtml = `<span class="preview-value-tag">${val || '空'}</span>`;
+                }
+
+                return `
+                    <div class="preview-field-row">
+                        <span class="preview-field-label">${escapeHtml(item.label || item.bindingKey)}</span>
+                        <div class="preview-field-values">${valueHtml}</div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="preview-section">
+                    <div class="preview-section-title"><i class="bi bi-search me-1"></i>查询字段</div>
+                    <div class="preview-section-body">${fields}</div>
+                </div>
+            `;
+        }
+
+        /**
+         * 构建预览修改字段区
+         */
+        function buildPreviewUpdateSection(row) {
+            const updateItems = (dynamicTableConfig && dynamicTableConfig.updateItems) || [];
+            if (!updateItems.length) return '';
+
+            const fields = updateItems.map(item => {
+                const inputType = item.inputType;
+                if (inputType === 'calculated') {
+                    const expr = item.expressions ? Object.values(item.expressions)[0] : '';
+                    return `
+                        <div class="preview-field-row">
+                            <span class="preview-field-label">${escapeHtml(item.label || item.bindingKey)}</span>
+                            <div class="preview-field-values">
+                                <span class="preview-value-tag computed">${escapeHtml(expr ? '由表达式计算' : '自动计算')}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (inputType === 'supplement') {
+                    const mainNew = escapeHtml(row['新' + item.label] || '');
+                    const mainOrigin = escapeHtml(row['原' + item.label] || '');
+                    let subHtml = '';
+                    (item.subFields || []).forEach(sub => {
+                        const subType = sub.type || 'normal';
+                        if (subType === 'normal') return;
+                        const subNew = escapeHtml(row['新' + sub.label] || '');
+                        const subOrigin = escapeHtml(row['原' + sub.label] || '');
+                        subHtml += `
+                            <div class="preview-sub-field">
+                                <span class="preview-sub-label">${escapeHtml(sub.label)}</span>
+                                <span class="preview-value-tag new">新：${subNew || '空'}</span>
+                                <span class="preview-value-tag origin">原：${subOrigin || '空'}</span>
+                            </div>
+                        `;
+                    });
+
+                    return `
+                        <div class="preview-field-row">
+                            <span class="preview-field-label">${escapeHtml(item.label || item.bindingKey)}</span>
+                            <div class="preview-field-values">
+                                <span class="preview-value-tag new">新：${mainNew || '空'}</span>
+                                <span class="preview-value-tag origin">原：${mainOrigin || '空'}</span>
+                                ${subHtml}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const newVal = escapeHtml(row['新' + item.label] || '');
+                const originVal = escapeHtml(row['原' + item.label] || '');
+                return `
+                    <div class="preview-field-row">
+                        <span class="preview-field-label">${escapeHtml(item.label || item.bindingKey)}</span>
+                        <div class="preview-field-values">
+                            <span class="preview-value-tag new">新：${newVal || '空'}</span>
+                            <span class="preview-value-tag origin">原：${originVal || '空'}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="preview-section">
+                    <div class="preview-section-title"><i class="bi bi-pencil-square me-1"></i>修改字段</div>
+                    <div class="preview-section-body">${fields}</div>
+                </div>
+            `;
+        }
 
         /**
          * 更新外层已保存在线数据的显示状态
@@ -2750,39 +4003,66 @@
 
                 // 查询字段和单选框做校验
                 if (item.inputType === 'radio' || item.inputType === 'query') {
-                    let newId;
-                    let errorLabel;
-                    let elementValue;
                     // 兼容 ValidRule 和 newValidRule 两种属性名
                     let validRule = item.ValidRule || item.newValidRule;
 
                     if (item.inputType === 'radio') {
                         // 单选框：ID 为 new 开头的字段，值在 newValue 中
-                        newId = `new${key.charAt(0).toUpperCase() + key.slice(1)}`;
-                        elementValue = item.newValue;
-                        errorLabel = `新${item.label}不能为空`;
-                    } else if (item.inputType === 'query') {
-                        // 查询字段：直接使用字段名作为 ID，值在 value 中
-                        newId = key;
-                        elementValue = item.value;
-                        errorLabel = `${item.label}不能为空`;
-                    }
-
-                    // 新值校验：检查空值和 required 规则
-                    if ((elementValue === '' || elementValue === null || elementValue === undefined) && validRule === 'required') {
-                        // 单选框特殊处理：通过 name 属性查找第一个 radio 元素
-                        if (item.inputType === 'radio') {
+                        const newId = `new${key.charAt(0).toUpperCase() + key.slice(1)}`;
+                        const elementValue = item.newValue;
+                        if ((elementValue === '' || elementValue === null || elementValue === undefined) && validRule === 'required') {
                             element = document.querySelector(`input[name="${newId}"]`);
-                        } else {
-                            element = document.getElementById(newId);
+                            const errorId = `error_${newId}`;
+                            if (element) {
+                                markAsError(element, errorId, `新${item.label}不能为空`);
+                                console.error(`新${item.label}不能为空`);
+                                hasError = true;
+                            }
                         }
+                    } else if (item.inputType === 'query') {
+                        if (item.fieldType === 'calculated' || item.fieldType === 'subquery') {
+                            // 计算字段/子查询字段：无需用户填写，跳过校验
+                        } else if (item.fieldType === 'difference_condition') {
+                            // 差异条件：新值与原值分别校验
+                            const connectedTables = item.connectedTable || [];
+                            const tableName = connectedTables.length > 0 ? connectedTables[0] : '';
+                            const baseQueryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
+                            const newId = `new_${baseQueryId}`;
+                            const originId = `origin_${baseQueryId}`;
 
-                        const errorId = `error_${newId}`;
-
-                        if (element) {
-                            markAsError(element, errorId, errorLabel);
-                            console.error(errorLabel);
-                            hasError = true;
+                            if ((item.newValue === '' || item.newValue === null || item.newValue === undefined) && validRule === 'required') {
+                                element = document.getElementById(newId);
+                                const errorId = `error_${newId}`;
+                                if (element) {
+                                    markAsError(element, errorId, `新${item.label}不能为空`);
+                                    console.error(`新${item.label}不能为空`);
+                                    hasError = true;
+                                }
+                            }
+                            if ((item.originValue === '' || item.originValue === null || item.originValue === undefined) && validRule === 'required') {
+                                element = document.getElementById(originId);
+                                const errorId = `error_${originId}`;
+                                if (element) {
+                                    markAsError(element, errorId, `原${item.label}不能为空`);
+                                    console.error(`原${item.label}不能为空`);
+                                    hasError = true;
+                                }
+                            }
+                        } else {
+                            // 普通查询字段：使用 query_{bindingKey}_{tableName} 作为 ID
+                            const connectedTables = item.connectedTable || [];
+                            const tableName = connectedTables.length > 0 ? connectedTables[0] : '';
+                            const newId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
+                            const elementValue = item.value;
+                            if ((elementValue === '' || elementValue === null || elementValue === undefined) && validRule === 'required') {
+                                element = document.getElementById(newId);
+                                const errorId = `error_${newId}`;
+                                if (element) {
+                                    markAsError(element, errorId, `${item.label}不能为空`);
+                                    console.error(`${item.label}不能为空`);
+                                    hasError = true;
+                                }
+                            }
                         }
                     }
                 }
@@ -3342,6 +4622,12 @@
                 filePrefixInput.value = dynamicTableConfig.formName;
             }
 
+            // 如果表单关联了说明文档，显示查看按钮
+            const viewDocBtn = document.getElementById('viewDocumentBtn');
+            if (viewDocBtn) {
+                viewDocBtn.style.display = dynamicTableConfig.documentId ? 'inline-block' : 'none';
+            }
+
             function sortInputItems(items) {
                 return items.sort((a, b) => a.sortOrder - b.sortOrder);
             }
@@ -3350,37 +4636,76 @@
             function generateQueryHtml(items) {
                 if (items.length === 0) return '';
 
-                const itemsPerRow = 4;
-                let queryHtml = '';
+                let queryHtml = '<div class="row g-3">';
 
-                for (let i = 0; i < items.length; i += itemsPerRow) {
-                    const rowItems = items.slice(i, i + itemsPerRow);
-                    queryHtml += '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
+                items.forEach(item => {
+                    const connectedTables = item.connectedTable || [];
+                    const tableName = connectedTables.length > 0 ? connectedTables[0] : '';
+                    const baseQueryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
+                    const fieldType = item.type || 'text';
 
-                    rowItems.forEach((item, idx) => {
-                        // 为查询字段生成唯一的 ID，格式：query_bindingKey_tableName
-                        const tableName = item.connectedTable && item.connectedTable.length > 0
-                            ? item.connectedTable[0]
-                            : '';
-                        const queryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
-
-                        queryHtml += `                        <span class="input-group-text">${item.label}</span>
-                        <input type="${item.type}"
-                               id="${queryId}"
-                               class="form-control"
-                               value="${item.defaultValue || ''}"
-                               data-binding-key="${item.bindingKey}"
-                               data-field-type="query"
-                               placeholder="请输入${item.label}">
+                    if (fieldType === 'difference_condition') {
+                        // 差异条件：执行值与回退值分开填写
+                        const newQueryId = `new_${baseQueryId}`;
+                        const originQueryId = `origin_${baseQueryId}`;
+                        queryHtml += `
+                            <div class="col-xl-3 col-lg-4 col-md-6">
+                                <div class="input-group modern-input-group mb-2">
+                                    <span class="input-group-text">新${item.label}</span>
+                                    <input type="text"
+                                           id="${newQueryId}"
+                                           class="form-control"
+                                           value=""
+                                           data-binding-key="${item.bindingKey}"
+                                           data-field-type="query"
+                                           data-query-value-type="new"
+                                           placeholder="执行语句用">
+                                </div>
+                                <div class="input-group modern-input-group">
+                                    <span class="input-group-text">原${item.label}</span>
+                                    <input type="text"
+                                           id="${originQueryId}"
+                                           class="form-control"
+                                           value=""
+                                           data-binding-key="${item.bindingKey}"
+                                           data-field-type="query"
+                                           data-query-value-type="origin"
+                                           placeholder="回退语句用">
+                                </div>
+                            </div>
                         `;
-                        if (idx < rowItems.length - 1) {
-                            queryHtml += '<div style="width: 15px"></div>';
-                        }
-                    });
+                    } else if (fieldType === 'subquery') {
+                        // 子查询字段由后端表达式计算，不在动态表单上展示
+                        return;
+                    } else if (fieldType === 'calculated') {
+                        // 计算字段：不渲染输入框，仅显示标签说明
+                        queryHtml += `
+                            <div class="col-xl-3 col-lg-4 col-md-6">
+                                <div class="alert alert-light border py-2 mb-0">
+                                    <small><i class="bi bi-calculator me-1"></i><strong>${item.label}</strong>（计算字段）</small>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // 普通文本查询字段
+                        queryHtml += `
+                            <div class="col-xl-3 col-lg-4 col-md-6">
+                                <div class="input-group modern-input-group">
+                                    <span class="input-group-text">${item.label}</span>
+                                    <input type="${fieldType}"
+                                           id="${baseQueryId}"
+                                           class="form-control"
+                                           value="${item.defaultValue || ''}"
+                                           data-binding-key="${item.bindingKey}"
+                                           data-field-type="query"
+                                           placeholder="请输入${item.label}">
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
 
-                    queryHtml += '</div></div>';
-                }
-
+                queryHtml += '</div>';
                 return queryHtml;
             }
 
@@ -3397,37 +4722,36 @@
                     `<option value="${opt.value}" ${opt.value === item.originDefaultValue ? 'selected' : ''}>${opt.label}</option>`
                 ).join('');
 
-                let html = '<div class="row g-3 align-items-center mb-3 layui-form layui-row layui-col-space16"><div class="input-group">';
-
-                html += `
-                    <span class="input-group-text">新${item.label}</span>
-                    <select id="${newId}"
-                            class="form-select"
-                            lay-search=""
-                            data-binding-key="${item.bindingKey}"
-                            data-field-type="select">
-                        <option value="">请选择</option>
-                        ${newOptionsHtml}
-                    </select>
+                return `
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-3 layui-form select-pair-row">
+                        <div class="select-pair-item">
+                            <div class="input-group modern-input-group">
+                                <span class="input-group-text">新${item.label}</span>
+                                <select id="${newId}"
+                                        class="form-select"
+                                        lay-search=""
+                                        data-binding-key="${item.bindingKey}"
+                                        data-field-type="select">
+                                    <option value="">请选择</option>
+                                    ${newOptionsHtml}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="select-pair-item">
+                            <div class="input-group modern-input-group">
+                                <span class="input-group-text">原${item.label}</span>
+                                <select id="${originId}"
+                                        class="form-select"
+                                        lay-search
+                                        data-binding-key="${item.bindingKey}"
+                                        data-field-type="select">
+                                    <option value="">请选择</option>
+                                    ${originOptionsHtml}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                 `;
-
-                html += '<div style="width: 15px"></div>';
-
-                html += `
-                    <span class="input-group-text">原${item.label}</span>
-                    <select id="${originId}"
-                            class="form-select"
-                            lay-search
-                            data-binding-key="${item.bindingKey}"
-                            data-field-type="select">
-                        <option value="">请选择</option>
-                        ${originOptionsHtml}
-                    </select>
-                `;
-
-                html += '</div></div>';
-
-                return html;
             }
 
             function generateRadioHtml(item) {
@@ -3436,13 +4760,15 @@
 
                 const options = item.options || [];
 
-                let html = '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
+                let html = '<div class="row g-3 align-items-center mb-3"><div class="input-group modern-input-group">';
 
                 html += `<span class="input-group-text">新${item.label}</span>`;
 
+                html += '<div class="radio-group-modern flex-grow-1">';
+
                 options.forEach((opt, index) => {
                     html += `
-                        <div class="form-check form-check-inline" style="margin-top: 7px;margin-left: 5px;">
+                        <div class="form-check">
                             <input class="form-check-input" type="radio"
                                    name="${newId}"
                                    id="${newId}_${index}"
@@ -3455,6 +4781,8 @@
                         </div>
                     `;
                 });
+
+                html += '</div>';
 
                 // 原值不显示，完全隐藏，但保留在DOM中用于数据提交
                 const oppositeOption = options.find(opt => opt.value !== item.newDefaultValue);
@@ -3476,32 +4804,28 @@
             function generateInputHtml(items) {
                 if (items.length === 0) return '';
 
-                const itemsPerRow = 4;
-
                 function renderInputRows(items, prefix, defaultValueKey) {
-                    let html = '';
-                    for (let i = 0; i < items.length; i += itemsPerRow) {
-                        const rowItems = items.slice(i, i + itemsPerRow);
-                        html += '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
+                    let html = '<div class="row g-3 mb-3">';
 
-                        rowItems.forEach((item, idx) => {
-                            const id = `${prefix}${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
-                            html += `
-                                <span class="input-group-text">${prefix === 'new' ? '新' : '原'}${item.label}</span>
-                                <input type="${item.type === 'date' ? 'text' : item.type}"
-                                       id="${id}"
-                                       class="form-control"
-                                       value="${item[defaultValueKey] || ''}"
-                                       data-binding-key="${item.bindingKey}"
-                                       data-field-type="${item.type}">
-                            `;
-                            if (idx < rowItems.length - 1) {
-                                html += '<div style="width: 15px"></div>';
-                            }
-                        });
+                    items.forEach(item => {
+                        const id = `${prefix}${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
+                        html += `
+                            <div class="col-xl-3 col-lg-4 col-md-6">
+                                <div class="input-group modern-input-group">
+                                    <span class="input-group-text">${prefix === 'new' ? '新' : '原'}${item.label}</span>
+                                    <input type="${item.type === 'date' ? 'text' : item.type}"
+                                           id="${id}"
+                                           class="form-control"
+                                           value="${item[defaultValueKey] || ''}"
+                                           data-binding-key="${item.bindingKey}"
+                                           data-field-type="${item.type}"
+                                           placeholder="请输入${item.label}">
+                                </div>
+                            </div>
+                        `;
+                    });
 
-                        html += '</div></div>';
-                    }
+                    html += '</div>';
                     return html;
                 }
 
@@ -3522,11 +4846,11 @@
                 const newVisibleFields = [];
                 const newHiddenFields = [];
 
-                // 添加主字段（保持绿色背景样式）
+                // 添加主字段
                 newVisibleFields.push({
                     id: mainNewId,
                     label: `新${mainLabel}`,
-                    labelStyle: 'background: greenyellow',
+                    labelClass: 'supplement-main-label',
                     bindingKey: item.bindingKey,
                     fieldType: 'supplement-main',
                     placeholder: `请输入${mainLabel}主值`,
@@ -3557,36 +4881,38 @@
                     }
                 });
 
-                // 每行最多3个可见字段，生成多行HTML
-                let newHtml = '';
-                const itemsPerRow = 3;
-                for (let i = 0; i < newVisibleFields.length; i += itemsPerRow) {
-                    const rowFields = newVisibleFields.slice(i, i + itemsPerRow);
-                    newHtml += '<div class="row g-3 align-items-center mb-2"><div class="input-group">';
-
-                    rowFields.forEach((field, idx) => {
-                        if (idx > 0) {
-                            newHtml += '<div style="width: 15px"></div>';
-                        }
-                        newHtml += `
-                            <span class="input-group-text" style="${field.labelStyle || ''}">${field.label}</span>
-                            <input type="text"
-                                   id="${field.id}"
-                                   class="form-control"
-                                   value=""
-                                   data-binding-key="${field.bindingKey}"
-                                   data-field-type="${field.fieldType}"
-                                   ${field.subType ? `data-sub-type="${field.subType}"` : ''}
-                                   placeholder="${field.placeholder}"
-                                   ${field.oninput ? `oninput="${field.oninput}"` : ''}
-                                   ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
-                                   ${field.parentBindingKey ? `data-parent-binding-key="${field.parentBindingKey}"` : ''}
-                                  >
-                        `;
-                    });
-
-                    newHtml += '</div></div>';
-                }
+                // 生成新值字段HTML
+                let newHtml = '<div class="row g-3 mb-2">';
+                newVisibleFields.forEach(field => {
+                    newHtml += `
+                        <div class="col-xl-4 col-lg-6 col-md-6">
+                            <div class="input-group modern-input-group">
+                                <span class="input-group-text ${field.labelClass || ''}">${field.label}</span>
+                                <input type="text"
+                                       id="${field.id}"
+                                       class="form-control"
+                                       value=""
+                                       data-binding-key="${field.bindingKey}"
+                                       data-field-type="${field.fieldType}"
+                                       ${field.subType ? `data-sub-type="${field.subType}"` : ''}
+                                       placeholder="${field.placeholder}"
+                                       ${field.oninput ? `oninput="${field.oninput}"` : ''}
+                                       ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
+                                       ${field.parentBindingKey ? `data-parent-binding-key="${field.parentBindingKey}"` : ''}
+                                      >
+                                ${field.fieldType === 'supplement-main' ? `
+                                    <button class="btn btn-outline-secondary" type="button"
+                                            onclick="showSupplementPreview('${item.bindingKey}', ${field.id.startsWith('originMain')})"
+                                            title="预览补充字段">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                            ${field.fieldType === 'supplement-main' ? `<div id="supplementHint_${field.id}" class="supplement-hint small mt-1" style="display:none;"></div>` : ''}
+                        </div>
+                    `;
+                });
+                newHtml += '</div>';
 
                 // 隐藏的普通字段
                 if (newHiddenFields.length > 0) {
@@ -3610,11 +4936,11 @@
                 const originVisibleFields = [];
                 const originHiddenFields = [];
 
-                // 添加原值主字段（保持绿色背景样式）
+                // 添加原值主字段
                 originVisibleFields.push({
                     id: mainOriginId,
                     label: `原${mainLabel}`,
-                    labelStyle: 'background: greenyellow;',
+                    labelClass: 'supplement-main-label',
                     bindingKey: item.bindingKey,
                     fieldType: 'supplement-main',
                     placeholder: `原${mainLabel}主值`,
@@ -3643,35 +4969,38 @@
                     }
                 });
 
-                // 每行最多3个可见字段，生成多行HTML
-                let originHtml = '';
-                for (let i = 0; i < originVisibleFields.length; i += itemsPerRow) {
-                    const rowFields = originVisibleFields.slice(i, i + itemsPerRow);
-                    originHtml += '<div class="row g-3 align-items-center mb-2"><div class="input-group">';
-
-                    rowFields.forEach((field, idx) => {
-                        if (idx > 0) {
-                            originHtml += '<div style="width: 15px"></div>';
-                        }
-                        originHtml += `
-                            <span class="input-group-text" style="${field.labelStyle || ''}">${field.label}</span>
-                            <input type="text"
-                                   id="${field.id}"
-                                   class="form-control"
-                                   value=""
-                                   data-binding-key="${field.bindingKey}"
-                                   data-field-type="${field.fieldType}"
-                                   ${field.subType ? `data-sub-type="${field.subType}"` : ''}
-                                   placeholder="${field.placeholder}"
-                                   ${field.oninput ? `oninput="${field.oninput}"` : ''}
-                                   ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
-                                   ${field.parentBindingKey ? `data-parent-binding-key="${field.parentBindingKey}"` : ''}
-                                  >
-                        `;
-                    });
-
-                    originHtml += '</div></div>';
-                }
+                // 生成原值字段HTML
+                let originHtml = '<div class="row g-3 mb-2">';
+                originVisibleFields.forEach(field => {
+                    originHtml += `
+                        <div class="col-xl-4 col-lg-6 col-md-6">
+                            <div class="input-group modern-input-group">
+                                <span class="input-group-text ${field.labelClass || ''}">${field.label}</span>
+                                <input type="text"
+                                       id="${field.id}"
+                                       class="form-control"
+                                       value=""
+                                       data-binding-key="${field.bindingKey}"
+                                       data-field-type="${field.fieldType}"
+                                       ${field.subType ? `data-sub-type="${field.subType}"` : ''}
+                                       placeholder="${field.placeholder}"
+                                       ${field.oninput ? `oninput="${field.oninput}"` : ''}
+                                       ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
+                                       ${field.parentBindingKey ? `data-parent-binding-key="${field.parentBindingKey}"` : ''}
+                                      >
+                                ${field.fieldType === 'supplement-main' ? `
+                                    <button class="btn btn-outline-secondary" type="button"
+                                            onclick="showSupplementPreview('${item.bindingKey}', ${field.id.startsWith('originMain')})"
+                                            title="预览补充字段">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                            ${field.fieldType === 'supplement-main' ? `<div id="supplementHint_${field.id}" class="supplement-hint small mt-1" style="display:none;"></div>` : ''}
+                        </div>
+                    `;
+                });
+                originHtml += '</div>';
 
                 // 隐藏的普通字段（原值）
                 if (originHiddenFields.length > 0) {
@@ -3875,6 +5204,208 @@
 
 
         };
+
+        function openDocumentViewer() {
+            const docId = dynamicTableConfig && dynamicTableConfig.documentId;
+            if (!docId) {
+                showToast('当前表单未关联说明文档', 'warning');
+                return;
+            }
+
+            const contentEl = document.getElementById('documentViewerContent');
+            const titleEl = document.getElementById('documentViewerModalLabel');
+            const editLink = document.getElementById('documentViewerEditLink');
+            contentEl.innerHTML = '<p class="text-muted p-4">加载中...</p>';
+
+            fetch(`/api/document-library/${docId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        titleEl.innerHTML = `<i class="bi bi-journal-text me-1"></i>${escapeHtml(data.data.title)}`;
+                        contentEl.innerHTML = data.data.content || '<p class="text-muted p-4">文档内容为空</p>';
+                        editLink.href = `/document-library/edit/${docId}/?edit=1`;
+
+                        // 增强代码块：添加复制按钮
+                        enhanceDocumentCodeBlocks(contentEl);
+
+                        // 增强图片：添加点击放大功能
+                        enhanceDocumentImages(contentEl);
+
+                        // 生成大纲
+                        renderDocumentOutline(contentEl);
+
+                        const modal = new bootstrap.Modal(document.getElementById('documentViewerModal'));
+                        modal.show();
+                    } else {
+                        showToast(data.message || '加载文档失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('加载文档失败:', error);
+                    showToast('加载文档失败', 'error');
+                });
+        }
+
+        /**
+         * 为文档预览中的代码块添加复制按钮
+         */
+        function enhanceDocumentCodeBlocks(contentEl) {
+            const codeBlocks = contentEl.querySelectorAll('pre');
+            codeBlocks.forEach(pre => {
+                if (pre.closest('.doc-code-wrapper')) return;
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'doc-code-wrapper';
+                pre.parentNode.insertBefore(wrapper, pre);
+                wrapper.appendChild(pre);
+
+                const copyBtn = document.createElement('button');
+                copyBtn.type = 'button';
+                copyBtn.className = 'doc-code-copy-btn';
+                copyBtn.title = '复制';
+                copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> 复制';
+                copyBtn.addEventListener('click', () => {
+                    const code = pre.querySelector('code');
+                    const text = code ? code.textContent : pre.textContent;
+                    navigator.clipboard.writeText(text).then(() => {
+                        copyBtn.classList.add('copied');
+                        copyBtn.innerHTML = '<i class="bi bi-check-lg"></i> 已复制';
+                        setTimeout(() => {
+                            copyBtn.classList.remove('copied');
+                            copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> 复制';
+                        }, 1500);
+                    }).catch(err => {
+                        console.error('复制失败', err);
+                        showToast('复制失败', 'error');
+                    });
+                });
+                wrapper.appendChild(copyBtn);
+            });
+        }
+
+        /**
+         * 为文档预览中的图片添加点击放大功能
+         */
+        function enhanceDocumentImages(contentEl) {
+            const images = contentEl.querySelectorAll('img');
+            images.forEach(img => {
+                img.style.cursor = 'zoom-in';
+                img.addEventListener('click', function () {
+                    openImageZoom(this.src);
+                });
+            });
+        }
+
+
+        let currentImageZoom = 1;
+        let imageZoomModalInstance = null;
+
+        /**
+         * 打开图片放大预览
+         */
+        window.openImageZoom = function (src) {
+            const img = document.getElementById('imageZoomTarget');
+            if (!img) return;
+            img.src = src;
+            resetImageZoom();
+
+            const modalEl = document.getElementById('imageZoomModal');
+            if (!imageZoomModalInstance) {
+                imageZoomModalInstance = new bootstrap.Modal(modalEl);
+
+                // 鼠标滚轮缩放
+                modalEl.addEventListener('wheel', function (e) {
+                    e.preventDefault();
+                    if (e.deltaY < 0) {
+                        adjustImageZoom(0.1);
+                    } else {
+                        adjustImageZoom(-0.1);
+                    }
+                }, { passive: false });
+
+                // 关闭时重置
+                modalEl.addEventListener('hidden.bs.modal', function () {
+                    resetImageZoom();
+                });
+            }
+            imageZoomModalInstance.show();
+        };
+
+        /**
+         * 调整图片缩放比例
+         */
+        window.adjustImageZoom = function (delta) {
+            currentImageZoom = Math.max(0.2, Math.min(5, currentImageZoom + delta));
+            applyImageZoom();
+        };
+
+        /**
+         * 重置图片缩放
+         */
+        window.resetImageZoom = function () {
+            currentImageZoom = 1;
+            applyImageZoom();
+        };
+
+        function applyImageZoom() {
+            const img = document.getElementById('imageZoomTarget');
+            if (img) {
+                img.style.transform = `scale(${currentImageZoom})`;
+            }
+        }
+
+
+        /**
+         * 根据正文标题生成文档大纲
+         */
+        function renderDocumentOutline(contentEl) {
+            const emptyEl = document.getElementById('documentViewerOutlineEmpty');
+            const listEl = document.getElementById('documentViewerOutlineList');
+            if (!emptyEl || !listEl) return;
+
+            const headings = Array.from(contentEl.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+            if (headings.length === 0) {
+                emptyEl.style.display = 'block';
+                listEl.innerHTML = '';
+                return;
+            }
+
+            emptyEl.style.display = 'none';
+
+            // 为标题添加锚点 id
+            headings.forEach((heading, index) => {
+                if (!heading.id) {
+                    heading.id = 'doc-heading-' + index;
+                }
+            });
+
+            listEl.innerHTML = headings.map(heading => {
+                const level = parseInt(heading.tagName.charAt(1));
+                const text = heading.textContent.trim() || '无标题';
+                return `<a class="doc-viewer-outline-item level-${level}" data-target="${heading.id}">${escapeHtml(text)}</a>`;
+            }).join('');
+
+            listEl.querySelectorAll('.doc-viewer-outline-item').forEach(item => {
+                item.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const targetId = this.dataset.target;
+                    const targetEl = document.getElementById(targetId);
+                    if (targetEl) {
+                        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    listEl.querySelectorAll('.doc-viewer-outline-item').forEach(i => i.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+        }
+
+
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
     </script>
 

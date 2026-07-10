@@ -70,6 +70,29 @@ def generate_requirements():
     return True
 
 
+def vacuum_database():
+    """对 db.sqlite3 执行 VACUUM 压缩，减小打包体积"""
+    db_path = Path("db.sqlite3")
+    if not db_path.exists():
+        print("[INFO] db.sqlite3 not found, skipping vacuum")
+        return True
+    
+    print("\n[Vacuum] Compressing database...")
+    try:
+        import sqlite3
+        size_before = db_path.stat().st_size
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("VACUUM")
+        conn.close()
+        size_after = db_path.stat().st_size
+        saved_mb = (size_before - size_after) / (1024 * 1024)
+        print(f"[OK] Database compressed: {size_before / (1024 * 1024):.1f} MB -> {size_after / (1024 * 1024):.1f} MB (saved {saved_mb:.1f} MB)")
+        return True
+    except Exception as e:
+        print(f"[WARNING] Failed to vacuum database: {e}")
+        return True  # 不影响后续打包
+
+
 def build_project():
     """打包项目"""
     print("\n[Step 4/4] Building project...")
@@ -135,6 +158,19 @@ def build_project():
         except:
             pass
 
+    # 压缩数据库以减小打包体积
+    vacuum_database()
+
+    # 检测 UPX
+    upx_dir = None
+    try:
+        upx_result = subprocess.run(["upx", "--version"], capture_output=True, text=True)
+        if upx_result.returncode == 0:
+            upx_dir = "."
+            print("[OK] UPX detected, will be used for compression")
+    except Exception:
+        print("[INFO] UPX not found, skipping UPX compression")
+
     # 构建pyinstaller命令
     cmd = [
         sys.executable, "-m", "PyInstaller",
@@ -146,27 +182,54 @@ def build_project():
         "--add-data", f"static{os.pathsep}static",
         "--add-data", f"work_tools2{os.pathsep}work_tools2",
         "--add-data", f"manage.py{os.pathsep}.",
+        # 核心依赖隐式导入
         "--hidden-import=django",
+        "--hidden-import=django.contrib.admin",
+        "--hidden-import=django.contrib.auth",
+        "--hidden-import=django.contrib.contenttypes",
+        "--hidden-import=django.contrib.sessions",
+        "--hidden-import=django.contrib.messages",
+        "--hidden-import=django.contrib.staticfiles",
         "--hidden-import=pypinyin",
         "--hidden-import=pypinyin.pinyin_dict",
         "--hidden-import=pypinyin.style",
-        "--collect-all", "pypinyin",
         "--hidden-import=sqlite3",
-        "--collect-all", "django",
-        "--collect-all", "openpyxl",
-        "--collect-all", "tkinter",
         "--hidden-import=xlrd",
         "--hidden-import=sqlparse",
         "--hidden-import=et_xmlfile",
+        # 数据文件收集（比 --collect-all 更精简）
+        "--collect-data", "pypinyin",
+        "--collect-data", "django",
+        "--collect-data", "openpyxl",
+        "--collect-data", "tkinter",
+        # tkinter 运行时依赖
+        "--hidden-import=tkinter",
+        "--hidden-import=tkinter.filedialog",
+        # 排除常见但未使用的重型包（若环境中有安装）
+        "--exclude-module", "matplotlib",
+        "--exclude-module", "numpy",
+        "--exclude-module", "pandas",
+        "--exclude-module", "PyQt5",
+        "--exclude-module", "PyQt6",
+        "--exclude-module", "PySide2",
+        "--exclude-module", "PySide6",
+        "--exclude-module", "scipy",
+        "--exclude-module", "sklearn",
+        "--exclude-module", "tensorflow",
+        "--exclude-module", "torch",
         "--console",
         "launcher.py"
     ]
+
+    if upx_dir:
+        cmd.insert(5, "--upx-dir")
+        cmd.insert(6, upx_dir)
 
     print(f"Running command: {' '.join(cmd)}\n")
 
     try:
         result = subprocess.run(cmd, check=True, capture_output=False)
-        print("\n[OK] Build completed!")
+        print("\n[OK] PyInstaller build completed!")
         return True
     except Exception as e:
         print(f"\n[ERROR] Build failed: {e}")
@@ -174,23 +237,66 @@ def build_project():
         return False
 
 
+def cleanup_package(internal_dir):
+    """清理打包后不需要的文件，减小体积"""
+    print("\nCleaning up unnecessary files...")
+    import shutil
+    
+    removed_count = 0
+    removed_size = 0
+    
+    # 删除测试、文档、缓存目录
+    patterns_to_remove = [
+        "**/tests",
+        "**/test",
+        "**/docs",
+        "**/doc",
+        "**/__pycache__",
+        "**/*.pyc",
+        "**/*.pyo",
+        "**/*.dist-info/REQUESTED",
+        "**/django/contrib/gis",
+        "**/django/contrib/redirects",
+        "**/django/contrib/sitemaps",
+        "**/django/contrib/syndication",
+        "**/django/contrib/humanize",
+        "**/django/contrib/postgres",
+        "**/openpyxl/charts",
+        "**/openpyxl/drawing",
+        "**/openpyxl/chartsheet",
+        "**/openpyxl/pivot",
+        "**/openpyxl/workbook/external_link",
+    ]
+    
+    for pattern in patterns_to_remove:
+        for path in internal_dir.glob(pattern):
+            try:
+                if path.is_dir():
+                    removed_size += sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
+                    shutil.rmtree(path, ignore_errors=True)
+                else:
+                    removed_size += path.stat().st_size
+                    path.unlink(missing_ok=True)
+                removed_count += 1
+            except Exception:
+                pass
+    
+    print(f"[OK] Removed {removed_count} items, freed {removed_size / (1024 * 1024):.1f} MB")
+
+
 def copy_files():
     """复制必要文件"""
     print("\nCopying necessary files...")
     
     dist_dir = Path("dist/WorkTools")
+    internal_dir = dist_dir / "_internal"
     
     if not dist_dir.exists():
         print(f"[ERROR] Dist directory not found: {dist_dir}")
         return False
     
-    # 复制数据库
-    if Path("db.sqlite3").exists():
-        import shutil
-        shutil.copy2("db.sqlite3", dist_dir)
-        print("[OK] Database copied")
-    else:
-        print("[WARNING] db.sqlite3 not found, will be created on first run")
+    # 注意：db.sqlite3 由 PyInstaller 自动打包到 _internal 目录，
+    # 不再额外复制一份到根目录，避免重复并减小体积。
     
     # 复制使用说明
     if Path("使用说明.txt").exists():
@@ -210,17 +316,33 @@ Access URL:
 http://127.0.0.1:9123
 
 How to stop:
-Close the console window
+1. Recommended: Press Ctrl+C in the console window and wait for the exit message before closing.
+2. Or close the console window directly.
+
+If you cannot delete/replace the WorkTools folder after closing (folder in use):
+The WorkTools.exe process may still be running in the background. Please end it first:
+1. Open Task Manager (Ctrl+Shift+Esc).
+2. Find WorkTools.exe in Processes/Details.
+3. Click "End task".
+4. Try deleting/replacing the folder again.
+
+Or run this command:
+taskkill /f /im WorkTools.exe
 
 Note:
 - First startup may be slow
 - Make sure port 9123 is not in use
 - Allow firewall access if prompted
+- Closing the console window directly may leave the process running for a while and lock the folder
 """
     
     with open(dist_dir / "README.txt", "w", encoding="utf-8") as f:
         f.write(readme_content)
     print("[OK] README.txt created")
+    
+    # 清理不必要的文件以减小体积
+    if internal_dir.exists():
+        cleanup_package(internal_dir)
     
     # 验证必要文件
     print("\nVerifying packaged files...")
@@ -228,11 +350,13 @@ Note:
         dist_dir / "templates",
         dist_dir / "static",
         dist_dir / "work_tools2",
+        internal_dir,
     ]
     
     required_files = [
         dist_dir / "manage.py",
         dist_dir / "WorkTools.exe",
+        internal_dir / "db.sqlite3",
     ]
     
     all_ok = True

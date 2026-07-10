@@ -69,28 +69,51 @@
             color: #f8fafc;
         }
 
-        .sidebar .nav-link.active {
+.sidebar .nav-link.active {
             background-color: rgba(56, 189, 248, 0.12);
             color: #38bdf8;
+            /* 使用内阴影高亮条，不占用文档流空间，避免布局抖动 */
+            box-shadow: inset 3px 0 0 #38bdf8;
         }
 
-        .sidebar .nav-link.active::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 3px;
-            height: 18px;
-            border-radius: 0 3px 3px 0;
-            background-color: #38bdf8;
-        }
-
-        .sidebar .nav-link .arrow {
+.sidebar .nav-link .arrow {
             margin-left: auto;
             font-size: 12px;
+            line-height: 1;
             color: rgba(241, 245, 249, 0.45);
             transition: transform 0.25s ease;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 12px;
+            height: 12px;
+        }
+
+        .sidebar .nav-link .arrow-placeholder {
+            margin-left: auto;
+            width: 12px;
+            height: 12px;
+            flex-shrink: 0;
+            display: inline-block;
+        }
+
+        /* 表单合并、动态表单配置：移除过渡动画，样式直接切换 */
+        .sidebar .nav-link.nav-link-no-transition {
+            transition: none;
+        }
+
+        .sidebar .nav-link.nav-link-no-transition:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+            color: #f8fafc;
+            transition: none;
+        }
+
+        .sidebar .nav-link.nav-link-no-transition.active {
+            background-color: rgba(56, 189, 248, 0.16);
+            color: #38bdf8;
+            box-shadow: inset 3px 0 0 #38bdf8;
+            transition: none;
         }
 
         .sidebar .nav-link[aria-expanded="true"] .arrow {
@@ -346,14 +369,14 @@
                                     <li class="nav-item">
                                         <a class="nav-link {% if menu.is_expanded %}expanded{% endif %}" href="#" data-bs-toggle="collapse"
                                            data-bs-target="#menu{{ menu.id }}" aria-expanded="{% if menu.is_expanded %}true{% else %}false{% endif %}">
-                                            {% if menu.icon %}<i class="bi {{ menu.icon }} menu-icon"></i>{% endif %}
+                                            <i class="bi {{ menu.resolved_icon }} menu-icon"></i>
                                             {{ menu.name }}
                                             <i class="bi bi-chevron-right arrow"></i>
                                         </a>
                                         <ul class="submenu collapse {% if menu.is_expanded %}show{% endif %}" id="menu{{ menu.id }}">
                                             {% for child in menu.children %}
                                                 <li>
-                                                    <a class="nav-link {% if request.path == child.url or request.path|add:'/' == child.url %}active{% endif %}"
+                                                    <a class="nav-link {% if child.is_active %}active{% endif %}"
                                                        href="{{ child.url }}">
                                                         {{ child.name }}
                                                     </a>
@@ -364,10 +387,11 @@
                                 {% else %}
                                     <!-- 无子菜单的一级菜单 -->
                                     <li class="nav-item">
-                                        <a class="nav-link {% if request.path == menu.url or request.path|add:'/' == menu.url %}active{% endif %}"
+                                        <a class="nav-link {% if menu.is_active %}active{% endif %} {% if menu.url == '/form_merge/' or menu.url == '/table_config/' %}nav-link-no-transition{% endif %}"
                                            href="{{ menu.url }}">
-                                            {% if menu.icon %}<i class="bi {{ menu.icon }} menu-icon"></i>{% endif %}
+                                            <i class="bi {{ menu.resolved_icon }} menu-icon"></i>
                                             {{ menu.name }}
+                                            <span class="arrow-placeholder"></span>
                                         </a>
                                     </li>
                                 {% endif %}
@@ -460,13 +484,13 @@
                     {
                         name: '{{ menu.name|escapejs }}',
                         pinyin: '{{ menu.pinyin|escapejs }}',
-                        icon: '{{ menu.icon|escapejs }}',
+                        icon: '{{ menu.resolved_icon|escapejs }}',
                         url: '{{ menu.url|escapejs }}',
                         {% if menu.has_children %}
                         hasChildren: true,
                         children: [
                             {% for child in menu.children %}
-                            { name: '{{ child.name|escapejs }}', pinyin: '{{ child.pinyin|escapejs }}', icon: '{{ child.icon|escapejs }}', url: '{{ child.url|escapejs }}' },
+                            { name: '{{ child.name|escapejs }}', pinyin: '{{ child.pinyin|escapejs }}', icon: '{{ child.resolved_icon|escapejs }}', url: '{{ child.url|escapejs }}' },
                             {% endfor %}
                         ]
                         {% endif %}
@@ -733,7 +757,7 @@
             }
         });
 
-        // 二级菜单自动展开 - 根据当前激活的页面
+        // 二级菜单自动展开 - 根据当前激活的页面，并将激活的菜单滚动到可视区域
         document.addEventListener('DOMContentLoaded', function() {
             const activeLink = document.querySelector('.submenu .nav-link.active');
             if (activeLink) {
@@ -745,6 +769,8 @@
                         toggle.setAttribute('aria-expanded', 'true');
                     }
                 }
+                // 侧边栏跟随定位：仅针对二级菜单，无动画滚动到可视区域
+                activeLink.scrollIntoView({ block: 'nearest', behavior: 'auto' });
             }
 
             // 手风琴效果：展开一个父菜单时自动收起其他父菜单

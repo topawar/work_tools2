@@ -162,6 +162,14 @@ def main():
     # 设置环境
     setup_environment(base_dir)
     
+    # 确保媒体上传目录存在
+    media_dir = base_dir / "media"
+    try:
+        media_dir.mkdir(parents=True, exist_ok=True)
+        print(f"[OK] Media directory ready: {media_dir}")
+    except Exception as e:
+        print(f"[WARNING] Cannot create media directory: {e}")
+    
     # 运行Django服务器
     run_django_server(python_exe, base_dir)
 

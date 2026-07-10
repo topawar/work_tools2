@@ -4,24 +4,36 @@
 
 {% block main_content %}
     <div class="container-fluid p-4">
+        <!-- 页面标题区 -->
         <div class="row mb-4">
             <div class="col-md-12">
-                <h4>动态表单配置管理</h4>
+                <div class="d-flex align-items-center mb-2">
+                    <div class="bg-primary bg-gradient rounded-3 p-2 me-3 shadow-sm">
+                        <i class="bi bi-table text-white fs-4"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0 fw-bold">动态表单配置管理</h4>
+                        <small class="text-muted">配置动态表单的查询字段、更新字段及数据库连接</small>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- 表单列表 -->
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span>表单列表</span>
+        <div class="card modern-card">
+            <div class="card-header modern-card-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-list-check me-2"></i>
+                    <span>表单列表</span>
+                </div>
                 <div>
-                    <button type="button" class="btn btn-success btn-sm me-2" onclick="showImportModal()">
+                    <button type="button" class="btn btn-light btn-sm fw-semibold me-2" onclick="showImportModal()">
                         <i class="bi bi-upload"></i> 导入配置
                     </button>
-                    <button type="button" class="btn btn-info btn-sm me-2" id="batchExportBtn" onclick="batchExportForms()" disabled>
+                    <button type="button" class="btn btn-light btn-sm fw-semibold me-2" id="batchExportBtn" onclick="batchExportForms()" disabled>
                         <i class="bi bi-download"></i> 导出选中 (<span id="selectedCount">0</span>)
                     </button>
-                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal"
+                    <button type="button" class="btn btn-light btn-sm fw-semibold" data-bs-toggle="modal"
                             data-bs-target="#configModal" onclick="showAddFormModal()">
                         <i class="bi bi-plus-lg"></i> 新增表单
                     </button>
@@ -29,12 +41,12 @@
             </div>
             <div class="card-body">
                 <!-- 搜索和筛选控制 -->
-                <div class="row mb-3 align-items-end">
+                <div class="row mb-4 align-items-end modern-toolbar">
                     <div class="col-md-3">
                         <label class="form-label form-label-sm text-muted">文本搜索</label>
                         <div class="input-group input-group-sm">
-                            <span class="input-group-text"><i class="bi bi-search"></i></span>
-                            <input type="text" class="form-control" id="formSearchInput"
+                            <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" class="form-control border-start-0" id="formSearchInput"
                                    placeholder="搜索表单名称或表名..." oninput="filterForms()">
                             <button class="btn btn-outline-secondary" type="button"
                                     onclick="clearFormSearch()">
@@ -71,7 +83,29 @@
                         </button>
                     </div>
                 </div>
-                
+
+                <div class="table-responsive modern-table-wrap">
+                    <table class="table table-hover modern-table align-middle">
+                        <thead>
+                        <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" id="selectAllForms" onchange="toggleSelectAllForms()">
+                            </th>
+                            <th>表单名称</th>
+                            <th>表名列表</th>
+                            <th style="width: 160px;">说明文档</th>
+                            <th>创建时间</th>
+                            <th class="text-end">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="formListBody">
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">加载中...</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+
                 <!-- 分页控制 -->
                 <div class="row mb-3 align-items-center">
                     <div class="col-md-6">
@@ -89,26 +123,7 @@
                         <span id="formPageInfo" class="ms-3 text-muted small">共 0 条，第 0/0 页</span>
                     </div>
                 </div>
-                
-                <table class="table table-hover">
-                    <thead>
-                    <tr>
-                        <th style="width: 40px;">
-                            <input type="checkbox" id="selectAllForms" onchange="toggleSelectAllForms()">
-                        </th>
-                        <th>表单名称</th>
-                        <th>表名列表</th>
-                        <th>创建时间</th>
-                        <th>操作</th>
-                    </tr>
-                    </thead>
-                    <tbody id="formListBody">
-                    <tr>
-                        <td colspan="5" class="text-center">加载中...</td>
-                    </tr>
-                    </tbody>
-                </table>
-                
+
                 <!-- 分页导航 -->
                 <nav id="formPagination" class="mt-3">
                     <ul class="pagination pagination-sm justify-content-center mb-0"></ul>
@@ -120,80 +135,110 @@
     <!-- 表单配置编辑模态框 -->
     <div class="modal fade" id="configModal" tabindex="-1" aria-labelledby="configModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editorTitle">新增表单配置</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content modal-content-modern">
+                <div class="modal-header modal-header-gradient-primary">
+                    <h5 class="modal-title" id="editorTitle">
+                        <i class="bi bi-file-earmark-text"></i> 新增表单配置
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body component-modal-body">
                     <!-- 基本信息 -->
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label">表单名称 <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="formName" placeholder="例如: 合同明细单价修改">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">所属主菜单</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control" id="parentMenuInput"
-                                       list="parentMenuList"
-                                       placeholder="选择或输入新菜单名">
-                                <datalist id="parentMenuList">
-                                    <!-- 动态生成菜单选项 -->
-                                </datalist>
-                                <button class="btn btn-outline-secondary" type="button" onclick="clearParentMenu()">
-                                    <i class="bi bi-x-lg"></i>
-                                </button>
+                    <div class="modal-section-card">
+                        <div class="modal-section-title"><i class="bi bi-info-circle"></i> 基本信息</div>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="modal-form-label">表单名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm" id="formName" placeholder="例如: 合同明细单价修改">
                             </div>
-                            <small class="text-muted">可从列表选择，或直接输入新菜单名（将自动创建）</small>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">查询模式</label>
-                            <select class="form-select" id="queryModeSelect">
-                                <option value="strict" selected>严格模式</option>
-                                <option value="loose">宽松模式</option>
-                            </select>
-                            <small class="text-muted d-block mt-1">
-                                <span class="text-info"><strong>严格模式：</strong>所有关联字段必须有值才生成SQL</span><br>
-                                <span class="text-success"><strong>宽松模式：</strong>至少一个字段有值就生成SQL</span>
-                            </small>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">操作备注</label>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="appendOpsRemarkSwitch" checked>
-                                <label class="form-check-label" for="appendOpsRemarkSwitch">拼接 ops_remark</label>
+                            <div class="col-md-4">
+                                <label class="modal-form-label">所属主菜单</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control form-control-sm" id="parentMenuInput"
+                                           list="parentMenuList"
+                                           placeholder="选择或输入新菜单名">
+                                    <datalist id="parentMenuList">
+                                        <!-- 动态生成菜单选项 -->
+                                    </datalist>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="clearParentMenu()">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted" style="font-size: 0.75rem;">可从列表选择，或直接输入新菜单名（将自动创建）</small>
                             </div>
-                            <small class="text-muted d-block mt-1">
-                                <span class="text-success"><strong>开启：</strong>在SQL中拼接操作备注字段</span><br>
-                                <span class="text-warning"><strong>关闭：</strong>不拼接操作备注字段</span>
-                            </small>
+                            <div class="col-md-4">
+                                <label class="modal-form-label">查询模式</label>
+                                <select class="form-select form-select-sm" id="queryModeSelect">
+                                    <option value="strict" selected>严格模式</option>
+                                    <option value="loose">宽松模式</option>
+                                </select>
+                                <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                    <span class="text-info"><strong>严格模式：</strong>所有关联字段必须有值才生成SQL</span><br>
+                                    <span class="text-success"><strong>宽松模式：</strong>至少一个字段有值就生成SQL</span>
+                                </small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="modal-form-label">操作备注</label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="appendOpsRemarkSwitch" checked>
+                                    <label class="form-check-label" for="appendOpsRemarkSwitch">拼接 ops_remark</label>
+                                </div>
+                                <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                    <span class="text-success"><strong>开启：</strong>在SQL中拼接操作备注字段</span><br>
+                                    <span class="text-warning"><strong>关闭：</strong>不拼接操作备注字段</span>
+                                </small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="modal-form-label">关联说明文档</label>
+                                <input type="hidden" id="documentIdSelect" value="">
+                                <div id="documentAssociationBox" class="document-association-box">
+                                    <!-- 动态渲染当前关联文档状态 -->
+                                </div>
+                                <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                    支持从文档库选择或一键创建同名说明文档
+                                </small>
+                            </div>
                         </div>
                     </div>
 
                     <!-- 表名列表（标签式输入） -->
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label">表名列表 <span class="text-danger">*</span></label>
-                            <div class="border rounded p-2" style="min-height: 80px; background-color: #f8f9fa;">
-                                <div id="tableTagsContainer" class="d-flex flex-wrap gap-2 mb-2">
-                                    <!-- 标签将在这里动态生成 -->
-                                </div>
-                                <div class="d-flex align-items-center">
-                                    <input type="text" class="form-control form-control-sm" id="tableNameInput"
-                                           placeholder="输入表名后按回车添加"
-                                           onkeypress="handleTableNameKeyPress(event)">
-                                    <button type="button" class="btn btn-sm btn-outline-primary ms-2"
-                                            onclick="addTableNameTag()">
-                                        <i class="bi bi-plus-lg"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <small class="text-muted">提示：输入表名后按回车或点击 + 按钮添加</small>
+                    <div class="modal-section-card">
+                        <div class="modal-section-title d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-database"></i> 表名列表 <span class="text-danger">*</span></span>
+                            <button type="button" class="btn btn-sm btn-outline-info" onclick="showSqlParseModal()">
+                                <i class="bi bi-code-square"></i> 从 SQL 解析
+                            </button>
                         </div>
+                        <div class="border rounded p-2 table-tags-box">
+                            <div id="tableTagsContainer" class="d-flex flex-wrap gap-2 mb-2">
+                                <!-- 标签将在这里动态生成 -->
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <input type="text" class="form-control form-control-sm" id="tableNameInput"
+                                       placeholder="输入表名后按回车添加"
+                                       onkeypress="handleTableNameKeyPress(event)">
+                                <button type="button" class="btn btn-sm btn-outline-primary ms-2"
+                                        onclick="addTableNameTag()">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <small class="text-muted" style="font-size: 0.75rem;">提示：输入表名后按回车或点击 + 按钮添加</small>
                     </div>
 
-                    <hr>
+                    <!-- 表关联关系（JOIN 配置） -->
+                    <div class="modal-section-card">
+                        <div class="modal-section-title d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-link-45deg"></i> 表关联关系（JOIN）</span>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="showJoinConfigModal()">
+                                <i class="bi bi-plus-lg"></i> 添加 JOIN
+                            </button>
+                        </div>
+                        <div id="tableJoinsContainer" class="border rounded p-2">
+                            <small class="text-muted">暂无 JOIN 关联，点击右上角添加</small>
+                        </div>
+                        <small class="text-muted" style="font-size: 0.75rem;">提示：配置 UPDATE ... JOIN 语句的关联关系</small>
+                    </div>
 
                     <!-- Tab 导航 -->
                     <ul class="nav nav-tabs mb-3" role="tablist">
@@ -364,9 +409,55 @@
 
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-success" onclick="saveFormConfig()">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-success btn-modal-action" onclick="saveFormConfig()">
                         <i class="bi bi-save"></i> 保存配置
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 选择说明文档模态框 -->
+    <div class="modal fade" id="documentSelectModal" tabindex="-1" aria-labelledby="documentSelectModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content modal-content-modern">
+                <div class="modal-header modal-header-gradient-info">
+                    <h5 class="modal-title" id="documentSelectModalLabel">
+                        <i class="bi bi-journal-text"></i> 选择说明文档
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body component-modal-body">
+                    <!-- 搜索与筛选 -->
+                    <div class="document-select-toolbar">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" class="form-control form-control-sm border-start-0" id="documentSelectSearch"
+                                   placeholder="搜索文档标题..." oninput="filterDocumentOptions()">
+                        </div>
+                    </div>
+
+                    <!-- 文档列表 -->
+                    <div id="documentSelectList" class="document-select-list">
+                        <div class="document-select-empty">
+                            <i class="bi bi-journal-text fs-1 text-muted"></i>
+                            <p class="text-muted mb-0">正在加载文档列表...</p>
+                        </div>
+                    </div>
+
+                    <!-- 分页 -->
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <small class="text-muted" id="documentSelectPageInfo">共 0 条</small>
+                        <nav id="documentSelectPagination" aria-label="文档分页">
+                            <ul class="pagination pagination-sm mb-0"></ul>
+                        </nav>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-info btn-modal-action" onclick="confirmDocumentSelection()">
+                        <i class="bi bi-check-lg"></i> 确认关联
                     </button>
                 </div>
             </div>
@@ -376,25 +467,29 @@
     <!-- 子字段配置模态框 -->
     <div class="modal fade" id="subFieldsModal" tabindex="-1" aria-labelledby="subFieldsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
-            <div class="modal-content" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                <div class="modal-header"
-                     style="background: rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.2);">
-                    <h5 class="modal-title text-white" id="subFieldsModalLabel">
-                        <i class="bi bi-diagram-3"></i> 配置子字段映射
-                    </h5>
+            <div class="modal-content subfields-modal-content">
+                <div class="modal-header subfields-modal-header">
+                    <div class="d-flex align-items-center">
+                        <div class="subfields-header-icon rounded-circle p-2 me-3">
+                            <i class="bi bi-diagram-3 text-white fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title text-white mb-0" id="subFieldsModalLabel">配置子字段映射</h5>
+                            <small class="text-white-50">子字段将继承主字段所选的数据库表</small>
+                        </div>
+                    </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                             aria-label="Close"></button>
                 </div>
-                <div class="modal-body" style="background: rgba(255,255,255,0.95);">
-                    <div class="alert alert-warning border-0" style="background: #fff3cd;">
-                        <i class="bi bi-lightbulb"></i>
+                <div class="modal-body subfields-modal-body">
+                    <div class="alert alert-info border-0 subfields-alert">
+                        <i class="bi bi-lightbulb text-primary"></i>
                         <strong>提示：</strong>子字段将使用主字段选择的表。每个子字段需要配置显示名称、自定义字段名，并选择数据库中的映射字段。
                     </div>
 
-                    <div class="mb-3 d-flex justify-content-between align-items-center">
-                        <button type="button" class="btn btn-sm btn-primary" onclick="addSubFieldInModal()"
-                                style="background: #667eea; border: none;">
-                            <i class="bi bi-plus-circle"></i> 添加子字段
+                    <div class="mb-3 d-flex justify-content-between align-items-center subfields-toolbar">
+                        <button type="button" class="btn btn-sm btn-primary subfields-add-btn" onclick="addSubFieldInModal()">
+                            <i class="bi bi-plus-circle me-1"></i> 添加子字段
                         </button>
                         
                         <div class="d-flex align-items-center gap-2">
@@ -418,12 +513,10 @@
                         <ul class="pagination pagination-sm justify-content-center mb-0"></ul>
                     </nav>
                 </div>
-                <div class="modal-footer"
-                     style="background: rgba(255,255,255,0.1); border-top: 1px solid rgba(255,255,255,0.2);">
+                <div class="modal-footer subfields-modal-footer">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn text-white" onclick="saveSubFieldsConfig()"
-                            style="background: #764ba2; border: none;">
-                        <i class="bi bi-check-circle"></i> 保存配置
+                    <button type="button" class="btn btn-primary subfields-save-btn" onclick="saveSubFieldsConfig()">
+                        <i class="bi bi-check-circle me-1"></i> 保存配置
                     </button>
                 </div>
             </div>
@@ -482,6 +575,8 @@
         let queryItemCount = 0;
         let updateItemCount = 0;
         let tableNameList = [];
+        let tableAliases = {};
+        let tableJoins = [];
         let querySortable = null;
         let updateSortable = null;
         let menuList = [];
@@ -526,7 +621,24 @@
             loadDatabaseTables();
             loadDatabaseIpConfigs();
             initSortable();
+            handleHashRoute();
         });
+
+        window.addEventListener('hashchange', handleHashRoute);
+
+        /**
+         * 根据 URL hash 自动打开表单编辑，例如 #edit/123
+         */
+        function handleHashRoute() {
+            const hash = window.location.hash;
+            const match = hash.match(/^#edit\/(\d+)$/);
+            if (match) {
+                const formId = parseInt(match[1], 10);
+                if (formId) {
+                    setTimeout(() => editForm(formId), 300);
+                }
+            }
+        }
 
         function initSortable() {
             const queryContainer = document.getElementById('queryItemsContainer');
@@ -668,7 +780,7 @@
             const tbody = document.getElementById('formListBody');
 
             if (configs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center">暂无数据</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">暂无数据</td></tr>';
                 return;
             }
 
@@ -677,20 +789,30 @@
             <td>
                 <input type="checkbox" class="form-check-input form-checkbox" value="${config.id}" ${selectedFormIds.has(config.id.toString()) ? 'checked' : ''} onchange="updateExportButtonState()">
             </td>
-            <td>${config.form_name}</td>
             <td>
-                ${config.table_name_list.map(name => `<span class="badge bg-info me-1">${name}</span>`).join('')}
+                <div class="d-flex align-items-center">
+                    <div class="form-row-icon bg-primary bg-opacity-10 text-primary rounded-circle p-2 me-2">
+                        <i class="bi bi-file-earmark-text"></i>
+                    </div>
+                    <span class="fw-semibold">${config.form_name}</span>
+                </div>
             </td>
-            <td>${config.created_at}</td>
             <td>
-                <button class="btn btn-sm btn-outline-primary me-1" onclick="editForm(${config.id})" data-bs-toggle="modal" data-bs-target="#configModal">
-                    <i class="bi bi-pencil"></i> 编辑
+                ${config.table_name_list.map(name => `<span class="badge table-name-badge me-1">${name}</span>`).join('')}
+            </td>
+            <td>
+                ${config.document_id ? `<span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25" title="${escapeHtml(config.document_title || '')}"><i class="bi bi-journal-text me-1"></i>${escapeHtml(config.document_title || '已关联')}</span>` : '<span class="text-muted small">-</span>'}
+            </td>
+            <td><span class="text-muted small">${config.created_at}</span></td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-action btn-action-primary me-1" onclick="editForm(${config.id})" data-bs-toggle="modal" data-bs-target="#configModal" title="编辑">
+                    <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-success me-1" onclick="duplicateForm(${config.id})">
-                    <i class="bi bi-files"></i> 复制
+                <button class="btn btn-sm btn-action btn-action-success me-1" onclick="duplicateForm(${config.id})" title="复制">
+                    <i class="bi bi-files"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteForm(${config.id})">
-                    <i class="bi bi-trash"></i> 删除
+                <button class="btn btn-sm btn-action btn-action-danger" onclick="deleteForm(${config.id})" title="删除">
+                    <i class="bi bi-trash"></i>
                 </button>
             </td>
         </tr>
@@ -883,7 +1005,7 @@
                 .then(data => {
                     if (data.success) {
                         currentEditingFormId = formId;
-                        document.getElementById('editorTitle').textContent = '编辑表单配置';
+                        document.getElementById('editorTitle').innerHTML = '<i class="bi bi-file-earmark-text"></i> 编辑表单配置';
 
                         const config = data.data;
                         document.getElementById('formName').value = config.formName;
@@ -898,8 +1020,14 @@
                         // 设置操作备注配置（默认为 true）
                         document.getElementById('appendOpsRemarkSwitch').checked = config.appendOpsRemark !== false;
 
+                        // 加载并设置关联文档
+                        loadDocumentOptions(config.documentId, config.documentTitle);
+
                         tableNameList = config.tableNameList || [];
+                        tableAliases = config.tableAliases || {};
+                        tableJoins = config.tableJoins || [];
                         renderTableTags();
+                        renderTableJoins();
 
                         document.getElementById('queryItemsContainer').innerHTML = '';
                         queryItemCount = 0;
@@ -1036,6 +1164,325 @@
             });
         }
 
+        // ==================== 文档关联管理 ====================
+        let documentSelectData = [];
+        let documentSelectFiltered = [];
+        let documentSelectCurrentPage = 1;
+        let documentSelectPageSize = 8;
+        let documentSelectSelectedId = null;
+        let currentLinkedDocument = null;
+
+        function loadDocumentOptions(selectedId, selectedTitle) {
+            if (selectedId) {
+                currentLinkedDocument = {
+                    id: selectedId,
+                    title: selectedTitle || '已关联文档'
+                };
+                document.getElementById('documentIdSelect').value = selectedId;
+            } else {
+                currentLinkedDocument = null;
+                document.getElementById('documentIdSelect').value = '';
+            }
+            renderDocumentAssociationBox();
+        }
+
+        function renderDocumentAssociationBox() {
+            const box = document.getElementById('documentAssociationBox');
+            if (!box) return;
+
+            if (currentLinkedDocument && currentLinkedDocument.id) {
+                box.className = 'document-association-box has-doc';
+                box.innerHTML = `
+                    <div class="document-association-info">
+                        <div class="document-association-title" title="${escapeHtml(currentLinkedDocument.title)}">
+                            <i class="bi bi-journal-text me-1 text-info"></i>${escapeHtml(currentLinkedDocument.title)}
+                        </div>
+                        <div class="document-association-meta">
+                            <span>已关联说明文档</span>
+                        </div>
+                    </div>
+                    <div class="document-association-actions">
+                        <button type="button" class="btn btn-outline-info" onclick="openDocumentSelectModal()" title="更换文档">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="editLinkedDocument()" title="编辑文档">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="clearDocumentSelect()" title="清除关联">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                `;
+            } else {
+                box.className = 'document-association-box';
+                box.innerHTML = `
+                    <div class="document-association-info">
+                        <span class="text-muted small"><i class="bi bi-journal-x me-1"></i>暂未关联说明文档</span>
+                    </div>
+                    <div class="document-association-actions">
+                        <button type="button" class="btn btn-outline-info" onclick="openDocumentSelectModal()" title="选择文档">
+                            <i class="bi bi-folder-plus"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-success" onclick="quickCreateDocument()" title="快速创建同名文档">
+                            <i class="bi bi-lightning"></i>
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        function clearDocumentSelect() {
+            currentLinkedDocument = null;
+            document.getElementById('documentIdSelect').value = '';
+            renderDocumentAssociationBox();
+        }
+
+        function openDocumentLibrary() {
+            window.open('/document-library/', '_blank');
+        }
+
+        function editLinkedDocument() {
+            if (currentLinkedDocument && currentLinkedDocument.id) {
+                window.open(`/document-library/edit/${currentLinkedDocument.id}/?edit=1`, '_blank');
+            }
+        }
+
+        function openDocumentSelectModal() {
+            documentSelectSelectedId = currentLinkedDocument ? currentLinkedDocument.id : null;
+            documentSelectCurrentPage = 1;
+            document.getElementById('documentSelectSearch').value = '';
+            loadDocumentSelectList();
+            const modal = new bootstrap.Modal(document.getElementById('documentSelectModal'));
+            modal.show();
+        }
+
+        function loadDocumentSelectList() {
+            const listContainer = document.getElementById('documentSelectList');
+            listContainer.innerHTML = `
+                <div class="document-select-empty">
+                    <i class="bi bi-journal-text fs-1 text-muted"></i>
+                    <p class="text-muted mb-0">正在加载文档列表...</p>
+                </div>
+            `;
+
+            fetch('/api/document-library/options/?limit=200')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        documentSelectData = data.data || [];
+                        filterDocumentOptions();
+                    } else {
+                        listContainer.innerHTML = `
+                            <div class="document-select-empty">
+                                <i class="bi bi-exclamation-circle fs-1 text-danger"></i>
+                                <p class="text-muted mb-0">加载失败：${escapeHtml(data.message || '未知错误')}</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('加载文档列表失败:', error);
+                    listContainer.innerHTML = `
+                        <div class="document-select-empty">
+                            <i class="bi bi-exclamation-circle fs-1 text-danger"></i>
+                            <p class="text-muted mb-0">加载失败，请稍后重试</p>
+                        </div>
+                    `;
+                });
+        }
+
+        function filterDocumentOptions() {
+            const keyword = document.getElementById('documentSelectSearch').value.trim().toLowerCase();
+
+            documentSelectFiltered = documentSelectData.filter(doc => {
+                return !keyword || (doc.title && doc.title.toLowerCase().includes(keyword));
+            });
+
+            documentSelectCurrentPage = 1;
+            renderDocumentSelectList();
+        }
+
+        function renderDocumentSelectList() {
+            const listContainer = document.getElementById('documentSelectList');
+            const total = documentSelectFiltered.length;
+            const totalPages = Math.ceil(total / documentSelectPageSize) || 1;
+
+            if (documentSelectCurrentPage > totalPages) {
+                documentSelectCurrentPage = totalPages;
+            }
+
+            const start = (documentSelectCurrentPage - 1) * documentSelectPageSize;
+            const end = start + documentSelectPageSize;
+            const pageData = documentSelectFiltered.slice(start, end);
+
+            if (pageData.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="document-select-empty">
+                        <i class="bi bi-search fs-1 text-muted"></i>
+                        <p class="text-muted mb-0">未找到符合条件的文档</p>
+                    </div>
+                `;
+            } else {
+                listContainer.innerHTML = pageData.map(doc => `
+                    <div class="document-select-item ${documentSelectSelectedId === doc.id ? 'active' : ''}"
+                         onclick="selectDocumentItem(${doc.id})" data-doc-id="${doc.id}">
+                        <input class="form-check-input" type="radio" name="documentSelectRadio"
+                               value="${doc.id}" ${documentSelectSelectedId === doc.id ? 'checked' : ''}
+                               onclick="event.stopPropagation(); selectDocumentItem(${doc.id})">
+                        <div class="document-select-item-content">
+                            <div class="document-select-item-title" title="${escapeHtml(doc.title || '')}">${escapeHtml(doc.title || '')}</div>
+                            <div class="document-select-item-meta">
+                                <span><i class="bi bi-clock me-1"></i>${escapeHtml(doc.updated_at || '-')}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('documentSelectPageInfo').textContent = `共 ${total} 条，第 ${documentSelectCurrentPage}/${totalPages} 页`;
+            renderDocumentSelectPagination(totalPages);
+        }
+
+        function renderDocumentSelectPagination(totalPages) {
+            const paginationUl = document.querySelector('#documentSelectPagination ul');
+            let html = '';
+
+            html += `<li class="page-item ${documentSelectCurrentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="javascript:void(0)" onclick="goDocumentSelectPage(${documentSelectCurrentPage - 1})">上一页</a>
+            </li>`;
+
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<li class="page-item ${i === documentSelectCurrentPage ? 'active' : ''}">
+                    <a class="page-link" href="javascript:void(0)" onclick="goDocumentSelectPage(${i})">${i}</a>
+                </li>`;
+            }
+
+            html += `<li class="page-item ${documentSelectCurrentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="javascript:void(0)" onclick="goDocumentSelectPage(${documentSelectCurrentPage + 1})">下一页</a>
+            </li>`;
+
+            paginationUl.innerHTML = html;
+        }
+
+        function goDocumentSelectPage(page) {
+            const totalPages = Math.ceil(documentSelectFiltered.length / documentSelectPageSize) || 1;
+            if (page < 1 || page > totalPages) return;
+            documentSelectCurrentPage = page;
+            renderDocumentSelectList();
+        }
+
+        function selectDocumentItem(id) {
+            documentSelectSelectedId = id;
+            document.querySelectorAll('#documentSelectList .document-select-item').forEach(item => {
+                const itemId = parseInt(item.dataset.docId);
+                item.classList.toggle('active', itemId === id);
+                const radio = item.querySelector('input[type="radio"]');
+                if (radio) radio.checked = itemId === id;
+            });
+        }
+
+        function confirmDocumentSelection() {
+            if (!documentSelectSelectedId) {
+                if (window.showWarningToast) {
+                    window.showWarningToast('请先选择一个文档');
+                } else {
+                    alert('请先选择一个文档');
+                }
+                return;
+            }
+
+            const selectedDoc = documentSelectData.find(d => d.id === documentSelectSelectedId);
+            if (selectedDoc) {
+                currentLinkedDocument = {
+                    id: selectedDoc.id,
+                    title: selectedDoc.title
+                };
+                document.getElementById('documentIdSelect').value = selectedDoc.id;
+                renderDocumentAssociationBox();
+            }
+
+            const modalEl = document.getElementById('documentSelectModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            modal.hide();
+        }
+
+        async function quickCreateDocument() {
+            const formName = document.getElementById('formName').value.trim();
+
+            if (!formName) {
+                if (window.showWarningToast) {
+                    window.showWarningToast('请先填写表单名称');
+                } else {
+                    alert('请先填写表单名称');
+                }
+                document.getElementById('formName').focus();
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/document-library/quick-create/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: formName,
+                        content_json: {
+                            blocks: [
+                                { type: 'header', data: { text: formName, level: 1 } }
+                            ]
+                        }
+                    })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    const docId = data.data.id;
+                    currentLinkedDocument = {
+                        id: docId,
+                        title: data.data.title
+                    };
+                    document.getElementById('documentIdSelect').value = docId;
+
+                    // 如果是编辑已有表单，立即调用接口持久化关联关系，无需再次点击保存
+                    if (currentEditingFormId) {
+                        try {
+                            const linkResponse = await fetch(`/api/form-config/${currentEditingFormId}/update-document/`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ document_id: docId })
+                            });
+                            const linkData = await linkResponse.json();
+                            if (!linkData.success) {
+                                console.error('关联文档更新失败:', linkData.message);
+                            }
+                        } catch (error) {
+                            console.error('关联文档请求失败:', error);
+                        }
+                        renderDocumentAssociationBox();
+                        if (window.showSuccessToast) {
+                            window.showSuccessToast('说明文档创建并关联成功，已打开编辑页');
+                        } else {
+                            alert('说明文档创建并关联成功，已打开编辑页');
+                        }
+                    } else {
+                        renderDocumentAssociationBox();
+                        if (window.showSuccessToast) {
+                            window.showSuccessToast('说明文档已创建并打开编辑页，保存表单后生效');
+                        } else {
+                            alert('说明文档已创建并打开编辑页，保存表单后生效');
+                        }
+                    }
+
+                    // 直接打开编辑页
+                    window.open(`/document-library/edit/${docId}/?edit=1`, '_blank');
+                } else {
+                    alert('创建失败：' + (data.message || '未知错误'));
+                }
+            } catch (error) {
+                console.error('快速创建文档失败:', error);
+                alert('创建失败，请稍后重试');
+            }
+        }
+
         function clearParentMenu() {
             document.getElementById('parentMenuInput').value = '';
         }
@@ -1078,16 +1525,100 @@
             }
         }
 
+        function showSqlParseModal() {
+            document.getElementById('sqlParseInput').value = '';
+            const modal = new bootstrap.Modal(document.getElementById('sqlParseModal'));
+            modal.show();
+        }
+
+        async function parseSqlAndFill() {
+            const sqlText = document.getElementById('sqlParseInput').value.trim();
+            if (!sqlText) {
+                showToast('请先粘贴 SQL 语句', 'warning');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/form-config/parse-sql/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ sql_text: sqlText })
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    showToast(result.message || '解析失败', 'danger');
+                    return;
+                }
+
+                const config = result.data;
+
+                // 1. 回填表名与别名
+                tableNameList = config.tableNameList || [];
+                tableAliases = config.tableAliases || {};
+                tableJoins = config.tableJoins || [];
+                renderTableTags();
+                renderTableJoins();
+
+                // 2. 清空现有字段
+                document.getElementById('queryItemsContainer').innerHTML = '';
+                document.getElementById('updateItemsContainer').innerHTML = '';
+                queryItemCount = 0;
+                updateItemCount = 0;
+
+                // 3. 回填查询字段
+                if (config.queryItems && config.queryItems.length > 0) {
+                    config.queryItems.forEach(item => addQueryItem(item));
+                }
+
+                // 4. 回填更新字段
+                if (config.updateItems && config.updateItems.length > 0) {
+                    config.updateItems.forEach(item => addUpdateItem(item));
+                }
+
+                // 5. 关闭 SQL 解析模态框
+                const modalEl = document.getElementById('sqlParseModal');
+                const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.hide();
+
+                // 6. 切换到查询字段 Tab 并刷新分页
+                const queryTabButton = document.querySelector('[data-bs-target="#queryTab"]');
+                const updateTabButton = document.querySelector('[data-bs-target="#updateTab"]');
+                const databaseTabButton = document.querySelector('[data-bs-target="#databaseTab"]');
+                const queryTabPane = document.getElementById('queryTab');
+                const updateTabPane = document.getElementById('updateTab');
+                const databaseTabPane = document.getElementById('databaseTab');
+
+                [queryTabButton, updateTabButton, databaseTabButton].forEach(btn => btn?.classList.remove('active'));
+                [queryTabPane, updateTabPane, databaseTabPane].forEach(pane => pane?.classList.remove('show', 'active'));
+
+                queryTabButton?.classList.add('active');
+                queryTabPane?.classList.add('show', 'active');
+
+                showToast(result.message || '解析并填充成功', 'success');
+            } catch (error) {
+                console.error('SQL 解析请求异常:', error);
+                showToast('解析请求失败：' + error.message, 'danger');
+            }
+        }
+
         function showAddFormModal() {
             currentEditingFormId = null;
-            document.getElementById('editorTitle').textContent = '新增表单配置';
+            document.getElementById('editorTitle').innerHTML = '<i class="bi bi-file-earmark-text"></i> 新增表单配置';
 
             document.getElementById('formName').value = '';
             document.getElementById('parentMenuInput').value = '';
             document.getElementById('queryModeSelect').value = 'strict';  // 默认严格模式
             document.getElementById('appendOpsRemarkSwitch').checked = true;  // 默认拼接操作备注
+            document.getElementById('documentIdSelect').value = '';
+            loadDocumentOptions();
             tableNameList = [];
+            tableAliases = {};
+            tableJoins = [];
             renderTableTags();
+            renderTableJoins();
 
             document.getElementById('queryItemsContainer').innerHTML = '';
             document.getElementById('updateItemsContainer').innerHTML = '';
@@ -1160,8 +1691,75 @@
         function removeTableName(index) {
             const removedTableName = tableNameList[index];
             tableNameList.splice(index, 1);
+            delete tableAliases[removedTableName];
+            // 移除涉及该表的 JOIN 配置
+            const beforeCount = tableJoins.length;
+            tableJoins = tableJoins.filter(join =>
+                join.main_table !== removedTableName && join.join_table !== removedTableName
+            );
             renderTableTags();
+            renderTableJoins();
             refreshAllConnectedTableCheckboxes(removedTableName);
+            if (tableJoins.length < beforeCount) {
+                showToast(`表 ${removedTableName} 已移除，相关 JOIN 配置已同步删除`, 'success');
+            }
+        }
+
+        let currentEditingAliasTableName = '';
+
+        function editTableAlias(tableName) {
+            currentEditingAliasTableName = tableName;
+            document.getElementById('aliasTableName').value = tableName;
+            document.getElementById('aliasTableValue').value = tableAliases[tableName] || '';
+            const modal = new bootstrap.Modal(document.getElementById('tableAliasModal'));
+            modal.show();
+            setTimeout(() => document.getElementById('aliasTableValue').focus(), 200);
+        }
+
+        function confirmEditTableAlias() {
+            if (!currentEditingAliasTableName) return;
+            const trimmed = document.getElementById('aliasTableValue').value.trim();
+            if (trimmed && !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmed)) {
+                showToast('别名只能包含字母、数字和下划线，且不能以数字开头', 'warning');
+                return;
+            }
+            const oldAlias = tableAliases[currentEditingAliasTableName] || '';
+            if (trimmed) {
+                tableAliases[currentEditingAliasTableName] = trimmed;
+            } else {
+                delete tableAliases[currentEditingAliasTableName];
+            }
+
+            // 同步更新 JOIN 配置中的别名，保持全局一致
+            const newAlias = trimmed;
+            let joinUpdated = false;
+            tableJoins.forEach(join => {
+                if (join.main_table === currentEditingAliasTableName) {
+                    if (newAlias) {
+                        join.main_alias = newAlias;
+                    } else {
+                        delete join.main_alias;
+                    }
+                    joinUpdated = true;
+                }
+                if (join.join_table === currentEditingAliasTableName) {
+                    if (newAlias) {
+                        join.join_alias = newAlias;
+                    } else {
+                        delete join.join_alias;
+                    }
+                    joinUpdated = true;
+                }
+            });
+
+            const modalEl = document.getElementById('tableAliasModal');
+            const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.hide();
+            renderTableTags();
+            if (joinUpdated) {
+                renderTableJoins();
+                showToast('别名已更新，JOIN 配置中的别名已同步', 'success');
+            }
         }
 
         function refreshAllConnectedTableCheckboxes(removedTableName = null) {
@@ -1221,10 +1819,17 @@
                         </span>
                     `;
                 }
+                const alias = tableAliases[name] || '';
                 return `
                     <span class="badge bg-primary d-flex align-items-center" style="font-size: 14px; padding: 6px 10px;">
                         ${name}
-                        <button type="button" class="btn btn-sm btn-link text-white p-0 ms-2"
+                        ${alias ? `<span class="badge bg-secondary ms-1 me-1" style="font-size: 11px;">${alias}</span>` : ''}
+                        <button type="button" class="btn btn-sm btn-link text-white p-0 ms-1"
+                                style="font-size: 12px; line-height: 1;"
+                                onclick="event.stopPropagation(); editTableAlias('${name}')" title="设置别名">
+                            <i class="bi bi-tag"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-link text-white p-0 ms-1"
                                 style="font-size: 12px; line-height: 1;"
                                 onclick="event.stopPropagation(); editTableName(${index})" title="重命名">
                             <i class="bi bi-pencil-square"></i>
@@ -1245,6 +1850,184 @@
                     }
                 }, 0);
             }
+        }
+
+        // ==================== JOIN 关系管理 ====================
+
+        function renderTableJoins() {
+            const container = document.getElementById('tableJoinsContainer');
+            if (!container) return;
+
+            if (!tableJoins || tableJoins.length === 0) {
+                container.innerHTML = '<small class="text-muted">暂无 JOIN 关联，点击右上角添加</small>';
+                return;
+            }
+
+            container.innerHTML = tableJoins.map((join, index) => {
+                const mainAliasStr = join.main_alias ? ` (${join.main_alias})` : '';
+                const joinAliasStr = join.join_alias ? ` (${join.join_alias})` : '';
+                const onStr = (join.on_conditions || []).join(' AND ');
+                return `
+                    <div class="d-flex align-items-center justify-content-between border rounded p-2 mb-2 bg-light">
+                        <div>
+                            <span class="badge bg-primary">${escapeHtml(join.main_table)}${mainAliasStr}</span>
+                            <span class="mx-2 text-muted">${escapeHtml(join.join_type || 'JOIN')}</span>
+                            <span class="badge bg-info">${escapeHtml(join.join_table)}${joinAliasStr}</span>
+                            <div class="small text-muted mt-1">
+                                <i class="bi bi-link-45deg"></i> ON ${escapeHtml(onStr || '-')}
+                            </div>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="editJoinConfig(${index})" title="编辑">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteJoinConfig(${index})" title="删除">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        let currentEditingJoinIndex = null;
+
+        function showJoinConfigModal() {
+            currentEditingJoinIndex = null;
+            document.getElementById('joinConfigModalLabel').innerHTML = '<i class="bi bi-link-45deg"></i> 配置表关联关系';
+            populateJoinTableOptions();
+            document.getElementById('joinMainTable').value = '';
+            document.getElementById('joinMainAlias').value = '';
+            document.getElementById('joinJoinTable').value = '';
+            document.getElementById('joinJoinAlias').value = '';
+            document.getElementById('joinType').value = 'JOIN';
+            document.getElementById('onConditionsContainer').innerHTML = '';
+            addOnConditionRow();
+            const modal = new bootstrap.Modal(document.getElementById('joinConfigModal'));
+            modal.show();
+        }
+
+        function editJoinConfig(index) {
+            currentEditingJoinIndex = index;
+            const join = tableJoins[index];
+            document.getElementById('joinConfigModalLabel').innerHTML = '<i class="bi bi-link-45deg"></i> 编辑表关联关系';
+            populateJoinTableOptions();
+            document.getElementById('joinMainTable').value = join.main_table || '';
+            document.getElementById('joinMainAlias').value = join.main_alias || '';
+            document.getElementById('joinJoinTable').value = join.join_table || '';
+            document.getElementById('joinJoinAlias').value = join.join_alias || '';
+            document.getElementById('joinType').value = join.join_type || 'JOIN';
+            document.getElementById('onConditionsContainer').innerHTML = '';
+            const conditions = join.on_conditions || [];
+            if (conditions.length === 0) {
+                addOnConditionRow();
+            } else {
+                conditions.forEach(cond => addOnConditionRow(cond));
+            }
+            const modal = new bootstrap.Modal(document.getElementById('joinConfigModal'));
+            modal.show();
+        }
+
+        function populateJoinTableOptions() {
+            const mainSelect = document.getElementById('joinMainTable');
+            const joinSelect = document.getElementById('joinJoinTable');
+            const options = tableNameList.map(name => `<option value="${name}">${name}</option>`).join('');
+            mainSelect.innerHTML = '<option value="">请选择...</option>' + options;
+            joinSelect.innerHTML = '<option value="">请选择...</option>' + options;
+        }
+
+        function fillJoinAlias(type) {
+            const tableSelect = document.getElementById(type === 'main' ? 'joinMainTable' : 'joinJoinTable');
+            const aliasInput = document.getElementById(type === 'main' ? 'joinMainAlias' : 'joinJoinAlias');
+            const tableName = tableSelect.value;
+            if (tableName && tableAliases[tableName]) {
+                aliasInput.value = tableAliases[tableName];
+            }
+        }
+
+        function addOnConditionRow(defaultValue = '') {
+            const container = document.getElementById('onConditionsContainer');
+            const index = container.children.length;
+            const div = document.createElement('div');
+            div.className = 'input-group input-group-sm mb-2 on-condition-row';
+            div.innerHTML = `
+                <span class="input-group-text">ON</span>
+                <input type="text" class="form-control on-condition-input" placeholder="例如：t1.PLAN_LINE_NO = t2.PLAN_LINE_NO" value="${escapeHtml(defaultValue)}">
+                <button type="button" class="btn btn-outline-danger" onclick="removeOnConditionRow(this)" title="删除">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            `;
+            container.appendChild(div);
+        }
+
+        function removeOnConditionRow(btn) {
+            const row = btn.closest('.on-condition-row');
+            if (row) {
+                row.remove();
+            }
+        }
+
+        function deleteJoinConfig(index) {
+            if (!confirm('确定要删除这条 JOIN 关联吗？')) {
+                return;
+            }
+            tableJoins.splice(index, 1);
+            renderTableJoins();
+        }
+
+        function saveJoinConfig() {
+            const mainTable = document.getElementById('joinMainTable').value.trim();
+            const mainAlias = document.getElementById('joinMainAlias').value.trim();
+            const joinTable = document.getElementById('joinJoinTable').value.trim();
+            const joinAlias = document.getElementById('joinJoinAlias').value.trim();
+            const joinType = document.getElementById('joinType').value;
+
+            if (!mainTable) {
+                showToast('请选择主表', 'warning');
+                return;
+            }
+            if (!joinTable) {
+                showToast('请选择 JOIN 表', 'warning');
+                return;
+            }
+            if (mainTable === joinTable) {
+                showToast('主表和 JOIN 表不能相同', 'warning');
+                return;
+            }
+
+            const conditionInputs = document.querySelectorAll('#onConditionsContainer .on-condition-input');
+            const onConditions = [];
+            for (const input of conditionInputs) {
+                const value = input.value.trim();
+                if (value) {
+                    onConditions.push(value);
+                }
+            }
+            if (onConditions.length === 0) {
+                showToast('请至少填写一个 ON 条件', 'warning');
+                return;
+            }
+
+            const joinConfig = {
+                main_table: mainTable,
+                main_alias: mainAlias,
+                join_table: joinTable,
+                join_alias: joinAlias,
+                join_type: joinType,
+                on_conditions: onConditions
+            };
+
+            if (currentEditingJoinIndex !== null) {
+                tableJoins[currentEditingJoinIndex] = joinConfig;
+            } else {
+                tableJoins.push(joinConfig);
+            }
+
+            renderTableJoins();
+            const modalEl = document.getElementById('joinConfigModal');
+            const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.hide();
+            showToast('JOIN 关联保存成功', 'success');
         }
 
         function editTableName(index) {
@@ -1291,10 +2074,33 @@
             // 级联更新当前表单内所有字段的关联表引用
             renameConnectedTableReferences(oldName, newName);
 
+            // 同步更新别名映射
+            if (tableAliases[oldName]) {
+                tableAliases[newName] = tableAliases[oldName];
+                delete tableAliases[oldName];
+            }
+
+            // 同步更新 JOIN 配置中的表名引用
+            let joinUpdated = false;
+            tableJoins.forEach(join => {
+                if (join.main_table === oldName) {
+                    join.main_table = newName;
+                    joinUpdated = true;
+                }
+                if (join.join_table === oldName) {
+                    join.join_table = newName;
+                    joinUpdated = true;
+                }
+            });
+
             currentEditingTableIndex = null;
             renderTableTags();
+            renderTableJoins();
             refreshAllConnectedTableCheckboxes();
-            showToast(`表名 ${oldName} 已修改为 ${newName}，关联字段引用已同步更新`, 'success');
+            const msg = joinUpdated
+                ? `表名 ${oldName} 已修改为 ${newName}，关联字段与 JOIN 配置已同步更新`
+                : `表名 ${oldName} 已修改为 ${newName}，关联字段引用已同步更新`;
+            showToast(msg, 'success');
         }
 
         function renameConnectedTableReferences(oldName, newName) {
@@ -1436,53 +2242,83 @@
             const connectedTables = data?.connectedTable || [];
 
                            div.innerHTML = `
-        <div class="card-header d-flex align-items-center py-2">
-            <i class="bi bi-grip-vertical drag-handle me-2 text-muted" style="cursor: move; font-size: 0.85rem;" title="拖动排序"></i>
-            <span class="badge bg-secondary me-2 card-sequence-number" style="min-width: 32px; font-size: 0.75rem;">#${sortOrder + 1}</span>
-            <h6 class="mb-0" style="font-size: 0.85rem;">查询字段</h6>
-            <span class="field-summary me-2" style="display: none; color: #0d6efd; font-weight: 600; font-size: 0.85rem;">
-                ${data?.label ? data.label : ''}${data?.bindingKey ? ' (' + data.bindingKey + ')' : ''}
+        <div class="card-header field-card-header d-flex align-items-center py-2">
+            <i class="bi bi-grip-vertical drag-handle me-2" title="拖动排序"></i>
+            <span class="badge card-sequence-number me-2">#${sortOrder + 1}</span>
+            <span class="field-type-label me-2">查询字段</span>
+            <span class="field-summary me-2">
+                ${data?.label ? (data.label === data?.bindingKey ? data.label : data.label + (data?.bindingKey ? ' (' + data.bindingKey + ')' : '')) : (data?.bindingKey || '')}
             </span>
             <div class="d-flex gap-1 ms-auto">
-                <button type="button" class="btn btn-sm btn-outline-secondary toggle-collapse-btn" onclick="toggleCardCollapse(this)" title="收起" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
+                <button type="button" class="btn btn-sm btn-outline-secondary toggle-collapse-btn" onclick="toggleCardCollapse(this)" title="收起">
                     <i class="bi bi-chevron-up"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveQueryItemUp(this)" title="上移" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveQueryItemUp(this)" title="上移">
                     <i class="bi bi-arrow-up"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveQueryItemDown(this)" title="下移" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveQueryItemDown(this)" title="下移">
                     <i class="bi bi-arrow-down"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeQueryItem(this)" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeQueryItem(this)">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
         </div>
-        <div class="card-body" style="padding: 0.75rem; font-size: 0.85rem;">
+        <div class="card-body field-card-body">
             <input type="hidden" class="sort-order-value" value="${sortOrder}">
             <div class="row g-2">
-                <div class="col-md-4">
-                    <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">字段中文名 <span class="text-danger">*</span></label>
+                <div class="col-md-4 query-label-container" style="${data?.type === 'subquery' ? 'display:none;' : ''}">
+                    <label class="form-label field-form-label">字段中文名 <span class="query-label-required text-danger">*</span></label>
                     <input type="text" class="form-control form-control-sm query-label" value="${data?.label || ''}" placeholder="例如: 订单号" oninput="updateFieldSummary(this)">
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">字段英文名 <span class="text-danger">*</span></label>
+                <div class="col-md-4 query-binding-key-container">
+                    <label class="form-label field-form-label">字段英文名 <span class="text-danger">*</span></label>
                     <input type="text" class="form-control form-control-sm query-binding-key" value="${data?.bindingKey || ''}" placeholder="例如: itemId" oninput="updateFieldSummary(this)">
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">验证规则</label>
+                <div class="col-md-4 query-valid-rule-container">
+                    <label class="form-label field-form-label">验证规则</label>
                     <select class="form-select form-select-sm query-valid-rule">
                         <option value="requiredReverse" ${data?.ValidRule === 'requiredReverse' ? 'selected' : ''}>不必填</option>
                         <option value="required" ${data?.ValidRule === 'required' ? 'selected' : ''}>必填</option>
                     </select>
+                    <small class="form-text text-muted query-valid-rule-hint" style="display: none;"></small>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">默认值</label>
+                <div class="col-md-4">
+                    <label class="form-label field-form-label">字段类型</label>
+                    <select class="form-select form-select-sm query-field-type" onchange="handleQueryFieldTypeChange(this)">
+                        <option value="text" ${data?.type === 'text' || !data?.type ? 'selected' : ''}>文本</option>
+                        <option value="difference_condition" ${data?.type === 'difference_condition' ? 'selected' : ''}>差异条件</option>
+                        <option value="subquery" ${data?.type === 'subquery' ? 'selected' : ''}>子查询</option>
+                    </select>
+                </div>
+                <div class="col-md-12 query-type-hint" style="${data?.type === 'difference_condition' || data?.type === 'subquery' ? '' : 'display:none;'}">
+                    <div class="alert alert-info py-2 mb-0">
+                        <small><i class="bi bi-info-circle me-1"></i><strong>说明：</strong><span class="query-type-hint-text"></span></small>
+                    </div>
+                </div>
+                <div class="col-md-6 query-default-value-container" style="${data?.type === 'difference_condition' || data?.type === 'calculated' || data?.type === 'subquery' ? 'display:none;' : ''}">
+                    <label class="form-label field-form-label">默认值</label>
                     <input type="text" class="form-control form-control-sm query-default-value" value="${data?.defaultValue || ''}" placeholder="可选">
                 </div>
+                <div class="col-md-12 query-calculated-config calculated-config" style="${data?.type === 'calculated' || data?.type === 'subquery' ? 'block' : 'none'};">
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input calc-split-expression" type="checkbox"
+                               id="queryCalcSplit_${index}" ${data?.splitExpression ? 'checked' : ''}
+                               onchange="handleCalcSplitChange(this)">
+                        <label class="form-check-label" for="queryCalcSplit_${index}" style="font-size: 0.8rem;">
+                            执行/回退表达式不一致
+                        </label>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">表达式配置 <span class="text-danger">*</span></label>
+                        <div id="calculatedExpressionsContainer_${index}" class="border rounded p-2" style="background-color: #f8f9fa;">
+                            <!-- 动态生成 -->
+                        </div>
+                    </div>
+                </div>
                 <div class="col-md-12">
-                    <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.2rem;">关联表</label>
-                    <div class="connected-tables-container border rounded p-1" style="background-color: #f8f9fa;">
+                    <label class="form-label field-form-label">关联表</label>
+                    <div class="connected-tables-container border rounded p-1">
                         ${generateConnectedTableCheckboxes(connectedTables, 'query')}
                     </div>
                 </div>
@@ -1491,6 +2327,14 @@
     `;
 
             container.appendChild(div);
+
+            // 根据字段类型初始化 UI（说明、验证规则等）
+            handleQueryFieldTypeChange(div.querySelector('.query-field-type'));
+
+            // 初始化计算字段/子查询字段表达式配置（handleQueryFieldTypeChange 已负责监听关联表复选框）
+            if (data?.type === 'calculated' || data?.type === 'subquery') {
+                initCalculatedExpressions(div, data);
+            }
 
             // 更新过滤列表并重新渲染分页
             queryFilteredCards = Array.from(container.querySelectorAll('.field-card'));
@@ -1684,43 +2528,43 @@
             }
 
                            div.innerHTML = `
-        <div class="card-header d-flex align-items-center py-2">
-            <i class="bi bi-grip-vertical drag-handle me-2 text-muted" style="cursor: move; font-size: 0.85rem;" title="拖动排序"></i>
-            <span class="badge bg-secondary me-2 card-sequence-number" style="min-width: 32px; font-size: 0.75rem;">#${sortOrder + 1}</span>
-            <h6 class="mb-0" style="font-size: 0.85rem;">更新字段</h6>
-            <span class="field-summary me-2" style="display: none; color: #0d6efd; font-weight: 600; font-size: 0.85rem;">
+        <div class="card-header field-card-header d-flex align-items-center py-2">
+            <i class="bi bi-grip-vertical drag-handle me-2" title="拖动排序"></i>
+            <span class="badge card-sequence-number me-2">#${sortOrder + 1}</span>
+            <span class="field-type-label me-2">更新字段</span>
+            <span class="field-summary me-2">
                 ${data?.label ? data.label : ''}${data?.bindingKey ? ' (' + data.bindingKey + ')' : ''}
             </span>
             <div class="d-flex gap-1 ms-auto">
-                <button type="button" class="btn btn-sm btn-outline-secondary toggle-collapse-btn" onclick="toggleCardCollapse(this)" title="收起" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
+                <button type="button" class="btn btn-sm btn-outline-secondary toggle-collapse-btn" onclick="toggleCardCollapse(this)" title="收起">
                     <i class="bi bi-chevron-up"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveUpdateItemUp(this)" title="上移" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveUpdateItemUp(this)" title="上移">
                     <i class="bi bi-arrow-up"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveUpdateItemDown(this)" title="下移" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveUpdateItemDown(this)" title="下移">
                     <i class="bi bi-arrow-down"></i>
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeUpdateItem(this)" style="padding: 0.15rem 0.35rem; font-size: 0.75rem;">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeUpdateItem(this)">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
         </div>
-        <div class="card-body" style="padding: 0.75rem; font-size: 0.85rem;">
+        <div class="card-body field-card-body">
             <input type="hidden" class="sort-order-value" value="${sortOrder}">
 
             <!-- 第一行：字段中文名、字段英文名、字段类型、新值校验规则、原值校验规则 -->
             <div class="row g-2 mb-2">
                 <div class="col label-container" style="display: ${fieldType === 'calculated' ? 'none' : 'block'}; min-width: 120px;">
-                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">字段中文名 <span class="text-danger">*</span></label>
+                    <label class="form-label field-form-label">字段中文名 <span class="text-danger">*</span></label>
                     <input type="text" class="form-control form-control-sm update-label" value="${data?.label || ''}" placeholder="例如: 数量" oninput="updateFieldSummary(this)">
                 </div>
                 <div class="col" style="min-width: 120px;">
-                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">字段英文名 <span class="text-danger">*</span></label>
+                    <label class="form-label field-form-label">字段英文名 <span class="text-danger">*</span></label>
                     <input type="text" class="form-control form-control-sm update-binding-key" value="${data?.bindingKey || ''}" placeholder="例如: qty" oninput="updateFieldSummary(this)">
                 </div>
                 <div class="col" style="min-width: 100px;">
-                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">字段类型</label>
+                    <label class="form-label field-form-label">字段类型</label>
                     <select class="form-select form-select-sm update-field-type" onchange="handleFieldTypeChange(this)">
                         <option value="text" ${fieldType === 'text' ? 'selected' : ''}>文本</option>
                         <option value="number" ${fieldType === 'number' ? 'selected' : ''}>数值</option>
@@ -1751,6 +2595,27 @@
                 </div>
             </div>
 
+            <!-- 引用配置项（下拉框/单选框时显示） -->
+            <div class="row g-2 mb-2">
+                <div class="col-md-12 component-selector" style="display: ${(fieldType === 'select' || fieldType === 'radio') ? 'block' : 'none'};">
+                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">引用配置项</label>
+                    <div class="layui-form">
+                        <select class="update-component-name" lay-search lay-filter="componentSelect_${index}">
+                            <option value="">请选择配置项...</option>
+                            ${componentList.filter(comp => comp.type === fieldType).map(comp =>
+                                   `<option value="${comp.name}" ${comp.name === componentName ? 'selected' : ''}>${comp.name} (${comp.type === 'select' ? '下拉框' : '单选框'})</option>`
+                               ).join('')}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="col-md-12 options-config" style="display: none;">
+                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">选项配置（JSON格式）</label>
+                    <textarea class="form-control form-control-sm update-options" rows="2" placeholder='例如: [{"value":"active","label":"启用"},{"value":"inactive","label":"禁用"}]'>${data?.options ? JSON.stringify(data.options, null, 2) : ''}</textarea>
+                    <small class="text-muted" style="font-size: 0.7rem;">手动配置选项（如果不使用引用配置项）</small>
+                </div>
+            </div>
+
             <!-- 第二行：新值默认值、原值默认值 -->
             <div class="row g-2 mb-2">
                 <div class="col-md-6 new-default-value-container" style="display: ${(fieldType === 'supplement' || fieldType === 'calculated') ? 'none' : 'block'};">
@@ -1772,27 +2637,6 @@
                             <input type="text" class="form-control form-control-sm update-origin-default-value" value="${data?.originDefaultValue || ''}" placeholder="请输入原值默认值">
                         </div>
                     `}
-                </div>
-            </div>
-
-            <!-- 引用配置项（下拉框/单选框时显示） -->
-            <div class="row g-2 mb-2">
-                <div class="col-md-12 component-selector" style="display: ${(fieldType === 'select' || fieldType === 'radio') ? 'block' : 'none'};">
-                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">引用配置项</label>
-                    <div class="layui-form">
-                        <select class="update-component-name" lay-search lay-filter="componentSelect_${index}">
-                            <option value="">请选择配置项...</option>
-                            ${componentList.filter(comp => comp.type === fieldType).map(comp =>
-                                   `<option value="${comp.name}" ${comp.name === componentName ? 'selected' : ''}>${comp.name} (${comp.type === 'select' ? '下拉框' : '单选框'})</option>`
-                               ).join('')}
-                        </select>
-                    </div>
-                </div>
-
-                <div class="col-md-12 options-config" style="display: none;">
-                    <label class="form-label" style="font-size: 0.72rem; margin-bottom: 0.15rem;">选项配置（JSON格式）</label>
-                    <textarea class="form-control form-control-sm update-options" rows="2" placeholder='例如: [{"value":"active","label":"启用"},{"value":"inactive","label":"禁用"}]'>${data?.options ? JSON.stringify(data.options, null, 2) : ''}</textarea>
-                    <small class="text-muted" style="font-size: 0.7rem;">手动配置选项（如果不使用引用配置项）</small>
                 </div>
             </div>
 
@@ -1836,10 +2680,10 @@
 
                     <textarea class="form-control form-control-sm update-sub-fields" rows="2" style="display: none;">${data?.subFields ? JSON.stringify(data.subFields, null, 2) : ''}</textarea>
 
-                    <div class="sub-fields-preview mt-2 p-1 border rounded" style="background-color: #f8f9fa; display: ${data?.subFields && data.subFields.length > 0 ? 'block' : 'none'};">
+                    <div class="sub-fields-preview mt-2 p-2 border rounded" style="display: ${data?.subFields && data.subFields.length > 0 ? 'block' : 'none'};">
                         <small class="text-muted d-block mb-1" style="font-size: 0.7rem;">子字段预览：</small>
                         ${data?.subFields ? data.subFields.map((sf, idx) => `
-                            <span class="badge bg-info me-1 mb-1" style="font-size: 0.7rem;" title="自定义字段: ${sf.bindingKey} | 数据库字段: ${sf.dbField}">${idx + 1}. ${sf.label}</span>
+                            <span class="badge sub-field-preview-badge me-1 mb-1" title="自定义字段: ${sf.bindingKey} | 数据库字段: ${sf.dbField}">${idx + 1}. ${sf.label}</span>
                         `).join('') : ''}
                     </div>
                 </div>
@@ -1848,6 +2692,15 @@
                     <div class="alert alert-info py-2 px-3" style="font-size: 0.8rem;">
                         <i class="bi bi-info-circle"></i>
                         <strong>说明：</strong>计算字段不会在页面上显示输入框，而是在后台根据表达式自动生成SQL。
+                    </div>
+
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input calc-split-expression" type="checkbox"
+                               id="calcSplit_${index}" ${data?.splitExpression ? 'checked' : ''}
+                               onchange="handleCalcSplitChange(this)">
+                        <label class="form-check-label" for="calcSplit_${index}" style="font-size: 0.8rem;">
+                            执行/回退表达式不一致
+                        </label>
                     </div>
 
                     <div class="mb-2">
@@ -1926,22 +2779,11 @@
                 }, 100);
             }
 
-            // 初始化计算字段的表达式配置
+
+
+            // 初始化计算字段的表达式配置（handleFieldTypeChange 已负责监听关联表复选框）
             if (fieldType === 'calculated') {
-                setTimeout(() => {
-                    initCalculatedExpressions(div, data);
-                    
-                    // 使用事件委托监听关联表复选框的变化
-                    const tablesContainer = div.querySelector('.connected-tables-container');
-                    if (tablesContainer) {
-                        tablesContainer.addEventListener('change', function(e) {
-                            if (e.target.classList.contains('connected-table-checkbox')) {
-                                console.log('关联表复选框变化，更新表达式UI');
-                                updateCalculatedExpressionsUI(div);
-                            }
-                        });
-                    }
-                }, 100);
+                initUpdateCalculatedExpressions(div, data);
             }
 
             // 更新过滤列表并重新渲染分页
@@ -1987,7 +2829,7 @@
                 }
             } else if (fieldType === 'calculated') {
                 calculatedDiv.style.display = 'block';
-                
+
                 // 计算字段：隐藏验证规则、默认值和字段中文名
                 if (newValidRuleContainer) {
                     newValidRuleContainer.style.display = 'none';
@@ -2004,26 +2846,24 @@
                 if (labelContainer) {
                     labelContainer.style.display = 'none';
                 }
-                
-                // 初始化计算字段的表达式配置
-                setTimeout(() => {
-                    initCalculatedExpressions(card, {});
-                    
-                    // 使用事件委托监听关联表复选框的变化
-                    const tablesContainer = card.querySelector('.connected-tables-container');
-                    if (tablesContainer) {
-                        // 移除旧的事件监听器（如果存在）
-                        const newContainer = tablesContainer.cloneNode(true);
-                        tablesContainer.parentNode.replaceChild(newContainer, tablesContainer);
-                        
-                        // 添加新的事件监听器
-                        newContainer.addEventListener('change', function(e) {
-                            if (e.target.classList.contains('connected-table-checkbox')) {
-                                updateCalculatedExpressionsUI(card);
-                            }
-                        });
-                    }
-                }, 50);
+
+                // 初始化计算字段的表达式配置（支持执行/回退双表达式）
+                initUpdateCalculatedExpressions(card, {});
+
+                // 使用事件委托监听关联表复选框的变化
+                const tablesContainer = card.querySelector('.connected-tables-container');
+                if (tablesContainer) {
+                    // 移除旧的事件监听器（如果存在）
+                    const newContainer = tablesContainer.cloneNode(true);
+                    tablesContainer.parentNode.replaceChild(newContainer, tablesContainer);
+
+                    // 添加新的事件监听器
+                    newContainer.addEventListener('change', function(e) {
+                        if (e.target.classList.contains('connected-table-checkbox')) {
+                            updateUpdateCalculatedExpressionsUI(card);
+                        }
+                    });
+                }
             } else if (fieldType === 'radio') {
                 // 单选框类型：只显示新值验证规则，隐藏原值验证规则
                 if (newValidRuleContainer) {
@@ -2128,97 +2968,278 @@
         }
 
         /**
-         * 初始化计算字段的表达式配置
+         * 查询字段类型切换
+         */
+        function handleQueryFieldTypeChange(selectElement) {
+            const card = selectElement.closest('.field-card');
+            const fieldType = selectElement.value;
+            const defaultValueContainer = card.querySelector('.query-default-value-container');
+            const calculatedConfig = card.querySelector('.query-calculated-config');
+            const validRuleSelect = card.querySelector('.query-valid-rule');
+            const validRuleHint = card.querySelector('.query-valid-rule-hint');
+            const typeHint = card.querySelector('.query-type-hint');
+            const typeHintText = card.querySelector('.query-type-hint-text');
+            const labelRequired = card.querySelector('.query-label-required');
+            const labelContainer = card.querySelector('.query-label-container');
+            const bindingKeyContainer = card.querySelector('.query-binding-key-container');
+
+            if (labelContainer) {
+                labelContainer.style.display = (fieldType === 'subquery') ? 'none' : 'block';
+            }
+            if (bindingKeyContainer) {
+                bindingKeyContainer.classList.toggle('col-md-8', fieldType === 'subquery');
+                bindingKeyContainer.classList.toggle('col-md-4', fieldType !== 'subquery');
+            }
+            if (labelRequired) {
+                labelRequired.style.display = (fieldType === 'subquery') ? 'none' : 'inline';
+            }
+
+            if (defaultValueContainer) {
+                defaultValueContainer.style.display = (fieldType === 'difference_condition' || fieldType === 'calculated' || fieldType === 'subquery') ? 'none' : 'block';
+            }
+            if (calculatedConfig) {
+                calculatedConfig.style.display = (fieldType === 'calculated' || fieldType === 'subquery') ? 'block' : 'none';
+            }
+
+            // 验证规则与类型说明
+            if (validRuleSelect && validRuleHint) {
+                if (fieldType === 'subquery') {
+                    validRuleSelect.style.display = 'none';
+                    validRuleHint.style.display = 'block';
+                    validRuleHint.textContent = '子查询无需验证规则';
+                    validRuleSelect.value = 'requiredReverse';
+                } else if (fieldType === 'difference_condition') {
+                    validRuleSelect.style.display = 'none';
+                    validRuleHint.style.display = 'block';
+                    validRuleHint.textContent = '差异条件固定必填';
+                    validRuleSelect.value = 'required';
+                } else {
+                    validRuleSelect.style.display = 'block';
+                    validRuleHint.style.display = 'none';
+                }
+            }
+
+            if (typeHint && typeHintText) {
+                if (fieldType === 'subquery') {
+                    typeHint.style.display = 'block';
+                    typeHintText.textContent = '子查询字段不在动态表单页面显示，后台将使用 字段英文名 IN (配置的表达式) 生成查询条件。';
+                } else if (fieldType === 'difference_condition') {
+                    typeHint.style.display = 'block';
+                    typeHintText.textContent = '差异条件：执行语句使用原值作为查询条件，回退语句使用新值作为查询条件。新值和原值均必填。';
+                } else {
+                    typeHint.style.display = 'none';
+                }
+            }
+
+            if (fieldType === 'calculated' || fieldType === 'subquery') {
+                initCalculatedExpressions(card, {});
+                const tablesContainer = card.querySelector('.connected-tables-container');
+                if (tablesContainer) {
+                    const newContainer = tablesContainer.cloneNode(true);
+                    tablesContainer.parentNode.replaceChild(newContainer, tablesContainer);
+                    newContainer.addEventListener('change', function(e) {
+                        if (e.target.classList.contains('connected-table-checkbox')) {
+                            updateCalculatedExpressionsUI(card);
+                        }
+                    });
+                }
+            }
+        }
+
+        /**
+         * 统一表达式格式：兼容旧 dict 与新数组 [{tableName, expression}]
+         */
+        function normalizeExpressions(value) {
+            if (!value) return [];
+            if (Array.isArray(value)) return value.filter(e => e && e.tableName);
+            if (typeof value === 'object') {
+                return Object.entries(value)
+                    .filter(([k, v]) => v !== undefined && v !== null && String(v).trim() !== '')
+                    .map(([k, v]) => ({ tableName: k, expression: String(v) }));
+            }
+            return [];
+        }
+
+        function getExpressionForTable(expressions, tableName) {
+            if (!Array.isArray(expressions)) return '';
+            const entry = expressions.find(e => e && e.tableName === tableName);
+            return entry ? (entry.expression || '') : '';
+        }
+
+        function getFirstExpressionForTables(expressions, tables) {
+            if (!Array.isArray(expressions) || !tables || tables.length === 0) return '';
+            for (const tableName of tables) {
+                const expr = getExpressionForTable(expressions, tableName);
+                if (expr) return expr;
+            }
+            return '';
+        }
+
+        /**
+         * 渲染表达式配置（子查询 / 计算字段：一个表达式同时作用于所有关联表）
+         */
+        function renderCalculatedExpressions(container, tables, expressions, backwardExpressions, splitExpression, mode) {
+            const forwardLabel = mode === 'update' ? '执行表达式' : '表达式';
+            const forwardPlaceholder = mode === 'query'
+                ? '例如: SELECT ID FROM other_table WHERE code = \${CODE}'
+                : "例如: 'UPDATE_' || \${BPO_ID}";
+            const backwardPlaceholder = '例如: (SELECT COL FROM other_table t WHERE t.ID = \${ID})';
+
+            if (!tables || tables.length === 0) {
+                container.innerHTML = '<div class="text-muted small" style="font-size: 0.75rem;">请先在上方“关联表”中选择表</div>';
+                return;
+            }
+
+            const tableBadges = tables.map(t => `<span class="badge bg-primary me-1 mb-1" style="font-size: 0.75rem;">${t}</span>`).join('');
+            const forwardExpr = getFirstExpressionForTables(expressions, tables);
+            const backwardExpr = splitExpression ? getFirstExpressionForTables(backwardExpressions, tables) : '';
+
+            container.innerHTML = `
+                <div class="expression-block" data-tables="${tables.join(',')}">
+                    <div class="d-flex align-items-center flex-wrap mb-2">
+                        <small class="text-muted me-2" style="font-size: 0.7rem;">关联表：</small>
+                        ${tableBadges}
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small" style="font-size: 0.7rem;">${forwardLabel} <span class="text-danger">*</span></label>
+                        <textarea class="form-control form-control-sm calc-expression expr-forward-input"
+                                  rows="2"
+                                  style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.8rem;"
+                                  placeholder="${forwardPlaceholder}"
+                                  oninput="validateCalcExpression(this)">${forwardExpr}</textarea>
+                    </div>
+                    <div class="calc-backward-expression" style="display: ${splitExpression ? 'block' : 'none'};">
+                        <label class="form-label small" style="font-size: 0.7rem;">回退表达式 <span class="text-danger">*</span></label>
+                        <textarea class="form-control form-control-sm calc-expression expr-backward-input"
+                                  rows="2"
+                                  style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.8rem;"
+                                  placeholder="${backwardPlaceholder}"
+                                  oninput="validateCalcExpression(this)">${backwardExpr}</textarea>
+                    </div>
+                    <div class="mt-1 expression-validation" style="display: none;">
+                        <small class="validation-status"></small>
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * 初始化查询字段的表达式配置（子查询/计算字段）
          */
         function initCalculatedExpressions(card, data) {
             const container = card.querySelector('[id^="calculatedExpressionsContainer_"]');
             if (!container) return;
 
-            const connectedTables = data?.connectedTable || [];
-            const expressions = data?.expressions || {};
+            const connectedTables = getSelectedTables(card);
+            const expressions = normalizeExpressions(data?.expressions);
+            const backwardExpressions = normalizeExpressions(data?.backwardExpressions);
+            const splitExpression = data?.splitExpression || false;
 
-            renderCalculatedExpressions(container, connectedTables, expressions);
+            renderCalculatedExpressions(container, connectedTables, expressions, backwardExpressions, splitExpression, 'query');
         }
 
         /**
-         * 渲染计算字段表达式配置UI
+         * 初始化更新字段的计算字段表达式配置
          */
-        function renderCalculatedExpressions(container, tables, expressions) {
-            if (!tables || tables.length === 0) {
-                container.innerHTML = '<div class="text-muted small">请先在上方“关联表”中选择表</div>';
-                return;
-            }
+        function initUpdateCalculatedExpressions(card, data) {
+            const container = card.querySelector('[id^="calculatedExpressionsContainer_"]');
+            if (!container) return;
 
-            let html = '';
-            tables.forEach((tableName, idx) => {
-                const expression = expressions[tableName] || '';
+            const connectedTables = getSelectedTables(card);
+            const expressions = normalizeExpressions(data?.expressions);
+            const backwardExpressions = normalizeExpressions(data?.backwardExpressions);
+            const splitExpression = data?.splitExpression || false;
 
-                html += `
-                    <div class="mb-3 pb-3 ${idx < tables.length - 1 ? 'border-bottom' : ''}" data-table="${tableName}">
-                        <div class="d-flex align-items-center mb-2">
-                            <span class="badge bg-primary me-2">表: ${tableName}</span>
-                        </div>
-                        
-                        <div>
-                            <label class="form-label small">计算表达式 <span class="text-danger">*</span></label>
-                            <textarea class="form-control form-control-sm calc-expression" 
-                                      rows="2" 
-                                      placeholder="例如: BPO_PRICE * qty"
-                                      oninput="validateCalcExpression(this)">${expression}</textarea>
-                        </div>
-                        
-                        <div class="mt-2 expression-validation" style="display: none;">
-                            <small class="validation-status"></small>
-                        </div>
-                    </div>
-                `;
-            });
-
-            container.innerHTML = html;
+            renderCalculatedExpressions(container, connectedTables, expressions, backwardExpressions, splitExpression, 'update');
         }
 
         /**
-         * 更新计算字段表达式UI（当关联表变化时）
+         * 更新查询字段表达式UI（当关联表变化时）
          */
         function updateCalculatedExpressionsUI(card) {
             const container = card.querySelector('[id^="calculatedExpressionsContainer_"]');
             if (!container) return;
 
-            // 获取当前选择的表
             const selectedTables = getSelectedTables(card);
-            
-            // 保存现有的表达式数据
-            const currentExpressions = getCurrentExpressions(card);
-            
-            // 过滤掉已删除表的表达式，只保留仍在选中表中的表达式
-            const filteredExpressions = {};
-            selectedTables.forEach(tableName => {
-                if (currentExpressions[tableName]) {
-                    filteredExpressions[tableName] = currentExpressions[tableName];
-                }
-            });
-            
-            // 重新渲染
-            renderCalculatedExpressions(container, selectedTables, filteredExpressions);
+            const current = collectCalculatedExpressions(card);
+            renderCalculatedExpressions(container, selectedTables, current.expressions, current.backwardExpressions, current.splitExpression, 'query');
         }
 
         /**
-         * 获取当前的表达式配置
+         * 更新更新字段计算字段表达式UI（当关联表变化时）
+         */
+        function updateUpdateCalculatedExpressionsUI(card) {
+            const container = card.querySelector('[id^="calculatedExpressionsContainer_"]');
+            if (!container) return;
+
+            const selectedTables = getSelectedTables(card);
+            const current = collectCalculatedExpressions(card);
+            renderCalculatedExpressions(container, selectedTables, current.expressions, current.backwardExpressions, current.splitExpression, 'update');
+        }
+
+        /**
+         * 收集表达式配置（一个表达式同步到所有关联表）
+         */
+        function collectCalculatedExpressions(card) {
+            const container = card.querySelector('[id^="calculatedExpressionsContainer_"]');
+            const splitExpression = card.querySelector('.calc-split-expression')?.checked || false;
+            const expressions = [];
+            const backwardExpressions = [];
+
+            if (container) {
+                const block = container.querySelector('.expression-block');
+                if (block) {
+                    const tables = (block.dataset.tables || '').split(',').filter(Boolean);
+                    const forwardExpr = block.querySelector('.expr-forward-input')?.value.trim() || '';
+                    const backwardExpr = splitExpression
+                        ? (block.querySelector('.expr-backward-input')?.value.trim() || '')
+                        : '';
+                    tables.forEach(tableName => {
+                        if (forwardExpr) {
+                            expressions.push({ tableName, expression: forwardExpr });
+                        }
+                        if (splitExpression && backwardExpr) {
+                            backwardExpressions.push({ tableName, expression: backwardExpr });
+                        }
+                    });
+                }
+            }
+
+            return { expressions, backwardExpressions, splitExpression };
+        }
+
+        /**
+         * 获取查询字段当前的表达式配置（兼容旧调用）
          */
         function getCurrentExpressions(card) {
-            const expressions = {};
-            const tableDivs = card.querySelectorAll('[id^="calculatedExpressionsContainer_"] [data-table]');
-            
-            tableDivs.forEach(div => {
-                const tableName = div.dataset.table;
-                const expr = div.querySelector('.calc-expression')?.value.trim() || '';
-                
-                if (expr) {
-                    expressions[tableName] = expr;
-                }
+            return collectCalculatedExpressions(card).expressions;
+        }
+
+        /**
+         * 获取更新字段计算字段的完整表达式配置
+         */
+        function getUpdateCurrentExpressions(card) {
+            return collectCalculatedExpressions(card);
+        }
+
+        /**
+         * 切换计算字段执行/回退表达式拆分开关
+         */
+        function handleCalcSplitChange(checkbox) {
+            const card = checkbox.closest('.field-card');
+            const splitExpression = checkbox.checked;
+
+            // 切换回退表达式输入框显示/隐藏
+            card.querySelectorAll('.calc-backward-expression').forEach(div => {
+                div.style.display = splitExpression ? 'block' : 'none';
             });
-            
-            return expressions;
+
+            // 如果关闭拆分，清空回退表达式（由后端使用前向表达式保持一致）
+            if (!splitExpression) {
+                card.querySelectorAll('.expr-backward-input').forEach(input => {
+                    input.value = '';
+                });
+            }
         }
 
         /**
@@ -2226,7 +3247,7 @@
          */
         function validateCalcExpression(textarea) {
             const expression = textarea.value.trim();
-            const validationDiv = textarea.closest('.mb-3').querySelector('.expression-validation');
+            const validationDiv = textarea.closest('.expression-block').querySelector('.expression-validation');
             const statusSpan = validationDiv.querySelector('.validation-status');
             const card = textarea.closest('.field-card');
 
@@ -2262,10 +3283,11 @@
             // 获取所有可用的字段（查询字段 + 更新字段，排除计算字段）
             const availableFields = new Set();
             
-            // 添加查询字段
+            // 添加查询字段（排除计算字段本身，避免循环引用）
             document.querySelectorAll('#queryItemsContainer .field-card').forEach(queryCard => {
+                const fieldType = queryCard.querySelector('.query-field-type')?.value;
                 const bindingKey = queryCard.querySelector('.query-binding-key')?.value?.trim();
-                if (bindingKey) {
+                if (bindingKey && fieldType !== 'calculated') {
                     availableFields.add(bindingKey.toUpperCase());
                 }
             });
@@ -2395,9 +3417,10 @@
             // 如果没有子字段，显示提示
             if (allSubFields.length === 0) {
                 accordion.innerHTML = `
-                    <div class="text-center text-muted py-4">
-                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                        <p class="mt-2 mb-0">暂无子字段，请点击上方“添加子字段”按钮</p>
+                    <div class="subfield-empty-state">
+                        <i class="bi bi-inbox"></i>
+                        <p class="mt-2 mb-0">暂无子字段</p>
+                        <small class="text-muted">请点击上方“添加子字段”按钮开始配置</small>
                     </div>
                 `;
                 paginationNav.style.display = 'none';
@@ -2423,7 +3446,7 @@
                 const isExpanded = globalIndex === currentExpandedSubFieldIndex ? 'show' : '';
                 
                 const accordionItem = document.createElement('div');
-                accordionItem.className = 'accordion-item mb-2 border rounded shadow-sm';
+                accordionItem.className = 'accordion-item subfield-accordion-item mb-3 border-0 rounded-3 shadow-sm';
                 accordionItem.dataset.globalIndex = globalIndex;
                 
                 let mainTableName = '';
@@ -2434,30 +3457,32 @@
                     }
                 }
                 
+                const headerLabel = sf.label ? escapeHtml(sf.label) : '<span class="subfield-header-placeholder">未命名子字段</span>';
+                const headerBindingKey = sf.bindingKey ? escapeHtml(sf.bindingKey) : '';
+                
                 accordionItem.innerHTML = `
-                    <h2 class="accordion-header" id="heading${globalIndex}" style="margin-bottom: 0;">
+                    <h2 class="accordion-header subfield-accordion-header" id="heading${globalIndex}">
                         <button class="accordion-button ${idx === 0 ? '' : 'collapsed'} p-0" type="button" 
                                 data-bs-toggle="collapse" data-bs-target="#${collapseId}" 
-                                aria-expanded="${idx === 0}" aria-controls="${collapseId}"
-                                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: 500; border: none; box-shadow: none;">
+                                aria-expanded="${idx === 0}" aria-controls="${collapseId}">
                             <div class="d-flex align-items-center justify-content-between w-100 px-3 py-2">
-                                <div class="d-flex align-items-center flex-grow-1">
-                                    <span class="badge bg-white text-primary me-2" style="min-width: 35px; font-size: 0.85rem;">#${globalIndex + 1}</span>
-                                    <span class="fw-bold" style="font-size: 0.95rem;">${sf.label || '未命名子字段'}</span>
-                                    ${sf.bindingKey ? `<span class="ms-2 text-white-50" style="font-size: 0.8rem; font-family: monospace;">${sf.bindingKey}</span>` : ''}
+                                <div class="d-flex align-items-center flex-grow-1 min-width-0">
+                                    <span class="badge me-2 subfield-number-badge">#${globalIndex + 1}</span>
+                                    <span class="subfield-header-label" id="subFieldHeaderLabel_${globalIndex}">${headerLabel}</span>
+                                    <span class="ms-2 subfield-header-binding" id="subFieldHeaderBinding_${globalIndex}" style="${headerBindingKey ? '' : 'display: none;'}">${headerBindingKey}</span>
                                 </div>
                                 <div class="d-flex gap-1" onclick="event.stopPropagation();">
                                     ${globalIndex > 0 ? `
-                                        <button type="button" class="btn btn-sm btn-light" onclick="moveSubFieldUpByIndex(${globalIndex})" title="上移" style="padding: 2px 8px;">
+                                        <button type="button" class="btn btn-sm btn-light subfield-action-btn" onclick="moveSubFieldUpByIndex(${globalIndex})" title="上移">
                                             <i class="bi bi-arrow-up-short"></i>
                                         </button>
                                     ` : ''}
                                     ${globalIndex < allSubFields.length - 1 ? `
-                                        <button type="button" class="btn btn-sm btn-light" onclick="moveSubFieldDownByIndex(${globalIndex})" title="下移" style="padding: 2px 8px;">
+                                        <button type="button" class="btn btn-sm btn-light subfield-action-btn" onclick="moveSubFieldDownByIndex(${globalIndex})" title="下移">
                                             <i class="bi bi-arrow-down-short"></i>
                                         </button>
                                     ` : ''}
-                                    <button type="button" class="btn btn-sm btn-danger" onclick="removeSubFieldByIndex(${globalIndex})" title="删除" style="padding: 2px 8px;">
+                                    <button type="button" class="btn btn-sm btn-danger subfield-delete-btn" onclick="removeSubFieldByIndex(${globalIndex})" title="删除">
                                         <i class="bi bi-trash3"></i> 删除
                                     </button>
                                 </div>
@@ -2466,50 +3491,52 @@
                     </h2>
                     <div id="${collapseId}" class="accordion-collapse collapse ${isExpanded}" 
                          aria-labelledby="heading${globalIndex}" data-bs-parent="#subFieldsAccordion">
-                        <div class="accordion-body" style="background: #f8f9fa; border-top: 2px solid #667eea;">
+                        <div class="accordion-body subfield-accordion-body">
                             <input type="hidden" class="sub-field-label-input" value="${sf.label || ''}">
                             <input type="hidden" class="sub-field-binding-key-input" value="${sf.bindingKey || ''}">
                             <input type="hidden" class="sub-field-db-field-input" value="${sf.dbField || ''}" data-saved-value="${sf.dbField || ''}">
                             <div class="row g-3">
                                 <div class="col-md-3">
-                                    <label class="form-label fw-bold text-primary mb-1" style="font-size: 0.9rem;">
-                                        <i class="bi bi-tag-fill me-1"></i>显示标签 <span class="text-danger">*</span>
+                                    <label class="form-label subfield-form-label">
+                                        <i class="bi bi-tag-fill me-1 text-primary"></i>显示标签 <span class="text-danger">*</span>
                                     </label>
-                                    <input type="text" class="form-control sub-field-label-edit" 
+                                    <input type="text" class="form-control form-control-sm sub-field-label-edit" 
                                            value="${sf.label || ''}" placeholder="例如: 订单执行人姓名"
+                                           oninput="updateSubFieldHeader(${globalIndex}); updateSubFieldData(${globalIndex}, 'label', this.value)"
                                            onchange="updateSubFieldData(${globalIndex}, 'label', this.value)">
-                                    <small class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle"></i> 用户看到的名称</small>
+                                    <small class="text-muted subfield-form-hint"><i class="bi bi-info-circle"></i> 用户看到的名称</small>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label fw-bold text-success mb-1" style="font-size: 0.9rem;">
-                                        <i class="bi bi-key-fill me-1"></i>自定义字段名 <span class="text-danger">*</span>
+                                    <label class="form-label subfield-form-label">
+                                        <i class="bi bi-key-fill me-1 text-success"></i>自定义字段名 <span class="text-danger">*</span>
                                     </label>
-                                    <input type="text" class="form-control sub-field-binding-key-edit" 
+                                    <input type="text" class="form-control form-control-sm sub-field-binding-key-edit" 
                                            value="${sf.bindingKey || ''}" placeholder="例如: ORDER_EXECUTOR_NAME"
+                                           oninput="updateSubFieldHeader(${globalIndex}); updateSubFieldData(${globalIndex}, 'bindingKey', this.value)"
                                            onchange="updateSubFieldData(${globalIndex}, 'bindingKey', this.value)">
-                                    <small class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle"></i> 你定义的字段标识</small>
+                                    <small class="text-muted subfield-form-hint"><i class="bi bi-info-circle"></i> 你定义的字段标识</small>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label fw-bold text-info mb-1" style="font-size: 0.9rem;">
-                                        <i class="bi bi-database-fill me-1"></i>数据库映射字段 <span class="text-danger">*</span>
+                                    <label class="form-label subfield-form-label">
+                                        <i class="bi bi-database-fill me-1 text-info"></i>数据库映射字段 <span class="text-danger">*</span>
                                     </label>
-                                    <select class="form-select sub-field-db-field-edit" 
+                                    <select class="form-select form-select-sm sub-field-db-field-edit" 
                                             data-saved-value="${sf.dbField || ''}"
                                             onchange="updateSubFieldData(${globalIndex}, 'dbField', this.value)">
                                         <option value="">${mainTableName ? '请选择数据库字段' : '请先在主字段中选择表'}</option>
                                     </select>
-                                    <small class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-info-circle"></i> 选择数据库中实际存在的字段</small>
+                                    <small class="text-muted subfield-form-hint"><i class="bi bi-info-circle"></i> 选择数据库中实际存在的字段</small>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label fw-bold text-warning mb-1" style="font-size: 0.9rem;">
-                                        <i class="bi bi-collection me-1"></i>字段类型 <span class="text-danger">*</span>
+                                    <label class="form-label subfield-form-label">
+                                        <i class="bi bi-collection me-1 text-warning"></i>字段类型 <span class="text-danger">*</span>
                                     </label>
-                                    <select class="form-select sub-field-type-edit"
+                                    <select class="form-select form-select-sm sub-field-type-edit"
                                             onchange="updateSubFieldData(${globalIndex}, 'type', this.value); handleSubFieldTypeChange(${globalIndex}, this.value)">
                                         <option value="auxiliary" ${sf.type === 'auxiliary' ? 'selected' : ''}>辅助字段</option>
                                         <option value="normal" ${(!sf.type || sf.type === 'normal') ? 'selected' : ''}>普通字段</option>
                                     </select>
-                                    <small class="text-muted sub-field-type-hint" style="font-size: 0.75rem;">${getSubFieldTypeHint(sf.type)}</small>
+                                    <small class="text-muted sub-field-type-hint subfield-form-hint">${getSubFieldTypeHint(sf.type)}</small>
                                 </div>
                             </div>
                         </div>
@@ -2624,6 +3651,48 @@
         function updateSubFieldData(index, field, value) {
             if (allSubFields[index]) {
                 allSubFields[index][field] = value;
+            }
+        }
+
+        /**
+         * 转义 HTML 特殊字符，防止 XSS 并正确显示中文
+         */
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            const div = document.createElement('div');
+            div.textContent = String(text);
+            return div.innerHTML;
+        }
+
+        /**
+         * 实时同步子字段折叠面板头部的显示标签
+         */
+        function updateSubFieldHeader(index) {
+            const accordion = document.getElementById('subFieldsAccordion');
+            if (!accordion) return;
+
+            const item = accordion.querySelector(`[data-global-index="${index}"]`);
+            if (!item) return;
+
+            const labelInput = item.querySelector('.sub-field-label-edit');
+            const bindingKeyInput = item.querySelector('.sub-field-binding-key-edit');
+            const labelElement = document.getElementById(`subFieldHeaderLabel_${index}`);
+            const bindingElement = document.getElementById(`subFieldHeaderBinding_${index}`);
+
+            const label = labelInput ? labelInput.value.trim() : '';
+            const bindingKey = bindingKeyInput ? bindingKeyInput.value.trim() : '';
+
+            if (labelElement) {
+                labelElement.innerHTML = label ? escapeHtml(label) : '<span class="subfield-header-placeholder">未命名子字段</span>';
+            }
+
+            if (bindingElement) {
+                if (bindingKey) {
+                    bindingElement.textContent = bindingKey;
+                    bindingElement.style.display = '';
+                } else {
+                    bindingElement.style.display = 'none';
+                }
             }
         }
 
@@ -3085,24 +4154,29 @@
                 const div = queryCards[i];
                 const label = div.querySelector('.query-label').value.trim();
                 const bindingKey = div.querySelector('.query-binding-key').value.trim();
-                
+                const fieldType = div.querySelector('.query-field-type').value;
+
                 // 如果两个都为空，说明是新增的空行，需要提示用户删除或填写
                 if (!label && !bindingKey) {
                     alert(`查询字段第${i + 1}行为空，请填写字段信息或删除该行`);
                     return;
                 }
-                
-                // 如果只有一个字段有值，说明用户开始填写了但未完成
-                if ((label && !bindingKey) || (!label && bindingKey)) {
-                    alert(`查询字段第${i + 1}行信息不完整，请填写完整的字段中文名和英文名`);
+
+                // 字段英文名必须填写；子查询类型可省略字段中文名
+                if (label && !bindingKey) {
+                    alert(`查询字段“${label}”的字段英文名不能为空`);
+                    return;
+                }
+                if (!label && bindingKey && fieldType !== 'subquery') {
+                    alert(`查询字段第${i + 1}行的字段中文名不能为空（英文名：${bindingKey}）`);
                     return;
                 }
             }
-            
+
             // 再收集有效字段
             for (let i = 0; i < queryCards.length; i++) {
                 const div = queryCards[i];
-                const label = div.querySelector('.query-label').value.trim();
+                let label = div.querySelector('.query-label').value.trim();
                 const bindingKey = div.querySelector('.query-binding-key').value.trim();
 
                 // 如果中文名和英文名都为空，说明是完全空的行，跳过
@@ -3110,30 +4184,53 @@
                     continue;
                 }
 
-                // 如果只有一个为空，说明用户开始填写了但未完成，需要提示
+                // 字段英文名必须填写
                 if (label && !bindingKey) {
                     alert(`查询字段“${label}”的字段英文名不能为空`);
                     return;
                 }
-                if (!label && bindingKey) {
-                    alert(`查询字段第${i + 1}行的字段中文名不能为空（英文名：${bindingKey}）`);
-                    return;
+
+                const fieldType = div.querySelector('.query-field-type').value;
+
+                let validRule = div.querySelector('.query-valid-rule').value;
+                if (fieldType === 'subquery') {
+                    validRule = 'requiredReverse';
+                } else if (fieldType === 'difference_condition') {
+                    validRule = 'required';
                 }
 
-                queryItems.push({
+                const item = {
                     label: label,
-                    type: 'text',
-                    defaultValue: div.querySelector('.query-default-value').value,
+                    type: fieldType,
+                    defaultValue: (fieldType === 'difference_condition' || fieldType === 'calculated' || fieldType === 'subquery') ? '' : div.querySelector('.query-default-value').value,
                     bindingKey: bindingKey,
                     sortOrder: i,
                     connectedTable: getSelectedTables(div),
-                    ValidRule: div.querySelector('.query-valid-rule').value,
-                });
+                    ValidRule: validRule,
+                };
+
+                // 计算字段/子查询字段收集表达式
+                if (fieldType === 'calculated' || fieldType === 'subquery') {
+                    const exprData = collectCalculatedExpressions(div);
+                    const expressions = exprData.expressions;
+                    const connectedTables = item.connectedTable;
+                    const configuredTables = new Set(expressions.map(e => e.tableName));
+                    const missingTables = connectedTables.filter(t => !configuredTables.has(t));
+                    if (missingTables.length > 0) {
+                        alert(`查询字段“${label || bindingKey}”的以下表未配置表达式：${missingTables.join('、')}`);
+                        return;
+                    }
+                    item.expressions = expressions;
+                    item.backwardExpressions = exprData.backwardExpressions;
+                    item.splitExpression = exprData.splitExpression;
+                }
+
+                queryItems.push(item);
                 
                 // 校验查询字段必须至少关联一个表
                 const lastItem = queryItems[queryItems.length - 1];
                 if (!lastItem.connectedTable || lastItem.connectedTable.length === 0) {
-                    alert(`查询字段“${label}”必须至少关联一个表`);
+                    alert(`查询字段“${label || bindingKey}”必须至少关联一个表`);
                     return;
                 }
             }
@@ -3290,29 +4387,27 @@
                         return;
                     }
 
-                    // 收集每个表的表达式配置
-                    const expressions = {};
-                    const tableDivs = div.querySelectorAll('[id^="calculatedExpressionsContainer_"] [data-table]');
-
-                    let hasEmptyExpression = false;
-                    for (let j = 0; j < tableDivs.length; j++) {
-                        const tableDiv = tableDivs[j];
-                        const tableName = tableDiv.dataset.table;
-                        const expr = tableDiv.querySelector('.calc-expression')?.value.trim() || '';
-
-                        if (!expr) {
-                            hasEmptyExpression = true;
-                        }
-
-                        expressions[tableName] = expr;
-                    }
-
-                    if (hasEmptyExpression) {
-                        alert(`计算字段“${label}”的某些表未配置表达式`);
+                    // 收集每个表的表达式配置（支持执行/回退双表达式）
+                    const { expressions, backwardExpressions, splitExpression } = getUpdateCurrentExpressions(div);
+                    const configuredTables = new Set(expressions.map(e => e.tableName));
+                    const missingForwardTables = connectedTables.filter(t => !configuredTables.has(t));
+                    if (missingForwardTables.length > 0) {
+                        alert(`计算字段“${label}”的以下表未配置执行表达式：${missingForwardTables.join('、')}`);
                         return;
                     }
 
+                    if (splitExpression) {
+                        const configuredBackwardTables = new Set(backwardExpressions.map(e => e.tableName));
+                        const missingBackwardTables = connectedTables.filter(t => !configuredBackwardTables.has(t));
+                        if (missingBackwardTables.length > 0) {
+                            alert(`计算字段“${label}”的以下表未配置回退表达式：${missingBackwardTables.join('、')}`);
+                            return;
+                        }
+                    }
+
                     item.expressions = expressions;
+                    item.backwardExpressions = backwardExpressions;
+                    item.splitExpression = splitExpression;
                 }
 
                 updateItems.push(item);
@@ -3343,9 +4438,12 @@
                     formId: currentEditingFormId,
                     formName: formName,
                     tableNameList: tableNameList,
+                    tableAliases: tableAliases,
+                    tableJoins: tableJoins,
                     parentMenuId: parentMenuId,
                     queryMode: document.getElementById('queryModeSelect').value,  // 添加查询模式
                     appendOpsRemark: document.getElementById('appendOpsRemarkSwitch').checked,  // 添加操作备注配置
+                    documentId: document.getElementById('documentIdSelect').value || null,  // 关联说明文档
                     queryItems: queryItems,
                     updateItems: updateItems,
                     databaseIpIds: selectedDatabaseIpIds,  // 添加数据库IP配置ID列表
@@ -3391,10 +4489,11 @@
                         
                         // 重置编辑状态
                         currentEditingFormId = null;
-                        document.getElementById('editorTitle').textContent = '新增表单配置';
+                        document.getElementById('editorTitle').innerHTML = '<i class="bi bi-file-earmark-text"></i> 新增表单配置';
                         document.getElementById('formName').value = '';
                         document.getElementById('parentMenuInput').value = '';
                         tableNameList = [];
+                        tableAliases = {};
                         renderTableTags();
                         document.getElementById('queryItemsContainer').innerHTML = '';
                         queryItemCount = 0;
@@ -3851,6 +4950,274 @@
     </script>
 
     <style>
+        /* ===== 现代卡片与页面样式 ===== */
+        .modern-card {
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        .modern-card-header {
+            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            color: #ffffff;
+            font-weight: 600;
+            padding: 1rem 1.25rem;
+            border-bottom: none;
+        }
+
+        .modern-card-header .btn-light {
+            color: #0d6efd;
+            border: none;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+            transition: all 0.2s ease;
+        }
+
+        .modern-card-header .btn-light:hover {
+            background-color: #f8f9fa;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+        }
+
+        .modern-toolbar {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 0.75rem;
+            margin-left: 0;
+            margin-right: 0;
+        }
+
+        /* ===== 现代表格样式 ===== */
+        .modern-table-wrap {
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .modern-table {
+            margin-bottom: 0;
+            font-size: 0.9rem;
+        }
+
+        .modern-table thead th {
+            background-color: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #e9ecef;
+            padding: 0.65rem 1rem;
+        }
+
+        .modern-table tbody td {
+            padding: 0.65rem 1rem;
+            border-bottom: 1px solid #f1f3f5;
+            vertical-align: middle;
+        }
+
+        .modern-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .modern-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .form-row-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 0.85rem;
+        }
+
+        .table-name-badge {
+            background-color: #f1f5f9;
+            color: #475569;
+            font-weight: 500;
+            border: 1px solid #e2e8f0;
+            padding: 0.4em 0.65em;
+        }
+
+        /* ===== 操作按钮样式 ===== */
+        .btn-action {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .btn-action-primary {
+            color: #0d6efd;
+            background-color: rgba(13, 110, 253, 0.08);
+            border-color: rgba(13, 110, 253, 0.15);
+        }
+
+        .btn-action-primary:hover {
+            background-color: #0d6efd;
+            color: #fff;
+        }
+
+        .btn-action-success {
+            color: #198754;
+            background-color: rgba(25, 135, 84, 0.08);
+            border-color: rgba(25, 135, 84, 0.15);
+        }
+
+        .btn-action-success:hover {
+            background-color: #198754;
+            color: #fff;
+        }
+
+        .btn-action-danger {
+            color: #dc3545;
+            background-color: rgba(220, 53, 69, 0.08);
+            border-color: rgba(220, 53, 69, 0.15);
+        }
+
+        .btn-action-danger:hover {
+            background-color: #dc3545;
+            color: #fff;
+        }
+
+        /* ===== 现代化模态框样式 ===== */
+        .component-modal-body {
+            background-color: #f8fafc;
+            padding: 1.5rem;
+        }
+
+        .modal-content-modern {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+            overflow: hidden;
+        }
+
+        .modal-content-modern .modal-header {
+            border-bottom: none;
+            padding: 1rem 1.5rem;
+        }
+
+        .modal-header-gradient-primary {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: #fff;
+        }
+
+        .modal-header-gradient-success {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            color: #fff;
+        }
+
+        .modal-header-gradient-info {
+            background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+            color: #fff;
+        }
+
+        .modal-content-modern .modal-title {
+            font-weight: 600;
+            font-size: 1.05rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .modal-content-modern .modal-footer {
+            border-top: 1px solid #e2e8f0;
+            background-color: #fff;
+            padding: 1rem 1.5rem;
+        }
+
+        .modal-section-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            border: 1px solid #e2e8f0;
+        }
+
+        .modal-section-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .modal-section-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #334155;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .modal-form-label {
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: #475569;
+            margin-bottom: 0.25rem;
+        }
+
+        .btn-modal-action {
+            border-radius: 8px;
+            padding: 0.45rem 1rem;
+            font-weight: 500;
+            font-size: 0.88rem;
+        }
+
+        .modern-alert {
+            border-radius: 10px;
+            border: none;
+            font-size: 0.85rem;
+        }
+
+        .table-tags-box {
+            background-color: #f8fafc;
+            min-height: 80px;
+            border-color: #e2e8f0 !important;
+        }
+
+        /* ===== 分页样式优化 ===== */
+        .pagination {
+            gap: 0.25rem;
+        }
+
+        .pagination .page-link {
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            color: #495057;
+            font-weight: 500;
+            min-width: 34px;
+            text-align: center;
+            transition: all 0.15s ease;
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            color: #fff;
+        }
+
+        .pagination .page-item.disabled .page-link {
+            background-color: #f8f9fa;
+            color: #adb5bd;
+        }
+
+        .pagination .page-link:hover:not(.disabled) {
+            background-color: #e9ecef;
+            border-color: #dee2e6;
+            color: #0d6efd;
+        }
+
         .sortable-ghost {
             opacity: 0.4;
             background-color: #f0f0f0;
@@ -3866,10 +5233,81 @@
 
         .field-card {
             transition: all 0.2s;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
         }
 
         .field-card:hover {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-color: rgba(13, 110, 253, 0.2);
+        }
+
+        .field-card-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            padding: 0.6rem 0.85rem;
+        }
+
+        .field-card-header .drag-handle {
+            cursor: grab;
+            color: #adb5bd;
+            font-size: 0.85rem;
+        }
+
+        .field-card-header .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .field-card-header .card-sequence-number {
+            background-color: #6c757d;
+            color: #fff;
+            min-width: 32px;
+            font-size: 0.75rem;
+            padding: 0.35em 0.55em;
+        }
+
+        .field-card-header .field-type-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .field-card-header .field-summary {
+            display: none;
+            color: #0d6efd;
+            font-weight: 600;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 280px;
+        }
+
+        .field-card-header .btn-sm {
+            padding: 0.15rem 0.4rem;
+            font-size: 0.75rem;
+        }
+
+        .field-card-body {
+            padding: 0.85rem;
+            font-size: 0.85rem;
+            background-color: #ffffff;
+        }
+
+        .field-form-label {
+            font-size: 0.75rem;
+            margin-bottom: 0.2rem;
+            color: #495057;
+            font-weight: 500;
+        }
+
+        .connected-tables-container {
+            max-height: 150px;
+            overflow-y: auto;
+            padding: 8px;
+            background-color: #f8f9fa;
         }
 
         .drag-handle {
@@ -3878,12 +5316,6 @@
 
         .drag-handle:active {
             cursor: grabbing;
-        }
-
-        .connected-tables-container {
-            max-height: 150px;
-            overflow-y: auto;
-            padding: 8px;
         }
         
         .table-checkbox-wrapper {
@@ -3970,24 +5402,422 @@
             text-overflow: ellipsis;
             max-width: 100%;
         }
+
+        /* ===== 子字段配置模态框样式 ===== */
+        .subfields-modal-content {
+            border: none;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.12);
+        }
+
+        .subfields-modal-header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            border-bottom: none;
+            padding: 1.25rem 1.5rem;
+        }
+
+        .subfields-header-icon {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .subfields-modal-body {
+            background-color: #ffffff;
+            padding: 1.25rem 1.5rem;
+        }
+
+        .subfields-modal-footer {
+            background-color: #ffffff;
+            border-top: 1px solid #e9ecef;
+            padding: 1rem 1.5rem;
+        }
+
+        .subfields-alert {
+            background-color: #eff6ff !important;
+            color: #1e40af;
+            border: 1px solid #dbeafe;
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .subfields-toolbar {
+            margin-bottom: 1rem;
+        }
+
+        .subfields-add-btn {
+            background: #4f46e5;
+            border: none;
+            padding: 0.35rem 0.875rem;
+            font-size: 0.875rem;
+        }
+
+        .subfields-add-btn:hover {
+            background: #4338ca;
+        }
+
+        .subfields-save-btn {
+            background: #4f46e5;
+            border: none;
+        }
+
+        .subfields-save-btn:hover {
+            background: #4338ca;
+        }
+
+        .subfield-empty-state {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: #6c757d;
+            background: #f8fafc;
+            border-radius: 10px;
+            border: 1px dashed #e2e8f0;
+        }
+
+        .subfield-empty-state i {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 0.5rem;
+            opacity: 0.6;
+        }
+
+        .subfield-accordion-item {
+            overflow: hidden;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .subfield-accordion-item:hover {
+            border-color: #cbd5e1;
+        }
+
+        .subfield-accordion-header {
+            margin-bottom: 0;
+        }
+
+        .subfield-accordion-header .accordion-button {
+            background: #f8fafc;
+            color: #334155;
+            font-weight: 500;
+            border: none;
+            box-shadow: none;
+            padding: 0.625rem 0.875rem;
+        }
+
+        .subfield-accordion-header .accordion-button:not(.collapsed) {
+            background: #f1f5f9;
+            color: #334155;
+        }
+
+        .subfield-accordion-header .accordion-button::after {
+            filter: none;
+            width: 1rem;
+            height: 1rem;
+            background-size: 1rem;
+        }
+
+        .subfield-accordion-header .accordion-button:focus {
+            box-shadow: none;
+            border-color: transparent;
+        }
+
+        .subfield-number-badge {
+            min-width: 32px;
+            font-size: 0.8rem;
+            color: #64748b;
+            background-color: #e2e8f0 !important;
+            padding: 0.35em 0.5em;
+        }
+
+        .subfield-header-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #334155;
+        }
+
+        .subfield-header-placeholder {
+            opacity: 0.7;
+            font-weight: 500;
+            color: #94a3b8;
+        }
+
+        .subfield-header-binding {
+            font-size: 0.75rem;
+            font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 160px;
+        }
+
+        .subfield-action-btn {
+            padding: 2px 6px;
+            color: #64748b;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            font-size: 0.8rem;
+        }
+
+        .subfield-action-btn:hover {
+            background: #f1f5f9;
+            color: #334155;
+            border-color: #cbd5e1;
+        }
+
+        .subfield-delete-btn {
+            padding: 2px 6px;
+            font-size: 0.75rem;
+        }
+
+        .subfield-accordion-body {
+            background: #ffffff;
+            border-top: 1px solid #e2e8f0;
+            padding: 0.875rem;
+        }
+
+        .subfield-form-label {
+            font-size: 0.8rem;
+            margin-bottom: 0.35rem;
+            font-weight: 500;
+            color: #475569;
+        }
+
+        .subfield-form-hint {
+            font-size: 0.72rem;
+            margin-top: 0.3rem;
+            color: #94a3b8;
+        }
+
+        /* ===== 补充框子字段预览 ===== */
+        .sub-fields-preview {
+            background-color: #ffffff;
+            border-color: #e2e8f0 !important;
+        }
+
+        .sub-field-preview-badge {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #475569;
+            background-color: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            padding: 0.35em 0.55em;
+        }
+
+        .min-width-0 {
+            min-width: 0;
+        }
+
+        /* ===== 文档关联选择器样式 ===== */
+        .document-association-box {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 10px;
+            padding: 0.75rem;
+            min-height: 46px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .document-association-box.has-doc {
+            background: #f0f9ff;
+            border-style: solid;
+            border-color: #7dd3fc;
+        }
+
+        .document-association-info {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .document-association-title {
+            font-weight: 600;
+            color: #0c4a6e;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .document-association-meta {
+            font-size: 0.75rem;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .document-association-actions {
+            display: flex;
+            gap: 0.35rem;
+            flex-shrink: 0;
+        }
+
+        .document-association-actions .btn {
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+        }
+
+        .document-select-toolbar {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .document-select-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-height: 360px;
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+
+        .document-select-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .document-select-item:hover {
+            border-color: #7dd3fc;
+            background: #f0f9ff;
+        }
+
+        .document-select-item.active {
+            border-color: #0ea5e9;
+            background: #e0f2fe;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+        }
+
+        .document-select-item .form-check-input {
+            flex-shrink: 0;
+            margin-top: 0;
+            cursor: pointer;
+        }
+
+        .document-select-item-content {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .document-select-item-title {
+            font-weight: 500;
+            color: #334155;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .document-select-item-meta {
+            font-size: 0.75rem;
+            color: #64748b;
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            margin-top: 0.15rem;
+        }
+
+        .document-select-empty {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: #94a3b8;
+        }
+
+        .document-select-empty i {
+            display: block;
+            margin-bottom: 0.75rem;
+            opacity: 0.6;
+        }
+
     </style>
 
     <!-- 导入配置模态框 -->
-    <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="importModalLabel">导入表单配置</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <!-- SQL 解析模态框 -->
+    <div class="modal fade" id="sqlParseModal" tabindex="-1" aria-labelledby="sqlParseModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content modal-content-modern">
+                <div class="modal-header modal-header-gradient-info">
+                    <h5 class="modal-title" id="sqlParseModalLabel">
+                        <i class="bi bi-code-square"></i> 从 SQL 解析表单配置
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">选择配置文件</label>
-                        <input type="file" class="form-control" id="importFileInput" accept=".json,.zip">
-                        <small class="text-muted">支持 JSON 格式（单个）或 ZIP 格式（批量）</small>
+                <div class="modal-body component-modal-body">
+                    <div class="modal-section-card">
+                        <label class="modal-form-label">SQL 语句</label>
+                        <textarea class="form-control form-control-sm" id="sqlParseInput" rows="12"
+                                  placeholder="请粘贴 UPDATE 语句，支持多条。例如：&#10;UPDATE table_name SET col1='value1' WHERE col2='value2';"></textarea>
+                        <small class="text-muted" style="font-size: 0.75rem;">
+                            支持解析 UPDATE 语句，自动提取表名、SET 赋值（含子查询/函数会标记为计算字段）、WHERE 等值/IN 条件。
+                        </small>
                     </div>
-                    <div class="alert alert-info">
-                        <strong>提示：</strong>
+                    <div class="alert alert-info modern-alert">
+                        <h6 class="alert-heading"><i class="bi bi-info-circle"></i> 说明</h6>
+                        <ul class="mb-0 mt-2">
+                            <li><strong>表名：</strong>提取所有 UPDATE 目标表</li>
+                            <li><strong>查询字段：</strong>提取 <code>= 具体值</code> 与 <code>IN (具体值)</code> 的 WHERE 条件</li>
+                            <li><strong>更新字段：</strong>提取 SET 赋值；含 SELECT / 函数 / 表达式的赋值会标记为计算字段</li>
+                            <li>OPS_REMARK 字段会自动过滤，由“拼接 ops_remark”开关统一控制</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-info btn-modal-action" onclick="parseSqlAndFill()">
+                        <i class="bi bi-lightning"></i> 解析并填充
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content modal-content-modern">
+                <div class="modal-header modal-header-gradient-success">
+                    <h5 class="modal-title" id="importModalLabel">
+                        <i class="bi bi-upload"></i> 导入表单配置
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body component-modal-body">
+                    <div class="modal-section-card">
+                        <label class="modal-form-label">选择配置文件</label>
+                        <input type="file" class="form-control form-control-sm" id="importFileInput" accept=".json,.zip">
+                        <small class="text-muted" style="font-size: 0.75rem;">支持 JSON 格式（单个）或 ZIP 格式（批量）</small>
+                    </div>
+                    <div class="alert alert-info modern-alert">
+                        <h6 class="alert-heading"><i class="bi bi-info-circle"></i> 提示</h6>
                         <ul class="mb-0 mt-2">
                             <li><strong>JSON文件：</strong>导入单个表单配置</li>
                             <li><strong>ZIP文件：</strong>批量导入多个表单配置（包含多个JSON文件）</li>
@@ -3996,18 +5826,113 @@
                             <li>关联的数据库配置和组件配置将自动创建（如不存在）</li>
                         </ul>
                     </div>
-                    
+
                     <!-- 导入结果显示区域 -->
                     <div id="importResults" style="display: none; max-height: 300px; overflow-y: auto;">
-                        <h6 class="mb-2">导入结果：</h6>
+                        <div class="modal-section-title"><i class="bi bi-list-check"></i> 导入结果</div>
                         <div id="importResultsContent"></div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                    <button type="button" class="btn btn-primary" id="confirmImportBtn" onclick="confirmImport()">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-success btn-modal-action" id="confirmImportBtn" onclick="confirmImport()">
                         <i class="bi bi-upload"></i> 开始导入
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置表别名模态框 -->
+    <div class="modal fade" id="tableAliasModal" tabindex="-1" aria-labelledby="tableAliasModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content modal-content-modern">
+                <div class="modal-header modal-header-gradient-primary">
+                    <h5 class="modal-title" id="tableAliasModalLabel">
+                        <i class="bi bi-tag"></i> 设置表别名
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body component-modal-body">
+                    <div class="mb-3">
+                        <label class="modal-form-label">表名</label>
+                        <input type="text" class="form-control form-control-sm" id="aliasTableName" readonly>
+                    </div>
+                    <div>
+                        <label class="modal-form-label">别名</label>
+                        <input type="text" class="form-control form-control-sm" id="aliasTableValue" placeholder="留空表示无别名" onkeypress="if(event.key==='Enter') confirmEditTableAlias()">
+                        <small class="text-muted" style="font-size: 0.75rem;">只能包含字母、数字和下划线，且不能以数字开头</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary btn-modal-action" onclick="confirmEditTableAlias()">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JOIN 配置模态框 -->
+    <div class="modal fade" id="joinConfigModal" tabindex="-1" aria-labelledby="joinConfigModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content modal-content-modern">
+                <div class="modal-header modal-header-gradient-primary">
+                    <h5 class="modal-title" id="joinConfigModalLabel">
+                        <i class="bi bi-link-45deg"></i> 配置表关联关系
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body component-modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="modal-form-label">主表 <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm" id="joinMainTable" onchange="fillJoinAlias('main')">
+                                    <option value="">请选择...</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="modal-form-label">主表别名</label>
+                                <input type="text" class="form-control form-control-sm" id="joinMainAlias" placeholder="留空表示无别名">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="modal-form-label">JOIN 表 <span class="text-danger">*</span></label>
+                                <select class="form-select form-select-sm" id="joinJoinTable" onchange="fillJoinAlias('join')">
+                                    <option value="">请选择...</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="modal-form-label">JOIN 表别名</label>
+                                <input type="text" class="form-control form-control-sm" id="joinJoinAlias" placeholder="留空表示无别名">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="modal-form-label">JOIN 类型</label>
+                        <select class="form-select form-select-sm" id="joinType">
+                            <option value="JOIN">JOIN</option>
+                            <option value="INNER JOIN">INNER JOIN</option>
+                            <option value="LEFT JOIN">LEFT JOIN</option>
+                            <option value="RIGHT JOIN">RIGHT JOIN</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="modal-form-label mb-0">ON 条件 <span class="text-danger">*</span></label>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addOnConditionRow()">
+                                <i class="bi bi-plus-lg"></i> 添加条件
+                            </button>
+                        </div>
+                        <div id="onConditionsContainer">
+                            <!-- ON 条件行将在这里动态生成 -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary btn-modal-action" onclick="saveJoinConfig()">保存</button>
                 </div>
             </div>
         </div>

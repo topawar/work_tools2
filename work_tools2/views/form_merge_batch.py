@@ -6,6 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from openpyxl import load_workbook, Workbook
 from work_tools2.models import FormConfig, FormQueryItem, FormUpdateItem, DatabaseIPConfig
 from work_tools2.path_utils import get_save_path_from_config
+from work_tools2.views.usage_views import record_form_usage
 
 
 def _build_form_config_data(config):
@@ -19,6 +20,7 @@ def _build_form_config_data(config):
             'defaultValue': item.default_value,
             'ValidRule': item.valid_rule,
             'connectedTable': item.connected_table or [],
+            'expressions': item.expressions or {},
         })
 
     update_items_data = []
@@ -39,6 +41,8 @@ def _build_form_config_data(config):
         }
         if item.input_type == 'calculated':
             update_item['expressions'] = item.expressions or {}
+            update_item['splitExpression'] = item.split_expression or False
+            update_item['backwardExpressions'] = item.backward_expressions or {}
         if item.component_name:
             from work_tools2.models import ComponentConfig
             component = ComponentConfig.objects.filter(name=item.component_name).first()
@@ -209,7 +213,8 @@ def batch_import_merge(request):
                             config.form_name,
                             config.table_name_list,
                             config.query_mode,
-                            config.append_ops_remark
+                            config.append_ops_remark,
+                            config.table_aliases
                         )
 
                         row_errors = _extract_row_errors(ws)
@@ -219,6 +224,7 @@ def batch_import_merge(request):
                             all_backward_sqls.extend(result['backward_sqls'])
                             success_count += 1
                             json_form_ids.append(config.id)
+                            record_form_usage(config, source='merge')
                         else:
                             failed_sheets.append({
                                 'sheet': sheet_name,
@@ -259,7 +265,8 @@ def batch_import_merge(request):
                             config.form_name,
                             config.table_name_list,
                             config.query_mode,
-                            config.append_ops_remark
+                            config.append_ops_remark,
+                            config.table_aliases
                         )
 
                         row_errors = _extract_row_errors(ws)
@@ -268,6 +275,7 @@ def batch_import_merge(request):
                             all_forward_sqls.extend(result['forward_sqls'])
                             all_backward_sqls.extend(result['backward_sqls'])
                             success_count += 1
+                            record_form_usage(config, source='merge')
                         else:
                             failed_sheets.append({
                                 'sheet': sheet_name,

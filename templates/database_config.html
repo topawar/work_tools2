@@ -13,7 +13,7 @@
 
         <!-- 统计信息卡片 -->
         <div class="row mb-4">
-            <div class="col-md-3 col-sm-6">
+            <div class="col-md-4 col-sm-6">
                 <div class="stat-card stat-card-primary">
                     <div class="stat-icon"><i class="bi bi-table"></i></div>
                     <div class="stat-info">
@@ -22,7 +22,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 col-sm-6">
+            <div class="col-md-4 col-sm-6">
                 <div class="stat-card stat-card-success">
                     <div class="stat-icon"><i class="bi bi-file-earmark-text"></i></div>
                     <div class="stat-info">
@@ -31,21 +31,12 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 col-sm-6">
+            <div class="col-md-4 col-sm-6">
                 <div class="stat-card stat-card-info">
                     <div class="stat-icon"><i class="bi bi-cloud-upload"></i></div>
                     <div class="stat-info">
                         <div class="stat-label">今日导入</div>
                         <div class="stat-value" id="todayImports">0</div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3 col-sm-6">
-                <div class="stat-card stat-card-warning">
-                    <div class="stat-icon"><i class="bi bi-hdd"></i></div>
-                    <div class="stat-info">
-                        <div class="stat-label">数据库大小</div>
-                        <div class="stat-value" id="dbSize">0 MB</div>
                     </div>
                 </div>
             </div>
@@ -55,12 +46,17 @@
         <div class="quick-actions mb-4">
             <div class="quick-actions-title"><i class="bi bi-tools"></i> 快捷操作</div>
             <div class="row g-3">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#createTableModal">
                         <i class="bi bi-plus-circle"></i> 创建新表
                     </button>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <button type="button" class="btn btn-success w-100" onclick="showImportConfigModal()">
+                        <i class="bi bi-shield-check"></i> 导入表配置
+                    </button>
+                </div>
+                <div class="col-md-4">
                     <button type="button" class="btn btn-info w-100" onclick="showImportTasksModal()">
                         <i class="bi bi-list-task"></i> 导入任务队列
                     </button>
@@ -641,9 +637,118 @@
         </div>
     </div>
 
+    <!-- 导入表配置模态框 -->
+    <div class="modal fade" id="importConfigModal" tabindex="-1" aria-labelledby="importConfigModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header modal-header-gradient-success">
+                    <h5 class="modal-title" id="importConfigModalLabel">
+                        <i class="bi bi-shield-check"></i> 导入表配置
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info modern-alert">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>说明：</strong>勾选需要在“数据库表管理”中显示的表。未勾选的表将被隐藏。
+                        <code>items</code>、<code>org_detail</code>、<code>user_detail</code> 默认为非系统表；其余表默认为系统表，可展开后手动启用。
+                    </div>
+
+                    <!-- 搜索 -->
+                    <div class="input-group mb-3">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" id="importConfigSearch" placeholder="搜索表名..." oninput="filterImportConfig()">
+                    </div>
+
+                    <!-- 非系统表 -->
+                    <div class="import-config-section mb-3">
+                        <div class="d-flex justify-content-between align-items-center import-config-section-header bg-light px-3 py-2 rounded">
+                            <div>
+                                <strong><i class="bi bi-table"></i> 非系统表</strong>
+                                <span class="badge bg-success ms-2" id="nonSystemCount">0</span>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleImportConfigSelectAllByType('non_system', false)">取消全选</button>
+                                <button type="button" class="btn btn-sm btn-outline-success ms-1" onclick="toggleImportConfigSelectAllByType('non_system', true)">全选</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive mt-2">
+                            <table class="table modern-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 50px;">选择</th>
+                                        <th>表名</th>
+                                        <th style="width: 120px;">标识</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="nonSystemTableBody">
+                                    <tr><td colspan="3" class="text-center text-muted py-4">加载中...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 系统表 -->
+                    <div class="import-config-section">
+                        <div class="d-flex justify-content-between align-items-center import-config-section-header bg-light px-3 py-2 rounded" onclick="toggleSystemTablesSection()" style="cursor: pointer;">
+                            <div>
+                                <strong><i class="bi bi-hdd-stack"></i> 系统表</strong>
+                                <span class="badge bg-secondary ms-2" id="systemCount">0</span>
+                                <span class="text-muted ms-2 small">默认不展示，勾选后可在主列表显示</span>
+                            </div>
+                            <div>
+                                <i class="bi bi-chevron-down" id="systemTablesToggleIcon"></i>
+                            </div>
+                        </div>
+                        <div class="collapse" id="systemTablesCollapse">
+                            <div class="d-flex justify-content-end mt-2 mb-1">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); toggleImportConfigSelectAllByType('system', false)">取消全选</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="event.stopPropagation(); toggleImportConfigSelectAllByType('system', true)">全选</button>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table modern-table mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 50px;">选择</th>
+                                            <th>表名</th>
+                                            <th style="width: 120px;">标识</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="systemTableBody">
+                                        <tr><td colspan="3" class="text-center text-muted py-4">加载中...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-2" id="systemTablePagination">
+                                <span class="text-muted small" id="systemTablePageInfo"></span>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); changeSystemTablePage(-1)">上一页</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="event.stopPropagation(); changeSystemTablePage(1)">下一页</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-success btn-modal-action" onclick="saveImportConfig()">
+                        <i class="bi bi-check-lg"></i> 保存配置
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <style>
         .font-monospace {
             font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+
+        .import-config-section-header {
+            transition: background-color 0.2s;
+        }
+        .import-config-section-header:hover {
+            background-color: #e9ecef !important;
         }
 
         .field-row {
@@ -1233,9 +1338,15 @@
                                 <button class="btn btn-outline-primary" onclick="showDataManageModal('${table.name}')" title="数据管理">
                                     <i class="bi bi-table"></i><span class="btn-text">数据</span>
                                 </button>
+                                ${table.allow_import ? `
                                 <button class="btn btn-outline-success" onclick="showImportCsvModal('${table.name}')" title="导入CSV">
                                     <i class="bi bi-file-earmark-spreadsheet"></i><span class="btn-text">导入</span>
                                 </button>
+                                ` : `
+                                <button class="btn btn-outline-secondary" disabled title="未开启导入权限">
+                                    <i class="bi bi-file-earmark-spreadsheet"></i><span class="btn-text">导入</span>
+                                </button>
+                                `}
                                 <button class="btn btn-outline-info" onclick="showSqlQueryModal('${table.name}')" title="SQL查询">
                                     <i class="bi bi-code-slash"></i><span class="btn-text">SQL</span>
                                 </button>
@@ -1335,7 +1446,6 @@
                         document.getElementById('totalTables').textContent = stats.total_tables;
                         document.getElementById('totalRecords').textContent = stats.total_records;
                         document.getElementById('todayImports').textContent = stats.today_imports;
-                        document.getElementById('dbSize').textContent = stats.db_size;
 
                         // 调试信息
                         console.log('统计数据已更新:', stats);
@@ -1721,6 +1831,209 @@
             .catch(error => {
                 console.error('Error:', error);
                 showToast('更新表结构失败', 'error');
+            });
+        }
+
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '';
+            const div = document.createElement('div');
+            div.textContent = String(text);
+            return div.innerHTML;
+        }
+
+        // ==================== 导入表配置 ====================
+
+        const IMPORT_CONFIG_NON_SYSTEM_TABLES = ['items', 'org_detail', 'user_detail'];
+        const SYSTEM_TABLE_PAGE_SIZE = 10;
+        let importConfigData = [];
+        let importConfigSearchText = '';
+        let systemTablePage = 1;
+
+        function isNonSystemTable(tableName) {
+            return IMPORT_CONFIG_NON_SYSTEM_TABLES.includes(tableName);
+        }
+
+        function showImportConfigModal() {
+            const modalEl = document.getElementById('importConfigModal');
+            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            modal.show();
+            loadImportConfig();
+        }
+
+        function loadImportConfig() {
+            document.getElementById('nonSystemTableBody').innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">加载中...</td></tr>';
+            document.getElementById('systemTableBody').innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">加载中...</td></tr>';
+
+            fetch('/api/db/import-configs/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        importConfigData = data.data || [];
+                        importConfigSearchText = '';
+                        systemTablePage = 1;
+                        document.getElementById('importConfigSearch').value = '';
+                        renderImportConfig();
+                    } else {
+                        showToast(data.message || '加载失败', 'error');
+                        document.getElementById('nonSystemTableBody').innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">加载失败</td></tr>';
+                        document.getElementById('systemTableBody').innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">加载失败</td></tr>';
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+                    showToast('加载导入配置失败', 'error');
+                    document.getElementById('nonSystemTableBody').innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">加载失败</td></tr>';
+                    document.getElementById('systemTableBody').innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">加载失败</td></tr>';
+                });
+        }
+
+        function getImportConfigRows(type) {
+            return importConfigData
+                .map((cfg, index) => ({ cfg, index }))
+                .filter(({ cfg }) => {
+                    const isNonSystem = isNonSystemTable(cfg.table_name);
+                    return type === 'non_system' ? isNonSystem : !isNonSystem;
+                })
+                .filter(({ cfg }) => {
+                    if (!importConfigSearchText) return true;
+                    return cfg.table_name.toLowerCase().includes(importConfigSearchText);
+                });
+        }
+
+        function renderImportConfig() {
+            renderImportConfigSection('non_system', 'nonSystemTableBody', 'success', '非系统');
+            renderImportConfigSection('system', 'systemTableBody', 'secondary', '系统', true);
+            updateImportConfigCounts();
+        }
+
+        function renderImportConfigSection(type, tbodyId, badgeClass, badgeText, paginate = false) {
+            const tbody = document.getElementById(tbodyId);
+            let rows = getImportConfigRows(type);
+
+            if (paginate) {
+                const totalPages = Math.max(1, Math.ceil(rows.length / SYSTEM_TABLE_PAGE_SIZE));
+                if (systemTablePage > totalPages) systemTablePage = totalPages;
+                if (systemTablePage < 1) systemTablePage = 1;
+                const start = (systemTablePage - 1) * SYSTEM_TABLE_PAGE_SIZE;
+                rows = rows.slice(start, start + SYSTEM_TABLE_PAGE_SIZE);
+                updateSystemTablePagination(rows.length, getImportConfigRows(type).length);
+            }
+
+            if (rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted py-4">${importConfigSearchText ? '无匹配表' : '暂无配置'}</td></tr>`;
+                if (paginate) updateSystemTablePagination(0, 0);
+                return;
+            }
+
+            tbody.innerHTML = rows.map(({ cfg, index }) => `
+                <tr data-index="${index}" data-section="${type}">
+                    <td>
+                        <input class="form-check-input import-config-checkbox" type="checkbox"
+                               value="${escapeHtml(cfg.table_name)}" ${cfg.allow_import ? 'checked' : ''}
+                               data-index="${index}">
+                    </td>
+                    <td><span class="table-name-text">${escapeHtml(cfg.table_name)}</span></td>
+                    <td>
+                        <span class="badge bg-${badgeClass} bg-opacity-10 text-${badgeClass}">${badgeText}</span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateSystemTablePagination(pageCount, totalCount) {
+            const totalPages = Math.max(1, Math.ceil(totalCount / SYSTEM_TABLE_PAGE_SIZE));
+            const info = document.getElementById('systemTablePageInfo');
+            if (info) {
+                info.textContent = totalCount === 0 ? '无数据' : `第 ${systemTablePage} / ${totalPages} 页，共 ${totalCount} 条`;
+            }
+        }
+
+        function changeSystemTablePage(delta) {
+            systemTablePage += delta;
+            renderImportConfig();
+        }
+
+        function updateImportConfigRowState(index) {
+            const cfg = importConfigData[index];
+            if (!cfg) return;
+            const row = document.querySelector(`tr[data-index="${index}"]`);
+            if (!row) return;
+            const checkbox = row.querySelector('.import-config-checkbox');
+            if (checkbox) checkbox.checked = cfg.allow_import;
+            updateImportConfigCounts();
+        }
+
+        function updateImportConfigCounts() {
+            const nonSystemChecked = importConfigData.filter(cfg => isNonSystemTable(cfg.table_name) && cfg.allow_import).length;
+            const systemChecked = importConfigData.filter(cfg => !isNonSystemTable(cfg.table_name) && cfg.allow_import).length;
+            document.getElementById('nonSystemCount').textContent = nonSystemChecked;
+            document.getElementById('systemCount').textContent = systemChecked;
+        }
+
+        function filterImportConfig() {
+            importConfigSearchText = document.getElementById('importConfigSearch').value.trim().toLowerCase();
+            systemTablePage = 1;
+            renderImportConfig();
+        }
+
+        function toggleSystemTablesSection() {
+            const collapseEl = document.getElementById('systemTablesCollapse');
+            const icon = document.getElementById('systemTablesToggleIcon');
+            const bsCollapse = bootstrap.Collapse.getInstance(collapseEl) || new bootstrap.Collapse(collapseEl, { toggle: false });
+            if (collapseEl.classList.contains('show')) {
+                bsCollapse.hide();
+                icon.classList.remove('bi-chevron-up');
+                icon.classList.add('bi-chevron-down');
+            } else {
+                bsCollapse.show();
+                icon.classList.remove('bi-chevron-down');
+                icon.classList.add('bi-chevron-up');
+            }
+        }
+
+        function toggleImportConfigSelectAllByType(type, checked) {
+            importConfigData.forEach((cfg, index) => {
+                const isNonSystem = isNonSystemTable(cfg.table_name);
+                const match = type === 'non_system' ? isNonSystem : !isNonSystem;
+                if (match) {
+                    cfg.allow_import = checked;
+                }
+            });
+            systemTablePage = 1;
+            renderImportConfig();
+        }
+
+        // 监听单个复选框变化，同步更新数据对象及当前行状态
+        document.addEventListener('change', function (e) {
+            if (e.target.classList.contains('import-config-checkbox')) {
+                const index = parseInt(e.target.dataset.index);
+                if (importConfigData[index]) {
+                    importConfigData[index].allow_import = e.target.checked;
+                    updateImportConfigRowState(index);
+                }
+            }
+        });
+
+        function saveImportConfig() {
+            fetch('/api/db/import-config/save-batch/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({configs: importConfigData})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message || '导入配置保存成功', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('importConfigModal')).hide();
+                    loadTableList();
+                    loadStatistics();
+                } else {
+                    showToast(data.message || '保存失败', 'error');
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                showToast('保存导入配置失败', 'error');
             });
         }
 

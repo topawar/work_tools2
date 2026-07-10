@@ -1,7 +1,10 @@
 import json
+import re
+import sqlparse
+from sqlparse import tokens as T
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from work_tools2.models import Menu, FormConfig, FormQueryItem, FormUpdateItem
+from work_tools2.models import Menu, FormConfig, FormQueryItem, FormUpdateItem, DocumentLibrary
 from django.db import connection
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -118,6 +121,7 @@ def save_form_config(request):
             form_id = data.get('formId')
             form_name = data.get('formName')
             table_name_list = data.get('tableNameList', [])
+            table_aliases = data.get('tableAliases', {}) or {}
             database_ip_ids = data.get('databaseIpIds', [])
             parent_menu_id = data.get('parentMenuId')
             query_items = data.get('queryItems', [])
@@ -151,9 +155,16 @@ def save_form_config(request):
                     config = FormConfig.objects.get(id=form_id)
                     config.form_name = form_name
                     config.table_name_list = table_name_list
+                    config.table_aliases = table_aliases
+                    config.table_joins = data.get('tableJoins', []) or []
                     config.database_ip_ids = database_ip_ids
                     config.query_mode = data.get('queryMode', 'strict')  # 添加查询模式，默认严格
                     config.append_ops_remark = data.get('appendOpsRemark', True)  # 添加操作备注配置，默认拼接
+                    document_id = data.get('documentId')
+                    if document_id:
+                        config.document_id = int(document_id)
+                    else:
+                        config.document_id = None
                     config.save()
 
                     menu_url = f'/dynamic/{form_id}'
@@ -179,13 +190,17 @@ def save_form_config(request):
                 except FormConfig.DoesNotExist:
                     return JsonResponse({'success': False, 'message': '表单配置不存在'}, status=404)
             else:
+                document_id = data.get('documentId')
                 config = FormConfig.objects.create(
                     form_name=form_name,
                     table_name_list=table_name_list,
+                    table_aliases=table_aliases,
+                    table_joins=data.get('tableJoins', []) or [],
                     database_ip_ids=database_ip_ids,
                     query_mode=data.get('queryMode', 'strict'),  # 添加查询模式，默认严格
                     append_ops_remark=data.get('appendOpsRemark', True),  # 添加操作备注配置，默认拼接
                     is_active=True,
+                    document_id=int(document_id) if document_id else None,
                 )
                 form_id = config.id
 
@@ -222,6 +237,9 @@ def save_form_config(request):
                     connected_table=item_data.get('connectedTable', []),
                     valid_rule=item_data.get('ValidRule', 'required'),
                     default_value=item_data.get('defaultValue', ''),
+                    expressions=item_data.get('expressions', []) or [],
+                    split_expression=item_data.get('splitExpression', False),
+                    backward_expressions=item_data.get('backwardExpressions', []) or [],
                 )
 
             FormUpdateItem.objects.filter(form_config=config).delete()
@@ -243,7 +261,9 @@ def save_form_config(request):
                     main_field=item_data.get('mainField', ''),
                     sub_fields=item_data.get('subFields', []),
                     options=item_data.get('options', []),
-                    expressions=item_data.get('expressions', {}),  # 添加 expressions 字段
+                    expressions=item_data.get('expressions', []),
+                    split_expression=item_data.get('splitExpression', False),
+                    backward_expressions=item_data.get('backwardExpressions', []) or [],
                 )
 
             # 重新计算所有配置项的使用次数
@@ -287,6 +307,45 @@ def save_form_config(request):
 
 
 @csrf_exempt
+def update_form_document(request, form_id):
+    """仅更新表单配置的关联说明文档"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': '仅支持 POST 请求'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        document_id = data.get('document_id')
+
+        try:
+            config = FormConfig.objects.get(id=form_id)
+        except FormConfig.DoesNotExist:
+            return JsonResponse({'success': False, 'message': '表单配置不存在'}, status=404)
+
+        if document_id:
+            try:
+                doc = DocumentLibrary.objects.get(id=document_id)
+                config.document = doc
+            except DocumentLibrary.DoesNotExist:
+                return JsonResponse({'success': False, 'message': '文档不存在'}, status=404)
+        else:
+            config.document = None
+
+        config.save()
+        return JsonResponse({
+            'success': True,
+            'message': '关联文档更新成功',
+            'data': {
+                'form_id': config.id,
+                'document_id': document_id
+            }
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'JSON 解析失败'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'更新失败：{str(e)}'}, status=500)
+
+
+@csrf_exempt
 def get_form_configs(request):
     """获取所有表单配置列表"""
     if request.method == 'GET':
@@ -311,7 +370,11 @@ def get_form_configs(request):
                     'parent_menu_name': parent_menu_name,  # 添加父菜单名称
                     'query_mode': config.query_mode,  # 添加查询模式
                     'append_ops_remark': config.append_ops_remark,  # 添加操作备注配置
+                    'document_id': config.document_id,
+                    'document_title': config.document.title if config.document else None,
                     'created_at': config.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'call_count': config.call_count,
+                    'last_called_at': config.last_called_at.strftime('%Y-%m-%d %H:%M:%S') if config.last_called_at else None,
                 })
 
             return JsonResponse({'success': True, 'data': config_list})
@@ -348,6 +411,9 @@ def get_form_config_detail(request, form_id):
                     'label': item.label,
                     'type': item.field_type,
                     'defaultValue': item.default_value,
+                    'expressions': item.expressions or [],
+                    'splitExpression': item.split_expression or False,
+                    'backwardExpressions': item.backward_expressions or [],
                     'bindingKey': item.binding_key,
                     'sortOrder': item.sort_order,
                     'connectedTable': item.connected_table,
@@ -375,7 +441,9 @@ def get_form_config_detail(request, form_id):
                     'mainTable': item.main_table,
                     'mainField': item.main_field,
                     'subFields': item.sub_fields,
-                    'expressions': item.expressions,  # 添加 expressions 字段
+                    'expressions': item.expressions or [],
+                    'splitExpression': item.split_expression or False,
+                    'backwardExpressions': item.backward_expressions or [],
                 }
 
                 # 如果有componentName，从ComponentConfig表获取最新的options
@@ -398,10 +466,14 @@ def get_form_config_detail(request, form_id):
                     'formId': config.id,
                     'formName': config.form_name,
                     'tableNameList': config.table_name_list,
+                    'tableAliases': config.table_aliases or {},
+                    'tableJoins': config.table_joins or [],
                     'databaseIpIds': config.database_ip_ids,
                     'queryMode': config.query_mode,  # 添加查询模式
                     'appendOpsRemark': config.append_ops_remark,  # 添加操作备注配置
                     'parentMenuName': parent_menu_name,
+                    'documentId': config.document_id,
+                    'documentTitle': config.document.title if config.document else None,
                     'queryItems': query_items,
                     'updateItems': update_items,
                 }
@@ -474,6 +546,697 @@ def delete_form_config(request, form_id):
 
     return JsonResponse({'success': False, 'message': '仅支持 DELETE 请求'}, status=405)
 
+
+# ==================== SQL 解析辅助函数 ====================
+
+_SQL_IGNORE_COLUMNS = {'OPS_REMARK'}
+
+# 表达式中不需要参数化的常见常量
+_SQL_COMMON_LITERALS = {
+    '0', '1', 'Y', 'N', 'YES', 'NO', 'TRUE', 'FALSE', 'T', 'F',
+    'y', 'n', 'yes', 'no', 'true', 'false', 't', 'f',
+}
+
+
+def _strip_quotes(value):
+    """去除 SQL 字面值两端引号"""
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"', '`'):
+        return value[1:-1]
+    return value
+
+
+def _is_keyword_token(token, keyword):
+    """判断 token 是否是指定关键字（不区分大小写），兼容 Keyword 与 Keyword.DML"""
+    keyword_upper = keyword.upper()
+    if token.value.upper() != keyword_upper:
+        return False
+    return token.ttype in (T.Keyword, T.Keyword.DML)
+
+
+def _get_identifier_name(token):
+    """从 Identifier / IdentifierList 中提取名称，忽略别名与 schema"""
+    if token is None:
+        return None
+    if isinstance(token, sqlparse.sql.Identifier):
+        # 优先取真实名称，去除反引号
+        real_name = token.get_real_name()
+        if real_name:
+            return real_name
+        return _strip_quotes(token.value)
+    if isinstance(token, sqlparse.sql.IdentifierList):
+        # 列表取第一个
+        for t in token.tokens:
+            if not t.is_whitespace:
+                return _get_identifier_name(t)
+    if token.ttype in (T.Name, T.String.Single, T.String.Symbol):
+        return _strip_quotes(token.value)
+    return _strip_quotes(token.value) if token.ttype else None
+
+
+def _get_table_name(token):
+    """提取表名与别名，保留 schema 前缀（如 iplat4j.xs_user）"""
+    if token is None:
+        return None, None
+    if isinstance(token, sqlparse.sql.Identifier):
+        parent = token.get_parent_name()
+        real = token.get_real_name()
+        alias = token.get_alias() if hasattr(token, 'get_alias') else None
+        if real:
+            if parent:
+                return f"{parent}.{real}", alias
+            return real, alias
+        return _strip_quotes(token.value), alias
+    if isinstance(token, sqlparse.sql.IdentifierList):
+        for t in token.tokens:
+            if not t.is_whitespace:
+                return _get_table_name(t)
+    if token.ttype in (T.Name, T.String.Single, T.String.Symbol):
+        return _strip_quotes(token.value), None
+    return (_strip_quotes(token.value) if token.ttype else None), None
+
+
+def _get_column_name(tokens):
+    """从 token 序列中提取列名，支持 t.col、`col`"""
+    if not tokens:
+        return None
+    if isinstance(tokens, sqlparse.sql.Token):
+        tokens = [tokens]
+
+    # 过滤空白
+    tokens = [t for t in tokens if not t.is_whitespace]
+    if not tokens:
+        return None
+
+    last_token = tokens[-1]
+    if isinstance(last_token, sqlparse.sql.Identifier):
+        return last_token.get_real_name()
+    if last_token.ttype in (T.Name, T.String.Symbol):
+        return _strip_quotes(last_token.value)
+    return None
+
+
+def _extract_update_table(stmt):
+    """提取 UPDATE 语句的目标表名与别名，返回 (table_name, alias)"""
+    tokens = [t for t in stmt.tokens if not t.is_whitespace]
+    found = False
+    for token in tokens:
+        if found:
+            return _get_table_name(token)
+        if _is_keyword_token(token, 'UPDATE'):
+            found = True
+    return None, None
+
+
+def _extract_join_info(stmt):
+    """
+    提取 UPDATE ... JOIN 语句的 JOIN 信息。
+    返回 {
+        'main_table': str,
+        'main_alias': str|None,
+        'join_table': str,
+        'join_alias': str|None,
+        'join_type': str,
+        'on_conditions': [str, ...]
+    } 或 None
+    """
+    tokens = [t for t in stmt.tokens if not t.is_whitespace]
+    main_table, main_alias = _extract_update_table(stmt)
+    if not main_table:
+        return None
+
+    join_info = None
+    for i, token in enumerate(tokens):
+        if token.ttype is T.Keyword and token.value.upper() in ('JOIN', 'INNER', 'LEFT', 'RIGHT', 'FULL'):
+            join_type_parts = [token.value.upper()]
+            j = i + 1
+            while j < len(tokens) and tokens[j].ttype is T.Keyword and tokens[j].value.upper() in ('JOIN', 'OUTER', 'INNER'):
+                join_type_parts.append(tokens[j].value.upper())
+                j += 1
+            join_type = ' '.join(join_type_parts)
+            if j >= len(tokens):
+                continue
+            join_table, join_alias = _get_table_name(tokens[j])
+            if not join_table:
+                continue
+            # 查找 ON 关键字
+            on_idx = None
+            for k in range(j + 1, len(tokens)):
+                if tokens[k].ttype is T.Keyword and tokens[k].value.upper() == 'ON':
+                    on_idx = k
+                    break
+            on_conditions = []
+            if on_idx is not None:
+                # 收集 ON 后面的条件直到遇到 SET/WHERE
+                on_tokens = []
+                for k in range(on_idx + 1, len(tokens)):
+                    t = tokens[k]
+                    if _is_keyword_token(t, 'SET') or isinstance(t, sqlparse.sql.Where):
+                        break
+                    if t.ttype is T.Keyword and t.value.upper() in ('WHERE', 'ORDER', 'LIMIT', 'GROUP', 'HAVING'):
+                        break
+                    on_tokens.append(t)
+                if on_tokens:
+                    on_conditions.append(''.join(str(t) for t in on_tokens).strip())
+            join_info = {
+                'main_table': main_table,
+                'main_alias': main_alias,
+                'join_table': join_table,
+                'join_alias': join_alias,
+                'join_type': join_type,
+                'on_conditions': on_conditions,
+            }
+            break
+    return join_info
+
+
+def _get_column_with_alias(tokens):
+    """
+    从 token 序列中提取列名，支持 alias.column 格式。
+    返回 (alias, column_name)，alias 可能为 None。
+    """
+    if not tokens:
+        return None, None
+    if isinstance(tokens, sqlparse.sql.Token):
+        tokens = [tokens]
+    tokens = [t for t in tokens if not t.is_whitespace]
+    if not tokens:
+        return None, None
+
+    last_token = tokens[-1]
+    if isinstance(last_token, sqlparse.sql.Identifier):
+        real_name = last_token.get_real_name()
+        parent_name = last_token.get_parent_name()
+        if parent_name and real_name:
+            return parent_name, real_name
+        return None, real_name
+    if last_token.ttype in (T.Name, T.String.Symbol):
+        return None, _strip_quotes(last_token.value)
+    return None, None
+
+
+def _split_set_groups(set_tokens):
+    """将 SET 子句 token 序列按逗号拆分为赋值组，处理 IdentifierList 包裹"""
+    groups = []
+    current = []
+
+    def flush():
+        nonlocal current
+        if current:
+            groups.append(current[:])
+            current = []
+
+    def process(token):
+        if token.is_whitespace:
+            return
+        if token.ttype is T.Punctuation and token.value == ',':
+            flush()
+        elif isinstance(token, sqlparse.sql.IdentifierList):
+            for t in token.tokens:
+                process(t)
+        else:
+            current.append(token)
+
+    for token in set_tokens:
+        process(token)
+    flush()
+    return groups
+
+
+def _extract_set_assignments(stmt):
+    """提取 SET 子句中的赋值，返回 [(alias, column, expression)]"""
+    tokens = [t for t in stmt.tokens if not t.is_whitespace]
+    set_tokens = []
+    in_set = False
+
+    for token in tokens:
+        if _is_keyword_token(token, 'SET'):
+            in_set = True
+            continue
+        if not in_set:
+            continue
+        # SET 子句在遇到 Where 组或后续关键字时结束
+        if isinstance(token, sqlparse.sql.Where):
+            break
+        if token.ttype is T.Keyword and token.value.upper() in ('ORDER', 'LIMIT', 'GROUP', 'HAVING'):
+            break
+        set_tokens.append(token)
+
+    groups = _split_set_groups(set_tokens)
+    assignments = []
+
+    for group in groups:
+        # 处理 Comparison 组：ALIVE_FLAG='0'
+        if len(group) == 1 and isinstance(group[0], sqlparse.sql.Comparison):
+            comp = group[0]
+            alias, col_name = _get_column_with_alias(comp.left)
+            if col_name and col_name.upper() not in _SQL_IGNORE_COLUMNS:
+                expr = str(comp.right).strip()
+                assignments.append((alias, col_name, expr))
+            continue
+
+        # 否则在组内找等号
+        eq_idx = None
+        for i, t in enumerate(group):
+            if t.ttype is T.Operator.Comparison and t.value == '=':
+                eq_idx = i
+                break
+        if eq_idx is None:
+            continue
+
+        alias, col_name = _get_column_with_alias(group[:eq_idx])
+        if not col_name or col_name.upper() not in _SQL_IGNORE_COLUMNS:
+            continue
+
+        expr = ''.join(str(t) for t in group[eq_idx + 1:]).strip()
+        assignments.append((alias, col_name, expr))
+
+    return assignments
+
+
+def _is_calculated_expression(expr):
+    """判断 SET 右侧表达式是否为计算字段（子查询或函数/表达式）"""
+    upper = expr.upper()
+    if 'SELECT' in upper:
+        return True
+    # 匹配函数调用：name( 或 name (
+    if re.search(r'\b\w+\s*\(', expr):
+        return True
+    # 匹配算术/字符串拼接运算符（排除简单赋值）
+    # 简单去除字符串后检查
+    cleaned = re.sub(r"'[^']*'", '', expr)
+    cleaned = re.sub(r'"[^"]*"', '', cleaned)
+    if any(op in cleaned for op in ('+', '-', '*', '/', '||')):
+        return True
+    return False
+
+
+def _normalize_expressions(value):
+    """兼容旧 dict 格式，统一返回 [{tableName, expression}] 数组"""
+    if not value:
+        return []
+    if isinstance(value, dict):
+        return [
+            {'tableName': k, 'expression': str(v)}
+            for k, v in value.items()
+            if v is not None and str(v).strip()
+        ]
+    if isinstance(value, list):
+        return value
+    return []
+
+
+def _set_expression_entry(expressions, table_name, expression):
+    """在表达式数组中按 tableName 更新条目，不存在则追加"""
+    if not expression:
+        return expressions
+    for entry in expressions:
+        if isinstance(entry, dict) and entry.get('tableName') == table_name:
+            entry['expression'] = expression
+            return expressions
+    expressions.append({'tableName': table_name, 'expression': expression})
+    return expressions
+
+
+def _parameterize_expression_literals(expression):
+    """
+    将表达式中 col='literal' / col IN ('literal') 的非通用常量替换为 ${col}。
+    保留常见常量（如 0/1/Y/N）不变，便于用户手动维护业务常量。
+    """
+    if not expression:
+        return expression
+
+    col_pattern = r'((?:[a-zA-Z_][a-zA-Z0-9_]*\.)*[a-zA-Z_][a-zA-Z0-9_]*)'
+
+    def _col_var(full_col):
+        return full_col.split('.')[-1]
+
+    def _is_common(literal):
+        return _strip_quotes(literal).upper() in _SQL_COMMON_LITERALS
+
+    def replace_eq(match):
+        full_col = match.group(1)
+        literal = match.group(2)
+        if _is_common(literal):
+            return match.group(0)
+        return f"{full_col} = ${{{_col_var(full_col)}}}"
+
+    def replace_in(match):
+        full_col = match.group(1)
+        literals_str = match.group(2).strip()
+        literals = re.findall(r"'[^']*'|\"[^\"]*\"", literals_str)
+        if len(literals) != 1 or _is_common(literals[0]):
+            return match.group(0)
+        return f"{full_col} IN (${{{_col_var(full_col)}}})"
+
+    expr = re.sub(col_pattern + r"\s*=\s*('[^']*'|\"[^\"]*\")", replace_eq, expression, flags=re.IGNORECASE)
+    expr = re.sub(col_pattern + r"\s+in\s*\(([^)]*)\)", replace_in, expr, flags=re.IGNORECASE)
+    return expr
+
+
+def _split_where_conditions(where_tokens):
+    """按 AND/OR 拆分 WHERE 子句为条件 token 列表"""
+    conditions = []
+    current = []
+    for token in where_tokens:
+        if token.ttype is T.Keyword and token.value.upper() in ('AND', 'OR'):
+            if current:
+                conditions.append(current)
+                current = []
+        else:
+            current.append(token)
+    if current:
+        conditions.append(current)
+    return conditions
+
+
+def _extract_in_column_values(cond_tokens):
+    """从 col IN (...) 中提取别名、列名和值列表；若是子查询则返回空值列表"""
+    in_idx = None
+    for i, t in enumerate(cond_tokens):
+        if t.ttype is T.Keyword and t.value.upper() == 'IN':
+            in_idx = i
+            break
+    if in_idx is None:
+        return None, None, []
+
+    alias, col_name = _get_column_with_alias(cond_tokens[:in_idx])
+    if not col_name or col_name.upper() in _SQL_IGNORE_COLUMNS:
+        return None, None, []
+
+    values = []
+    for t in cond_tokens[in_idx + 1:]:
+        if isinstance(t, sqlparse.sql.Parenthesis):
+            # 子查询不提取具体值
+            if 'SELECT' in str(t).upper():
+                return alias, col_name, []
+            for inner in t.tokens:
+                if inner.is_whitespace:
+                    continue
+                if inner.ttype in (T.String.Single, T.String.Symbol):
+                    values.append(_strip_quotes(inner.value))
+                elif inner.ttype is T.Number.Integer:
+                    values.append(inner.value)
+                elif inner.ttype is T.Punctuation and inner.value == ',':
+                    continue
+                elif isinstance(inner, sqlparse.sql.IdentifierList):
+                    for it in inner.tokens:
+                        if it.is_whitespace or it.ttype is T.Punctuation:
+                            continue
+                        if it.ttype in (T.String.Single, T.String.Symbol):
+                            values.append(_strip_quotes(it.value))
+                        elif it.ttype is T.Number.Integer:
+                            values.append(it.value)
+    return alias, col_name, values
+
+
+def _extract_subquery_in_condition(cond_tokens):
+    """从 col IN (select ...) 中提取别名、列名和子查询表达式（不含字段名与 IN）"""
+    in_idx = None
+    for i, t in enumerate(cond_tokens):
+        if t.ttype is T.Keyword and t.value.upper() == 'IN':
+            in_idx = i
+            break
+    if in_idx is None:
+        return None, None, None
+
+    alias, col_name = _get_column_with_alias(cond_tokens[:in_idx])
+    if not col_name or col_name.upper() in _SQL_IGNORE_COLUMNS:
+        return None, None, None
+
+    for t in cond_tokens[in_idx + 1:]:
+        if isinstance(t, sqlparse.sql.Parenthesis) and 'SELECT' in str(t).upper():
+            expr = str(t).strip()
+            # 去掉外层括号，避免后续生成 IN (expression) 时出现双括号
+            if expr.startswith('(') and expr.endswith(')'):
+                expr = expr[1:-1].strip()
+            return alias, col_name, expr
+    return None, None, None
+
+
+def _extract_eq_column_value(cond_tokens):
+    """从 col = value 中提取别名、列名和值"""
+    eq_idx = None
+    for i, t in enumerate(cond_tokens):
+        if t.ttype is T.Operator.Comparison and t.value == '=':
+            eq_idx = i
+            break
+    if eq_idx is None:
+        return None, None, None
+
+    alias, col_name = _get_column_with_alias(cond_tokens[:eq_idx])
+    if not col_name or col_name.upper() in _SQL_IGNORE_COLUMNS:
+        return None, None, None
+
+    value_tokens = cond_tokens[eq_idx + 1:]
+    value = ''.join(str(t) for t in value_tokens).strip()
+    return alias, col_name, _strip_quotes(value)
+
+
+def _extract_where_conditions(stmt):
+    """提取 WHERE 子句中的等值/IN 条件，返回 [(alias, column, operator, value)]"""
+    # 找到 Where 组
+    where_clause = None
+    for token in stmt.tokens:
+        if isinstance(token, sqlparse.sql.Where):
+            where_clause = token
+            break
+
+    if not where_clause:
+        return []
+
+    # 去掉末尾的分号
+    where_tokens = [t for t in where_clause.tokens if not t.is_whitespace and not (t.ttype is T.Punctuation and t.value == ';')]
+    # 去掉开头的 where 关键字
+    if where_tokens and _is_keyword_token(where_tokens[0], 'WHERE'):
+        where_tokens = where_tokens[1:]
+
+    conditions = _split_where_conditions(where_tokens)
+    result = []
+    for cond_tokens in conditions:
+        # 如果条件是单个 Comparison 组，展开其内部 tokens 处理
+        if len(cond_tokens) == 1 and isinstance(cond_tokens[0], sqlparse.sql.Comparison):
+            comp_tokens = [t for t in cond_tokens[0].tokens if not t.is_whitespace]
+            cond_tokens = comp_tokens
+
+        # 检查是否包含子查询
+        has_subquery = any(
+            isinstance(t, sqlparse.sql.Parenthesis) and 'SELECT' in str(t).upper()
+            for t in cond_tokens
+        )
+        if has_subquery:
+            # 尝试解析为计算字段查询条件：col IN (subquery)
+            alias, col_name, full_condition = _extract_subquery_in_condition(cond_tokens)
+            if col_name and full_condition:
+                result.append((alias, col_name, 'CALCULATED_IN', full_condition))
+            continue
+
+        alias, col_name, values = _extract_in_column_values(cond_tokens)
+        if col_name:
+            if values:
+                result.append((alias, col_name, 'IN', values))
+            continue
+
+        alias, col_name, value = _extract_eq_column_value(cond_tokens)
+        if col_name and value:
+            result.append((alias, col_name, 'EQ', value))
+
+    return result
+
+
+def _parse_sql_to_config(sql_text):
+    """解析 SQL 文本，返回表单配置结构"""
+    if not sql_text or not sql_text.strip():
+        raise ValueError('SQL 内容不能为空')
+
+    statements = sqlparse.parse(sql_text)
+    update_statements = [s for s in statements if s.get_type() == 'UPDATE']
+
+    if not update_statements:
+        raise ValueError('未识别到 UPDATE 语句，请检查 SQL 格式')
+
+    table_order = []
+    table_aliases = {}      # table -> alias
+    table_set_fields = {}   # table -> {bindingKey: expression}
+    table_where_fields = {}  # table -> {bindingKey: [(operator, value)]}
+    table_joins = []
+
+    for stmt in update_statements:
+        table_name, table_alias = _extract_update_table(stmt)
+        if not table_name:
+            continue
+        if table_name not in table_order:
+            table_order.append(table_name)
+        if table_alias and table_name not in table_aliases:
+            table_aliases[table_name] = table_alias
+
+        # 提取 JOIN 信息
+        join_info = _extract_join_info(stmt)
+        if join_info:
+            if join_info['join_table'] not in table_order:
+                table_order.append(join_info['join_table'])
+            if join_info['join_alias'] and join_info['join_table'] not in table_aliases:
+                table_aliases[join_info['join_table']] = join_info['join_alias']
+            if join_info not in table_joins:
+                table_joins.append(join_info)
+
+        # 别名 -> 物理表映射
+        alias_map = {}
+        if table_alias:
+            alias_map[table_alias] = table_name
+        if join_info:
+            if join_info['main_alias']:
+                alias_map[join_info['main_alias']] = join_info['main_table']
+            if join_info['join_alias']:
+                alias_map[join_info['join_alias']] = join_info['join_table']
+
+        table_set_fields.setdefault(table_name, {})
+        table_where_fields.setdefault(table_name, {})
+        if join_info:
+            table_set_fields.setdefault(join_info['join_table'], {})
+            table_where_fields.setdefault(join_info['join_table'], {})
+
+        for alias, col, expr in _extract_set_assignments(stmt):
+            target_table = alias_map.get(alias, table_name) if alias else table_name
+            table_set_fields.setdefault(target_table, {})[col] = expr
+
+        for alias, col, op, value in _extract_where_conditions(stmt):
+            target_table = alias_map.get(alias, table_name) if alias else table_name
+            table_where_fields.setdefault(target_table, {}).setdefault(col, [])
+            table_where_fields[target_table][col].append((op, value))
+
+    # 合并查询字段
+    query_field_map = {}
+    query_index = 0
+    for table_name, fields in table_where_fields.items():
+        for col, conditions in fields.items():
+            if col not in query_field_map:
+                query_field_map[col] = {
+                    'label': col,
+                    'type': 'text',
+                    'defaultValue': '',
+                    'expressions': [],
+                    'bindingKey': col,
+                    'sortOrder': query_index,
+                    'connectedTable': [],
+                    'ValidRule': 'required',
+                }
+                query_index += 1
+            if table_name not in query_field_map[col]['connectedTable']:
+                query_field_map[col]['connectedTable'].append(table_name)
+
+            # 处理子查询 IN 条件：类型为 subquery，表达式为子查询本身
+            for op, value in conditions:
+                if op == 'CALCULATED_IN':
+                    query_field_map[col]['type'] = 'subquery'
+                    _set_expression_entry(
+                        query_field_map[col]['expressions'],
+                        table_name,
+                        _parameterize_expression_literals(value)
+                    )
+
+    # 合并更新字段
+    update_field_map = {}
+    update_index = 0
+    for table_name, fields in table_set_fields.items():
+        for col, expr in fields.items():
+            is_calculated = _is_calculated_expression(expr)
+            if col not in update_field_map:
+                update_field_map[col] = {
+                    'label': col,
+                    'type': 'calculated' if is_calculated else 'text',
+                    'bindingKey': col,
+                    'sortOrder': update_index,
+                    'inputType': 'calculated' if is_calculated else 'input',
+                    'connectedTable': [],
+                    'newValidRule': 'requiredReverse',
+                    'originValidRule': 'requiredReverse',
+                    'originDefaultValue': '',
+                    'newDefaultValue': '',
+                    'componentName': '',
+                    'mainTable': '',
+                    'mainField': '',
+                    'subFields': [],
+                    'expressions': [],
+                    'backwardExpressions': [],
+                    'splitExpression': False,
+                    'options': [],
+                }
+                update_index += 1
+            if table_name not in update_field_map[col]['connectedTable']:
+                update_field_map[col]['connectedTable'].append(table_name)
+
+            if is_calculated:
+                _set_expression_entry(
+                    update_field_map[col]['expressions'],
+                    table_name,
+                    _parameterize_expression_literals(expr)
+                )
+            else:
+                # 若所有赋值值相同，作为新值默认值
+                literal = _strip_quotes(expr)
+                if update_field_map[col]['newDefaultValue'] == '':
+                    update_field_map[col]['newDefaultValue'] = literal
+                elif update_field_map[col]['newDefaultValue'] != literal:
+                    update_field_map[col]['newDefaultValue'] = ''
+
+    # 对存在不同值的情况清空默认值
+    for col, item in update_field_map.items():
+        if item['type'] != 'calculated':
+            values = set()
+            for table_name in item['connectedTable']:
+                expr = table_set_fields.get(table_name, {}).get(col, '')
+                values.add(_strip_quotes(expr))
+            if len(values) == 1:
+                item['newDefaultValue'] = values.pop()
+            else:
+                item['newDefaultValue'] = ''
+
+    # 规范化 table_joins 输出
+    normalized_joins = []
+    for ji in table_joins:
+        normalized_joins.append({
+            'main_table': ji['main_table'],
+            'main_alias': ji['main_alias'],
+            'join_table': ji['join_table'],
+            'join_alias': ji['join_alias'],
+            'join_type': ji['join_type'],
+            'on_conditions': ji['on_conditions'],
+        })
+
+    return {
+        'tableNameList': table_order,
+        'tableAliases': table_aliases,
+        'tableJoins': normalized_joins,
+        'queryItems': list(query_field_map.values()),
+        'updateItems': list(update_field_map.values()),
+    }
+
+
+@csrf_exempt
+def parse_sql_form_config(request):
+    """接收 SQL 文本并解析为表单配置草案"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': '仅支持 POST 请求'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        sql_text = data.get('sql_text', '')
+        config = _parse_sql_to_config(sql_text)
+        return JsonResponse({
+            'success': True,
+            'data': config,
+            'message': f"解析完成：共 {len(config['tableNameList'])} 个表，{len(config['queryItems'])} 个查询字段，{len(config['updateItems'])} 个更新字段"
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'JSON 解析失败'}, status=400)
+    except ValueError as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=400)
+    except Exception as e:
+        import traceback
+        print(f"SQL 解析异常: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({'success': False, 'message': f'解析失败：{str(e)}'}, status=500)
 
 
 @csrf_exempt
@@ -908,6 +1671,8 @@ def duplicate_form_config(request, form_id):
             new_config = FormConfig.objects.create(
                 form_name=new_form_name,
                 table_name_list=original_config.table_name_list,
+                table_aliases=original_config.table_aliases or {},
+                table_joins=original_config.table_joins or [],
                 database_ip_ids=original_config.database_ip_ids,
                 query_mode=original_config.query_mode,
                 append_ops_remark=original_config.append_ops_remark,
@@ -925,6 +1690,9 @@ def duplicate_form_config(request, form_id):
                     connected_table=item.connected_table,
                     valid_rule=item.valid_rule,
                     default_value=item.default_value,
+                    expressions=item.expressions or [],
+                    split_expression=item.split_expression or False,
+                    backward_expressions=item.backward_expressions or [],
                 )
             
             # 复制更新字段
@@ -946,7 +1714,9 @@ def duplicate_form_config(request, form_id):
                     main_field=item.main_field,
                     sub_fields=item.sub_fields,
                     options=item.options,
-                    expressions=item.expressions,
+                    expressions=item.expressions or [],
+                    split_expression=item.split_expression or False,
+                    backward_expressions=item.backward_expressions or [],
                 )
             
             # 创建新的菜单
@@ -1044,6 +1814,8 @@ def export_form_config(request, form_id):
                 'formConfig': {
                     'formName': config.form_name,
                     'tableNameList': config.table_name_list,
+                    'tableAliases': config.table_aliases or {},
+                    'tableJoins': config.table_joins or [],
                     'parentMenuName': parent_menu_name,
                     'queryMode': config.query_mode,
                     'appendOpsRemark': config.append_ops_remark,
@@ -1065,6 +1837,9 @@ def export_form_config(request, form_id):
                     'connectedTable': item.connected_table,
                     'validRule': item.valid_rule,
                     'defaultValue': item.default_value,
+                    'expressions': item.expressions or [],
+                    'splitExpression': item.split_expression or False,
+                    'backwardExpressions': item.backward_expressions or [],
                 })
             
             # 导出更新字段
@@ -1086,7 +1861,9 @@ def export_form_config(request, form_id):
                     'mainField': item.main_field,
                     'subFields': item.sub_fields,
                     'options': item.options,
-                    'expressions': item.expressions,
+                    'expressions': item.expressions or [],
+                    'splitExpression': item.split_expression or False,
+                    'backwardExpressions': item.backward_expressions or [],
                 }
                 export_data['updateItems'].append(update_item)
                 
@@ -1190,6 +1967,8 @@ def batch_export_form_configs(request):
                             'formConfig': {
                                 'formName': config.form_name,
                                 'tableNameList': config.table_name_list,
+                                'tableAliases': config.table_aliases or {},
+                                'tableJoins': config.table_joins or [],
                                 'parentMenuName': parent_menu_name,
                                 'queryMode': config.query_mode,
                                 'appendOpsRemark': config.append_ops_remark,
@@ -1211,6 +1990,9 @@ def batch_export_form_configs(request):
                                 'connectedTable': item.connected_table,
                                 'validRule': item.valid_rule,
                                 'defaultValue': item.default_value,
+                                'expressions': item.expressions or [],
+                                'splitExpression': item.split_expression or False,
+                                'backwardExpressions': item.backward_expressions or [],
                             })
                         
                         # 导出更新字段
@@ -1232,7 +2014,9 @@ def batch_export_form_configs(request):
                                 'mainField': item.main_field,
                                 'subFields': item.sub_fields,
                                 'options': item.options,
-                                'expressions': item.expressions,
+                                'expressions': item.expressions or [],
+                                'splitExpression': item.split_expression or False,
+                                'backwardExpressions': item.backward_expressions or [],
                             }
                             export_data['updateItems'].append(update_item)
                             
@@ -1448,6 +2232,8 @@ def _import_single_config(import_data, filename='unknown.json'):
         new_config = FormConfig.objects.create(
             form_name=form_name,
             table_name_list=form_config_data.get('tableNameList', []),
+            table_aliases=form_config_data.get('tableAliases', {}),
+            table_joins=form_config_data.get('tableJoins', []),
             database_ip_ids=database_ip_ids,
             query_mode=form_config_data.get('queryMode', 'strict'),
             append_ops_remark=form_config_data.get('appendOpsRemark', True),
@@ -1465,6 +2251,9 @@ def _import_single_config(import_data, filename='unknown.json'):
                 connected_table=item_data.get('connectedTable', []),
                 valid_rule=item_data.get('validRule', 'required'),
                 default_value=item_data.get('defaultValue', ''),
+                expressions=_normalize_expressions(item_data.get('expressions')),
+                split_expression=item_data.get('splitExpression', False),
+                backward_expressions=_normalize_expressions(item_data.get('backwardExpressions')),
             )
         
         # 创建更新字段
@@ -1486,7 +2275,9 @@ def _import_single_config(import_data, filename='unknown.json'):
                 main_field=item_data.get('mainField', ''),
                 sub_fields=item_data.get('subFields', []),
                 options=item_data.get('options', []),
-                expressions=item_data.get('expressions', {}),
+                expressions=_normalize_expressions(item_data.get('expressions')),
+                split_expression=item_data.get('splitExpression', False),
+                backward_expressions=_normalize_expressions(item_data.get('backwardExpressions')),
             )
         
         # 获取或创建父级菜单

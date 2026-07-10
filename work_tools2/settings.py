@@ -11,11 +11,22 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def get_runtime_base_dir():
+    """获取运行时基础目录（打包后在可执行文件同级，开发时在项目根目录）"""
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).parent
+    return BASE_DIR
+
+
+RUNTIME_BASE_DIR = get_runtime_base_dir()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -122,6 +133,10 @@ STATIC_URL = "/static/"  # 别名
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
 ]
+
+# Media files (uploaded images/attachments)
+MEDIA_URL = "/media/"
+MEDIA_ROOT = RUNTIME_BASE_DIR / "media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

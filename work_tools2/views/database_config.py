@@ -4,6 +4,7 @@ import io
 import os
 import re
 import sqlite3
+import tempfile
 import time
 from datetime import datetime
 
@@ -13,34 +14,14 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from work_tools2.task import get_all_tasks, create_import_task, get_task_status
-from work_tools2.models import FormConfig, FormQueryItem, FormUpdateItem, ImportTaskModel
+from work_tools2.models import (
+    FormConfig, FormQueryItem, FormUpdateItem, ImportTaskModel,
+    TableRowCount, TableImportConfig
+)
 
-# 系统表集合 - 这些表不允许删除、清空或修改
-SYSTEM_TABLES = {
-    # Django系统表
-    'django_migrations',
-    'django_content_type',
-    'auth_permission',
-    'auth_group',
-    'auth_user',
-    'auth_user_groups',
-    'auth_user_user_permissions',
-    'auth_group_permissions',
-    'django_admin_log',
-    'django_session',
-
-    # 业务核心表（根据实际需求添加）
-    'work_tools2_formconfig',
-    'work_tools2_formqueryitem',
-    'work_tools2_formupdateitem',
-    'work_tools2_componentconfig',
-    'work_tools2_menu',
-    '_table_metadata',
-    'work_tools2_databaseipconfig',
-    'work_tools2_filepathconfig',
-    '_query_sql_config',
-    'work_tools2_importtask'
-}
+def is_system_table(table_name):
+    """仅过滤 SQLite 内部表，其余表均视为可由前端动态控制"""
+    return table_name.startswith('sqlite_')
 
 
 def get_db_connection():
@@ -51,9 +32,95 @@ def get_db_connection():
     return conn
 
 
-def is_system_table(table_name):
-    """检查是否为系统表"""
-    return table_name in SYSTEM_TABLES or table_name.startswith('sqlite_') or table_name.startswith('django_')
+def _get_cached_row_count(table_name):
+    """从 TableRowCount 读取缓存行数，不存在返回 None"""
+    try:
+        rc = TableRowCount.objects.filter(table_name=table_name).first()
+        if rc:
+            return rc.row_count
+    except Exception:
+        pass
+    return None
+
+
+def _refresh_row_count(table_name):
+    """重新计算并缓存指定表的行数"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT COUNT(*) as count FROM {table_name}")
+        count = cursor.fetchone()['count']
+        conn.close()
+        TableRowCount.objects.update_or_create(
+            table_name=table_name,
+            defaults={'row_count': count}
+        )
+        return count
+    except Exception:
+        return None
+
+
+def _remove_row_count(table_name):
+    """删除表行数缓存"""
+    try:
+        TableRowCount.objects.filter(table_name=table_name).delete()
+    except Exception:
+        pass
+
+
+def _rename_row_count(old_name, new_name):
+    """重命名表行数缓存"""
+    try:
+        TableRowCount.objects.filter(table_name=old_name).update(table_name=new_name)
+    except Exception:
+        pass
+
+
+def _get_import_config_map():
+    """获取所有表导入配置映射"""
+    try:
+        return {c.table_name: c.allow_import for c in TableImportConfig.objects.all()}
+    except Exception:
+        return {}
+
+
+def _is_table_import_allowed(table_name):
+    """判断表是否允许 CSV 导入；未配置时默认允许导入"""
+    try:
+        config = TableImportConfig.objects.filter(table_name=table_name).first()
+        if config:
+            return config.allow_import
+    except Exception:
+        pass
+    return True
+
+
+def _set_import_config(table_name, allow_import):
+    """设置表导入开关"""
+    try:
+        TableImportConfig.objects.update_or_create(
+            table_name=table_name,
+            defaults={'allow_import': bool(allow_import)}
+        )
+        return True
+    except Exception:
+        return False
+
+
+def _remove_import_config(table_name):
+    """删除表导入配置"""
+    try:
+        TableImportConfig.objects.filter(table_name=table_name).delete()
+    except Exception:
+        pass
+
+
+def _rename_import_config(old_name, new_name):
+    """重命名表导入配置"""
+    try:
+        TableImportConfig.objects.filter(table_name=old_name).update(table_name=new_name)
+    except Exception:
+        pass
 
 
 @require_http_methods(["GET"])
@@ -75,12 +142,27 @@ def get_table_list(request):
                        ORDER BY name
                        """)
 
+        # 预加载所有行数缓存和导入配置，避免循环内多次查询
+        cache_map = {}
+        try:
+            for rc in TableRowCount.objects.all():
+                cache_map[rc.table_name] = rc
+        except Exception:
+            pass
+
+        import_config_map = _get_import_config_map()
+
         tables = []
         for row in cursor.fetchall():
             table_name = row['name']
 
-            # 过滤系统表
+            # 过滤 SQLite 内部表
             if is_system_table(table_name):
+                continue
+
+            # 过滤未开启导入开关的表（由前端导入表配置控制是否显示）
+            allow_import = import_config_map.get(table_name, True)
+            if not allow_import:
                 continue
 
             # 获取表的字段数
@@ -88,44 +170,21 @@ def get_table_list(request):
             fields = cursor.fetchall()
             field_count = len(fields)
 
-            # 获取记录数
-            cursor.execute(f"SELECT COUNT(*) as count FROM {table_name}")
-            record_count = cursor.fetchone()['count']
+            # 获取记录数：优先读取缓存表，没有缓存再 COUNT(*)
+            rc = cache_map.get(table_name)
+            if rc:
+                record_count = rc.row_count
+            else:
+                record_count = _refresh_row_count(table_name) or 0
 
-            # 获取创建时间（从sqlite_master的create_time或使用文件修改时间）
+            # 时间直接取自缓存记录，避免大表 MIN/MAX 扫描
             created_at = '-'
             updated_at = '-'
-
-            # 尝试从表中获取最早和最晚的时间戳
-            has_created_at = any(f['name'] == 'created_at' for f in fields)
-            has_updated_at = any(f['name'] == 'updated_at' for f in fields)
-
-            if has_created_at:
-                try:
-                    cursor.execute(f"SELECT MIN(created_at) as min_time FROM {table_name}")
-                    result = cursor.fetchone()
-                    if result and result['min_time']:
-                        created_at = result['min_time']
-                except:
-                    pass
-
-            if has_updated_at:
-                try:
-                    cursor.execute(f"SELECT MAX(updated_at) as max_time FROM {table_name}")
-                    result = cursor.fetchone()
-                    if result and result['max_time']:
-                        updated_at = result['max_time']
-                except:
-                    pass
-
-            # 如果表中没有时间字段，使用数据库文件的修改时间
-            if created_at == '-':
-                try:
-                    db_path = os.path.join(settings.BASE_DIR, 'db.sqlite3')
-                    file_mtime = os.path.getmtime(db_path)
-                    created_at = datetime.fromtimestamp(file_mtime).strftime('%Y-%m-%d %H:%M:%S')
-                except:
-                    pass
+            if rc:
+                if rc.created_at:
+                    created_at = rc.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                if rc.updated_at:
+                    updated_at = rc.updated_at.strftime('%Y-%m-%d %H:%M:%S')
 
             # 获取表备注（从表注释或特殊标记中获取）
             comment = ''
@@ -144,7 +203,8 @@ def get_table_list(request):
                 'record_count': record_count,
                 'created_at': created_at,
                 'updated_at': updated_at,
-                'is_system': is_system_table(table_name)
+                'is_system': is_system_table(table_name),
+                'allow_import': allow_import
             })
 
         conn.close()
@@ -291,6 +351,16 @@ def create_table(request):
 
         conn.commit()
         conn.close()
+
+        # 初始化行数缓存和导入配置（网页新建的表默认允许导入）
+        try:
+            TableRowCount.objects.create(table_name=table_name, row_count=0)
+        except Exception:
+            pass
+        try:
+            TableImportConfig.objects.create(table_name=table_name, allow_import=True)
+        except Exception:
+            pass
 
         return JsonResponse({
             'success': True,
@@ -584,6 +654,10 @@ def delete_table(request):
         conn.commit()
         conn.close()
 
+        # 删除行数缓存和导入配置
+        _remove_row_count(table_name)
+        _remove_import_config(table_name)
+
         return JsonResponse({
             'success': True,
             'message': f'表 {table_name} 已删除'
@@ -658,6 +732,15 @@ def truncate_table(request):
         size_after = os.path.getsize(db_path)
         saved_bytes = size_before - size_after
         saved_mb = round(saved_bytes / (1024 * 1024), 2)
+
+        # 行数缓存置 0
+        try:
+            TableRowCount.objects.update_or_create(
+                table_name=table_name,
+                defaults={'row_count': 0}
+            )
+        except Exception:
+            pass
 
         message = f'表 {table_name} 数据已清空'
         if saved_mb > 0:
@@ -753,6 +836,10 @@ def rename_table(request):
         conn.commit()
         conn.close()
 
+        # 同步更新行数缓存和导入配置表名
+        _rename_row_count(old_name, new_name)
+        _rename_import_config(old_name, new_name)
+
         # 同步更新表单配置中的表名引用
         updated_configs = 0
         for config in FormConfig.objects.all():
@@ -802,185 +889,14 @@ def rename_table(request):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
-def import_csv_data(request):
-    """导入CSV数据"""
-    try:
-        table_name = request.POST.get('table_name', '')
-        csv_file = request.FILES.get('csv_file')
-
-        if not table_name:
-            return JsonResponse({
-                'success': False,
-                'message': '表名不能为空'
-            }, status=400)
-
-        # 检查是否为系统表
-        if is_system_table(table_name):
-            return JsonResponse({
-                'success': False,
-                'message': f'表 "{table_name}" 是系统表，不允许导入数据'
-            }, status=403)
-
-        if not csv_file:
-            return JsonResponse({
-                'success': False,
-                'message': '请选择CSV文件'
-            }, status=400)
-
-        # 读取CSV文件
-        csv_content = csv_file.read().decode('utf-8')
-        csv_reader = csv.reader(io.StringIO(csv_content))
-
-        # 读取表头
-        headers = next(csv_reader)
-
-        # 清理表头（去除空格和特殊字符）
-        headers = [h.strip().replace(' ', '_').replace('-', '_') for h in headers]
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        # 检查表是否存在
-        cursor.execute("""
-                       SELECT name
-                       FROM sqlite_master
-                       WHERE type = 'table'
-                         AND name = ?
-                       """, (table_name,))
-
-        if not cursor.fetchone():
-            conn.close()
-            return JsonResponse({
-                'success': False,
-                'message': f'表 {table_name} 不存在'
-            }, status=404)
-
-        # 获取表的字段信息
-        cursor.execute(f"PRAGMA table_info({table_name})")
-        table_fields = {row['name']: row for row in cursor.fetchall()}
-        
-        # 创建小写字段名映射（用于大小写不敏感匹配）
-        table_fields_lower = {name.lower(): name for name in table_fields.keys()}
-
-        # 过滤掉表中不存在的字段（大小写不敏感）
-        valid_headers = []
-        header_mapping = {}  # CSV表头 -> 表字段名的映射
-        for h in headers:
-            h_lower = h.lower()
-            if h_lower in table_fields_lower:
-                actual_field_name = table_fields_lower[h_lower]
-                valid_headers.append(actual_field_name)
-                header_mapping[h] = actual_field_name
-
-        if not valid_headers:
-            conn.close()
-            return JsonResponse({
-                'success': False,
-                'message': 'CSV文件中的字段与表结构不匹配'
-            }, status=400)
-        
-        # 如果有部分字段不匹配，记录警告信息
-        invalid_headers = [h for h in headers if h.lower() not in table_fields_lower]
-        if invalid_headers:
-            print(f"警告: 以下字段在表中不存在，将被忽略: {', '.join(invalid_headers)}")
-
-        # 清空表（如果需要）
-        truncate_before = request.POST.get('truncate_before', 'false').lower() == 'true'
-        if truncate_before:
-            cursor.execute(f"DELETE FROM {table_name}")
-
-        # 批量插入数据
-        inserted_count = 0
-        failed_count = 0
-        errors = []
-
-        placeholders = ','.join(['?' for _ in valid_headers])
-        columns = ','.join(valid_headers)
-        insert_sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-
-        for row_num, row in enumerate(csv_reader, start=2):
-            try:
-                if len(row) < len(headers):
-                    # 补齐空值
-                    row.extend([''] * (len(headers) - len(row)))
-
-                # 提取有效字段的数据
-                values = []
-                for i, header in enumerate(headers):
-                    # 使用映射后的实际字段名
-                    if header in header_mapping:
-                        actual_field_name = header_mapping[header]
-                        value = row[i].strip() if i < len(row) else ''
-
-                        # 数据类型转换
-                        if actual_field_name in table_fields:
-                            field_type = table_fields[actual_field_name]['type']
-                            if field_type == 'INTEGER' and value:
-                                try:
-                                    value = int(value)
-                                except ValueError:
-                                    value = 0
-                            elif field_type == 'REAL' and value:
-                                try:
-                                    value = float(value)
-                                except ValueError:
-                                    value = 0.0
-
-                        values.append(value)
-
-                if values:
-                    cursor.execute(insert_sql, values)
-                    inserted_count += 1
-
-                    # 每100条提交一次
-                    if inserted_count % 100 == 0:
-                        conn.commit()
-
-            except Exception as e:
-                failed_count += 1
-                errors.append(f"第{row_num}行: {str(e)}")
-
-        conn.commit()
-        conn.close()
-
-        result = {
-            'success': True,
-            'message': f'导入完成！成功: {inserted_count}, 失败: {failed_count}',
-            'inserted_count': inserted_count,
-            'failed_count': failed_count
-        }
-
-        if errors and len(errors) <= 10:
-            result['errors'] = errors
-
-        return JsonResponse(result)
-
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'导入失败: {str(e)}'
-        }, status=500)
-
-
 @require_http_methods(["GET"])
 def get_database_statistics(request):
-    """获取数据库统计信息"""
+    """获取数据库统计信息（仅统计允许展示的表）"""
     try:
-        import os
-
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # 获取表数量（排除系统表）
-        cursor.execute("""
-                       SELECT COUNT(*) as count
-                       FROM sqlite_master
-                       WHERE type ='table' AND name NOT LIKE 'sqlite_%'
-                       """)
-        all_tables_count = cursor.fetchone()['count']
-
-        # 获取用户表数量
+        # 获取所有非 SQLite 内部表
         cursor.execute("""
                        SELECT name
                        FROM sqlite_master
@@ -988,23 +904,26 @@ def get_database_statistics(request):
                          AND name NOT LIKE 'sqlite_%'
                        """)
         all_tables = cursor.fetchall()
+        conn.close()
+
+        import_config_map = _get_import_config_map()
 
         total_tables = 0
         total_records = 0
 
         for table in all_tables:
             table_name = table['name']
-            if not is_system_table(table_name):
-                total_tables += 1
-                cursor.execute(f"SELECT COUNT(*) as count FROM {table_name}")
-                total_records += cursor.fetchone()['count']
-
-        conn.close()
-
-        # 获取数据库文件大小
-        db_path = os.path.join(settings.BASE_DIR, 'db.sqlite3')
-        db_size_bytes = os.path.getsize(db_path)
-        db_size_mb = round(db_size_bytes / (1024 * 1024), 2)
+            if is_system_table(table_name):
+                continue
+            # 只统计被允许展示的表
+            if not import_config_map.get(table_name, True):
+                continue
+            total_tables += 1
+            cached = _get_cached_row_count(table_name)
+            if cached is not None:
+                total_records += cached
+            else:
+                total_records += _refresh_row_count(table_name) or 0
 
         # 获取今日导入次数（从持久化任务中统计）
         today = datetime.now().strftime('%Y-%m-%d')
@@ -1018,8 +937,7 @@ def get_database_statistics(request):
             'data': {
                 'total_tables': total_tables,
                 'total_records': total_records,
-                'today_imports': today_imports,
-                'db_size': f"{db_size_mb} MB"
+                'today_imports': today_imports
             }
         })
 
@@ -1119,6 +1037,10 @@ def execute_sql_query(request):
             affected_rows = cursor.rowcount
             conn.close()
 
+            # 刷新该行数缓存
+            if table_name and not is_system_table(table_name):
+                _refresh_row_count(table_name)
+
             return JsonResponse({
                 'success': True,
                 'data': {
@@ -1149,11 +1071,17 @@ def import_csv_data(request):
                 'message': '表名不能为空'
             }, status=400)
 
-        # 检查是否为系统表
+        # 检查是否为系统表或不允许导入
         if is_system_table(table_name):
             return JsonResponse({
                 'success': False,
                 'message': f'表 "{table_name}" 是系统表，不允许导入数据'
+            }, status=403)
+
+        if not _is_table_import_allowed(table_name):
+            return JsonResponse({
+                'success': False,
+                'message': f'表 "{table_name}" 未开启导入权限，请在导入表配置中开启'
             }, status=403)
 
         if not csv_file:
@@ -1162,14 +1090,31 @@ def import_csv_data(request):
                 'message': '请选择CSV文件'
             }, status=400)
 
-        # 读取CSV文件内容
-        csv_content = csv_file.read().decode('utf-8')
+        # 直接保存原始字节到临时文件，避免解码再编码导致换行符异常（如 \r\n 被写成 \r\r\n）
+        raw_bytes = csv_file.read()
         truncate_before = request.POST.get('truncate_before', 'false').lower() == 'true'
+
+        temp_dir = os.path.join(settings.BASE_DIR, '临时文件', 'import_tasks')
+        os.makedirs(temp_dir, exist_ok=True)
+        fd, temp_path = tempfile.mkstemp(
+            suffix='.csv',
+            prefix=f'import_{table_name}_',
+            dir=temp_dir
+        )
+        try:
+            with os.fdopen(fd, 'wb') as tmpf:
+                tmpf.write(raw_bytes)
+        except Exception:
+            try:
+                os.close(fd)
+            except Exception:
+                pass
+            raise
 
         # 创建异步任务
         task_id = create_import_task(
             table_name=table_name,
-            file_content=csv_content,
+            file_path=temp_path,
             truncate_before=truncate_before,
             original_filename=csv_file.name
         )
@@ -1504,6 +1449,9 @@ def insert_table_data(request):
         conn.commit()
         conn.close()
 
+        # 刷新行数缓存
+        _refresh_row_count(table_name)
+
         return JsonResponse({
             'success': True,
             'message': '数据插入成功',
@@ -1627,6 +1575,9 @@ def delete_table_data(request):
         affected_rows = cursor.rowcount
         conn.close()
 
+        # 刷新行数缓存
+        _refresh_row_count(table_name)
+
         return JsonResponse({
             'success': True,
             'message': f'删除成功，影响 {affected_rows} 行',
@@ -1635,3 +1586,103 @@ def delete_table_data(request):
 
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'删除失败: {str(e)}'}, status=500)
+
+
+@require_http_methods(["GET"])
+def get_import_configs(request):
+    """获取所有非系统表的 CSV 导入配置（未配置时默认允许导入）"""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table'
+              AND name NOT LIKE 'sqlite_%'
+            ORDER BY name
+        """)
+        table_names = [row['name'] for row in cursor.fetchall() if not is_system_table(row['name'])]
+        conn.close()
+
+        config_map = _get_import_config_map()
+
+        configs = []
+        for table_name in table_names:
+            configs.append({
+                'table_name': table_name,
+                'allow_import': config_map.get(table_name, True),
+                'updated_at': '-',
+            })
+        return JsonResponse({'success': True, 'data': configs})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def save_import_config(request):
+    """保存单张表的 CSV 导入开关"""
+    try:
+        import json
+        data = json.loads(request.body)
+        table_name = data.get('table_name', '').strip()
+        allow_import = data.get('allow_import', True)
+
+        if not table_name:
+            return JsonResponse({'success': False, 'message': '表名不能为空'}, status=400)
+
+        if is_system_table(table_name):
+            return JsonResponse({'success': False, 'message': '系统表不允许配置'}, status=403)
+
+        _set_import_config(table_name, allow_import)
+        return JsonResponse({
+            'success': True,
+            'message': f'表 {table_name} 已{"允许" if allow_import else "禁止"}导入'
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'JSON 格式错误'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def save_import_configs_batch(request):
+    """批量保存表的 CSV 导入开关"""
+    try:
+        import json
+        data = json.loads(request.body)
+        configs = data.get('configs', [])
+
+        if not isinstance(configs, list):
+            return JsonResponse({'success': False, 'message': 'configs 必须是数组'}, status=400)
+
+        changed = 0
+        failed = []
+        for cfg in configs:
+            table_name = str(cfg.get('table_name', '')).strip()
+            allow_import = cfg.get('allow_import', True)
+            if not table_name:
+                continue
+            if is_system_table(table_name):
+                failed.append(table_name)
+                continue
+            if _set_import_config(table_name, allow_import):
+                changed += 1
+            else:
+                failed.append(table_name)
+
+        if failed:
+            return JsonResponse({
+                'success': False,
+                'message': f'保存 {changed} 项成功，{len(failed)} 项失败: {", ".join(failed)}'
+            }, status=500)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'已保存 {changed} 项导入配置'
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'JSON 格式错误'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)

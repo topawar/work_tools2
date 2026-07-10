@@ -2,6 +2,7 @@ import os
 import csv
 import io
 import sqlite3
+import tempfile
 import threading
 import time
 import uuid
@@ -9,13 +10,23 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 
-from work_tools2.models import ImportTaskModel
+from work_tools2.models import ImportTaskModel, TableRowCount
 
 # 内存中的任务执行队列（FIFO）
 task_queue = []
 queue_lock = threading.Lock()
 # 标记是否有任务正在执行
 is_executing = False
+
+
+def _decode_csv_bytes(raw_bytes):
+    """将 CSV 字节流解码为字符串：优先 UTF-8，失败则尝试 GBK"""
+    if isinstance(raw_bytes, str):
+        return raw_bytes
+    try:
+        return raw_bytes.decode('utf-8')
+    except UnicodeDecodeError:
+        return raw_bytes.decode('gbk', errors='replace')
 
 
 def process_task_queue():
@@ -69,10 +80,18 @@ def execute_import_task(task_id):
     task_obj.save(update_fields=['status', 'progress', 'processed_records'])
 
     conn = None
+    temp_path = None
     try:
-        file_content = task_obj.file_content
-        if isinstance(file_content, bytes):
-            file_content = file_content.decode('utf-8', errors='replace')
+        # 优先从临时文件读取，避免把大文件内容反复加载到内存并写入任务表
+        if task_obj.file_path and os.path.exists(task_obj.file_path):
+            temp_path = task_obj.file_path
+            with open(temp_path, 'rb') as f:
+                raw_bytes = f.read()
+            file_content = _decode_csv_bytes(raw_bytes)
+        else:
+            file_content = task_obj.file_content or ''
+            if isinstance(file_content, bytes):
+                file_content = _decode_csv_bytes(file_content)
 
         # 流式读取 CSV
         csv_file = io.StringIO(file_content)
@@ -94,6 +113,15 @@ def execute_import_task(task_id):
         db_path = os.path.join(settings.BASE_DIR, 'db.sqlite3')
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
+
+        # 大批量导入性能优化：关闭同步、使用内存日志、加大缓存
+        # 这些设置仅作用于本次连接，不影响全局数据库配置
+        try:
+            cursor.execute("PRAGMA synchronous = OFF")
+            cursor.execute("PRAGMA journal_mode = MEMORY")
+            cursor.execute("PRAGMA cache_size = -100000")
+        except Exception:
+            pass
 
         # 检查表是否存在
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (task_obj.table_name,))
@@ -152,7 +180,7 @@ def execute_import_task(task_id):
         columns = ','.join(valid_headers)
         insert_sql = f"INSERT INTO {task_obj.table_name} ({columns}) VALUES ({placeholders})"
 
-        batch_size = 1000
+        batch_size = 10000
         inserted_count = 0
         failed_count = 0
         processed_records = 0
@@ -254,6 +282,27 @@ def execute_import_task(task_id):
         task_obj.message = f'导入完成！成功: {inserted_count}, 失败: {failed_count}'
         task_obj.save()
 
+        # 刷新该表行数缓存
+        try:
+            conn_count = sqlite3.connect(db_path)
+            cursor_count = conn_count.cursor()
+            cursor_count.execute(f"SELECT COUNT(*) FROM {task_obj.table_name}")
+            count = cursor_count.fetchone()[0]
+            conn_count.close()
+            TableRowCount.objects.update_or_create(
+                table_name=task_obj.table_name,
+                defaults={'row_count': count}
+            )
+        except Exception:
+            pass
+
+        # 导入成功后清理临时文件
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
     except Exception as e:
         import traceback
         task_obj.refresh_from_db()
@@ -271,11 +320,15 @@ def execute_import_task(task_id):
                 pass
 
 
-def create_import_task(table_name, file_content, truncate_before=False, original_filename=''):
-    """创建导入任务并加入队列"""
+def create_import_task(table_name, file_content=None, file_path=None, truncate_before=False, original_filename=''):
+    """创建导入任务并加入队列
+
+    优先使用 file_path：CSV 已经保存到临时文件，不再把大文件内容写入任务表。
+    file_content 保留用于兼容旧任务。
+    """
     task_id = str(uuid.uuid4())[:8]
 
-    if isinstance(file_content, bytes):
+    if file_content is not None and isinstance(file_content, bytes):
         file_content = file_content.decode('utf-8', errors='replace')
 
     # 持久化到数据库
@@ -283,7 +336,8 @@ def create_import_task(table_name, file_content, truncate_before=False, original
         task_id=task_id,
         table_name=table_name,
         original_filename=original_filename,
-        file_content=file_content,
+        file_content=file_content or '',
+        file_path=file_path or '',
         truncate_before=truncate_before,
         status='pending',
         progress=0,
@@ -317,18 +371,36 @@ def get_all_tasks(limit=100):
     return [task.to_dict() for task in tasks]
 
 
+def _remove_task_temp_file(task):
+    """删除任务关联的临时 CSV 文件（失败时保留，便于排查）"""
+    if task.status == 'failed':
+        return
+    path = task.file_path
+    if path and os.path.exists(path):
+        try:
+            os.remove(path)
+        except Exception:
+            pass
+
+
 def cleanup_old_tasks(max_age_hours=24):
     """清理旧任务（超过指定时间的已完成/失败任务）"""
     cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
-    ImportTaskModel.objects.filter(
+    old_tasks = ImportTaskModel.objects.filter(
         created_at__lt=cutoff_time,
         status__in=['completed', 'failed']
-    ).delete()
+    )
+    for task in old_tasks:
+        _remove_task_temp_file(task)
+    old_tasks.delete()
 
 
 def clear_completed_tasks():
     """清理所有已完成/失败的任务"""
-    deleted_count, _ = ImportTaskModel.objects.filter(
+    tasks = ImportTaskModel.objects.filter(
         status__in=['completed', 'failed']
-    ).delete()
+    )
+    for task in tasks:
+        _remove_task_temp_file(task)
+    deleted_count, _ = tasks.delete()
     return deleted_count

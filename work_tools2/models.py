@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.utils import timezone
 
 
 VALID_RULES = [
@@ -19,10 +20,27 @@ class FormConfig(models.Model):
     
     form_name = models.CharField(max_length=100, verbose_name="表单名称")
     table_name_list = models.JSONField(verbose_name="表名列表", default=list)
+    table_aliases = models.JSONField(verbose_name="表别名映射", default=dict, blank=True)
     database_ip_ids = models.JSONField(verbose_name="数据库IP配置ID列表", default=list)
     query_mode = models.CharField(max_length=20, choices=QUERY_MODES, default='strict', verbose_name="查询模式")
     append_ops_remark = models.BooleanField(default=True, verbose_name="是否拼接操作备注")
     is_active = models.BooleanField(default=True, verbose_name="是否启用")
+    call_count = models.IntegerField(default=0, verbose_name="调用次数")
+    last_called_at = models.DateTimeField(null=True, blank=True, verbose_name="最后调用时间")
+    document = models.ForeignKey(
+        'DocumentLibrary',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='linked_forms',
+        verbose_name="关联说明文档"
+    )
+    table_joins = models.JSONField(
+        verbose_name="表关联关系",
+        default=list,
+        blank=True,
+        help_text="JOIN 配置列表"
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
@@ -45,6 +63,9 @@ class FormQueryItem(models.Model):
     connected_table = models.JSONField(default=list, verbose_name="关联表")
     valid_rule = models.CharField(max_length=20, choices=VALID_RULES, default='required', verbose_name="验证规则")
     default_value = models.CharField(max_length=200, blank=True, default='', verbose_name="默认值")
+    expressions = models.JSONField(default=list, blank=True, verbose_name="计算表达式配置")
+    split_expression = models.BooleanField(default=False, verbose_name="执行回退表达式不一致")
+    backward_expressions = models.JSONField(default=list, blank=True, verbose_name="回退表达式配置")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 
     class Meta:
@@ -75,7 +96,9 @@ class FormUpdateItem(models.Model):
     main_field = models.CharField(max_length=50, blank=True, default='', verbose_name="主字段名")
     sub_fields = models.JSONField(default=list, verbose_name="子字段配置")
     options = models.JSONField(default=list, verbose_name="选项配置")
-    expressions = models.JSONField(default=dict, verbose_name="计算表达式配置")
+    expressions = models.JSONField(default=list, verbose_name="计算表达式配置")
+    split_expression = models.BooleanField(default=False, verbose_name="执行回退表达式不一致")
+    backward_expressions = models.JSONField(default=list, blank=True, verbose_name="回退计算表达式配置")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 
     class Meta:
@@ -224,7 +247,8 @@ class ImportTaskModel(models.Model):
     task_id = models.CharField(max_length=32, unique=True, verbose_name="任务ID")
     table_name = models.CharField(max_length=200, verbose_name="目标表名")
     original_filename = models.CharField(max_length=500, blank=True, default='', verbose_name="原始文件名")
-    file_content = models.TextField(verbose_name="CSV文件内容")
+    file_content = models.TextField(blank=True, default='', verbose_name="CSV文件内容")
+    file_path = models.CharField(max_length=1000, blank=True, default='', verbose_name="CSV文件路径")
     truncate_before = models.BooleanField(default=False, verbose_name="导入前清空")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="状态")
     progress = models.IntegerField(default=0, verbose_name="进度百分比")
@@ -258,3 +282,80 @@ class ImportTaskModel(models.Model):
             'completed_at': self.completed_at.strftime('%Y-%m-%d %H:%M:%S') if self.completed_at else None,
             'message': self.message
         }
+
+
+class FormUsageLog(models.Model):
+    """动态表单调用日志"""
+
+    SOURCE_CHOICES = [
+        ('dynamic', '动态表单'),
+        ('merge', '表单合并'),
+    ]
+
+    form_config = models.ForeignKey(
+        FormConfig,
+        on_delete=models.CASCADE,
+        related_name='usage_logs',
+        verbose_name="表单配置"
+    )
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='dynamic', verbose_name="调用来源")
+    called_at = models.DateTimeField(auto_now_add=True, verbose_name="调用时间")
+
+    class Meta:
+        db_table = 'work_tools2_formusagelog'
+        ordering = ['-called_at']
+        verbose_name = '表单调用日志'
+        verbose_name_plural = '表单调用日志'
+
+    def __str__(self):
+        return f"{self.form_config.form_name} @ {self.called_at.strftime('%Y-%m-%d %H:%M:%S')}"
+
+
+class DocumentLibrary(models.Model):
+    """文档库主表"""
+    title = models.CharField(max_length=200, verbose_name="文档标题")
+    content = models.TextField(blank=True, default='', verbose_name="文档内容(HTML)")
+    content_json = models.JSONField(default=dict, blank=True, verbose_name="编辑器JSON数据")
+    is_active = models.BooleanField(default=True, verbose_name="是否启用")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        db_table = 'work_tools2_documentlibrary'
+        ordering = ['-updated_at']
+        verbose_name = '文档库'
+        verbose_name_plural = '文档库'
+
+    def __str__(self):
+        return self.title
+
+
+class TableRowCount(models.Model):
+    """各数据表行数缓存"""
+    table_name = models.CharField(max_length=200, unique=True, verbose_name="表名")
+    row_count = models.IntegerField(default=0, verbose_name="行数")
+    created_at = models.DateTimeField(default=timezone.now, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        db_table = '_table_row_count'
+        verbose_name = '表行数缓存'
+        verbose_name_plural = '表行数缓存'
+
+    def __str__(self):
+        return f"{self.table_name}: {self.row_count}"
+
+
+class TableImportConfig(models.Model):
+    """数据表 CSV 导入开关配置"""
+    table_name = models.CharField(max_length=200, unique=True, verbose_name="表名")
+    allow_import = models.BooleanField(default=True, verbose_name="允许导入")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        db_table = '_table_import_config'
+        verbose_name = '表导入配置'
+        verbose_name_plural = '表导入配置'
+
+    def __str__(self):
+        return f"{self.table_name}: {'允许' if self.allow_import else '禁止'}导入"

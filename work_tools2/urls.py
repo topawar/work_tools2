@@ -2,6 +2,8 @@ from django.shortcuts import render
 
 from django.contrib import admin
 from django.urls import path
+from django.conf import settings
+from django.conf.urls.static import static
 from . import views
 
 urlpatterns = [
@@ -19,7 +21,25 @@ urlpatterns = [
     path("api/dynamic/download-failed-file/", views.download_failed_file, name="download_failed_file"),
     path("api/form-configs/", views.get_form_configs, name="get_form_configs"),
     path("file_path_config/", views.file_path_config, name="file_path_config"),
+    path("usage_statistics/", views.usage_statistics, name="usage_statistics"),
+    path("api/usage-statistics/", views.get_usage_statistics, name="get_usage_statistics"),
+    path("api/usage-statistics/batch-delete/", views.batch_delete_inactive_forms, name="batch_delete_inactive_forms"),
+    # 文档库
+    path("document-library/", views.document_library_list, name="document_library_list"),
+    path("document-library/edit/", views.document_library_edit, name="document_library_edit_new"),
+    path("document-library/edit/<int:doc_id>/", views.document_library_edit, name="document_library_edit"),
+    path("api/document-library/", views.get_documents, name="get_documents"),
+    path("api/document-library/options/", views.get_document_options, name="get_document_options"),
+    path("api/document-library/quick-create/", views.create_document_quick, name="create_document_quick"),
+    path("api/document-library/save/", views.save_document, name="save_document"),
+    path("api/document-library/upload-image/", views.upload_image, name="upload_image"),
+    path("api/document-library/<int:doc_id>/", views.get_document_detail, name="get_document_detail"),
+    path("api/document-library/<int:doc_id>/linked-forms/", views.get_document_linked_forms, name="get_document_linked_forms"),
+    path("api/document-library/delete/<int:doc_id>/", views.delete_document, name="delete_document"),
+    path("api/document-library/batch-delete/", views.batch_delete_documents, name="batch_delete_documents"),
     path("api/form-config/save/", views.save_form_config, name="save_form_config"),
+    path("api/form-config/<int:form_id>/update-document/", views.update_form_document, name="update_form_document"),
+    path("api/form-config/parse-sql/", views.parse_sql_form_config, name="parse_sql_form_config"),
     path("api/form-config/delete/<str:form_id>/", views.delete_form_config, name="delete_form_config"),
     path("api/form-config/duplicate/<str:form_id>/", views.duplicate_form_config, name="duplicate_form_config"),
     path("api/form-config/export/<str:form_id>/", views.export_form_config, name="export_form_config"),
@@ -62,6 +82,10 @@ urlpatterns = [
     # 查询SQL保存/加载
     path('api/db/save-query-sql/', views.save_query_sql, name='save_query_sql'),
     path('api/db/load-query-sql/', views.load_query_sql, name='load_query_sql'),
+    # 表导入配置
+    path('api/db/import-configs/', views.get_import_configs, name='get_import_configs'),
+    path('api/db/import-config/save/', views.save_import_config, name='save_import_config'),
+    path('api/db/import-config/save-batch/', views.save_import_configs_batch, name='save_import_configs_batch'),
     # 表数据管理（查询/新增/编辑/删除）
     path('api/db/table-data/query/', views.query_table_data, name='query_table_data'),
     path('api/db/table-data/insert/', views.insert_table_data, name='insert_table_data'),
@@ -85,3 +109,7 @@ urlpatterns = [
     path("api/file-path-configs/select-directory/", views.select_directory_dialog, name="select_directory_dialog"),
 
 ]
+
+# 开发环境提供媒体文件服务
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

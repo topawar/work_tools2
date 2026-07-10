@@ -46,17 +46,16 @@
                 </div>
 
                 <!-- 表单选择区域 -->
-                <h5 class="mt-4 mb-3">选择要合并的表单</h5>
-                <div class="mb-3">
-                    <label class="form-label">请选择要合并的表单（至少选择一个）：</label>
-                    
+                <div class="form-selection-section">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                        <h5 class="mb-0"><i class="bi bi-ui-checks-grid me-2"></i>选择要合并的表单</h5>
+                    </div>
+
                     <!-- 已选中标签展示区 -->
-                    <div id="selectedTagsContainer" class="mb-3" style="display: none;">
-                        <div class="d-flex align-items-center mb-2">
-                            <small class="text-muted me-2">请选择要合并的表单（至少选择一个）：</small>
-                            <span class="text-primary fw-bold" id="selectedCount">0</span>
-                            <small class="text-muted ms-1">个表单已选中</small>
-                            <button class="btn btn-sm btn-outline-danger ms-3" onclick="clearAllSelection()" title="清除所有选择">
+                    <div id="selectedTagsContainer" class="selected-tags-panel" style="display: none;">
+                        <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+                            <span class="fw-semibold text-primary"><i class="bi bi-check-circle-fill me-1"></i>已选择 <span id="selectedCount">0</span> 个表单</span>
+                            <button class="btn btn-sm btn-outline-danger" onclick="clearAllSelection()" title="清除所有选择">
                                 <i class="bi bi-x-circle"></i> 清除选择
                             </button>
                         </div>
@@ -64,39 +63,35 @@
                             <!-- 动态生成选中标签 -->
                         </div>
                     </div>
-                    
-                    <!-- 搜索框 -->
-                    <div class="input-group input-group-sm mb-3" style="max-width: 400px;">
-                        <span class="input-group-text"><i class="bi bi-search"></i></span>
-                        <input type="text" class="form-control" id="formSearchInput" 
-                               placeholder="搜索表单名称或拼音..." oninput="filterForms()">
-                        <button class="btn btn-outline-secondary" type="button" onclick="clearFormSearch()">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
+
+                    <!-- 模块标签 + 搜索工具栏 -->
+                    <div class="module-tabs-toolbar mb-3">
+                        <div class="module-tabs-scroll">
+                            <div class="module-tabs" id="moduleTabsList">
+                                <!-- 动态生成模块标签 -->
+                            </div>
+                        </div>
+                        <div class="module-search">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control" id="formSearchInput"
+                                       placeholder="搜索表单名称或拼音..." oninput="filterForms()">
+                                <button class="btn btn-outline-secondary" type="button" onclick="clearFormSearch()">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    
-                    <!-- 模块筛选下拉框 -->
-                    <div class="mb-3" style="max-width: 300px;">
-                        <select class="form-select form-select-sm" id="moduleFilterSelect" onchange="filterFormsByModule()">
-                            <option value="">全部模块</option>
-                        </select>
-                    </div>
-                    
-                    <!-- 全部展开/折叠按钮 -->
-                    <div class="mb-3">
-                        <button class="btn btn-sm btn-outline-secondary" onclick="toggleAllModules(true)" title="展开全部模块">
-                            <i class="bi bi-arrows-expand"></i> 全部展开
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="toggleAllModules(false)" title="折叠全部模块">
-                            <i class="bi bi-arrows-collapse"></i> 全部折叠
-                        </button>
-                    </div>
-                    
-                    <!-- 表单选择网格 -->
-                    <div id="formSelectionContainer" class="border rounded p-3"
-                         style="max-height: 500px; overflow-y: auto;">
+
+                    <!-- 表单列表 -->
+                    <div id="formSelectionContainer" class="form-list-container">
                         <!-- 动态加载表单列表 -->
-                        <div class="text-muted">加载中...</div>
+                        <div class="text-muted text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                            <p class="mt-2">加载表单列表...</p>
+                        </div>
                     </div>
                 </div>
 
@@ -258,7 +253,177 @@
             background-color: #0dcaf0 !important;
         }
 
-        /* 表单选择卡片样式 */
+        /* 表单选择区域样式 */
+        .form-selection-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .selected-tags-panel {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 1px solid #bae6fd;
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+        }
+
+        /* 模块标签 + 搜索工具栏 */
+        .module-tabs-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .module-tabs-scroll {
+            flex: 1 1 auto;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+
+        .module-tabs-scroll::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .module-tabs-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+
+        .module-tabs {
+            display: inline-flex;
+            gap: 0.35rem;
+            white-space: nowrap;
+            min-width: 100%;
+        }
+
+        .module-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.45rem 0.85rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #475569;
+            background: transparent;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .module-tab:hover {
+            background: #fff;
+            color: #0d6efd;
+            border-color: #dbeafe;
+        }
+
+        .module-tab.active {
+            background: #fff;
+            color: #0d6efd;
+            border-color: #0d6efd;
+            box-shadow: 0 1px 2px rgba(13, 110, 253, 0.08);
+            font-weight: 600;
+        }
+
+        .module-tab .tab-count {
+            font-size: 0.7rem;
+            padding: 0.15em 0.5em;
+            border-radius: 999px;
+            background: #e2e8f0;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .module-tab.active .tab-count {
+            background: #0d6efd;
+            color: #fff;
+        }
+
+        .module-tab .tab-selected {
+            font-size: 0.7rem;
+            padding: 0.15em 0.5em;
+            border-radius: 999px;
+            background: #0d6efd;
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .module-search {
+            flex: 0 0 auto;
+            width: 260px;
+        }
+
+        @media (max-width: 767.98px) {
+            .module-tabs-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .module-search {
+                width: 100%;
+            }
+        }
+
+        /* 表单列表 */
+        .form-list-container {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1rem;
+            min-height: 320px;
+        }
+
+        .form-module-block {
+            background: #fff;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+        }
+
+        .form-module-block:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-module-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .form-module-title h6 {
+            margin-bottom: 0;
+            font-weight: 600;
+            color: #1e293b;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-module-title h6 i {
+            color: #0d6efd;
+        }
+
+        .form-module-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
         .form-check-card {
             padding: 8px 10px;
             border: 1px solid #dee2e6;
@@ -377,9 +542,11 @@
             padding: 0;
         }
 
-        /* 确保 Luckysheet 下拉菜单等弹层不被模态框遮挡 */
+        /* 确保 Luckysheet 下拉菜单、公式帮助/搜索框等弹层不被模态框遮挡 */
         .luckysheet-cols-menu, .luckysheet-menu, .luckysheet-rightgird-menu,
-        .luckysheet-filter-menu, .luckysheet-sheet-area {
+        .luckysheet-filter-menu, .luckysheet-sheet-area,
+        .luckysheet-formula-help-c, .luckysheet-formula-search-c,
+        .luckysheet-formula-functionrange {
             z-index: 1060 !important;
         }
 
@@ -497,7 +664,7 @@
 
         /**
          * 从ones链接中解析内容
-         * @param {string} url - ones链接
+         * @param {string} url - ones链接（可包含 #编号 任务名 和 URL）
          * @returns {Object} 解析结果 {taskId, taskName}
          */
         function parseOnesLink(url) {
@@ -506,36 +673,42 @@
             }
 
             try {
-                // 匹配格式: #72480 框架协议导入-崔正华 https://...
-                // 或者从URL中提取任务信息
+                // 把 URL 和前面的文本分开，避免 URL 中的 #/team/... 被误识别
+                const urlMatch = url.match(/https?:\/\/\S+/);
+                const linkUrl = urlMatch ? urlMatch[0] : '';
+                const textPart = urlMatch
+                    ? url.substring(0, url.indexOf(linkUrl)).trim()
+                    : url.trim();
 
-                // 方法1: 尝试从URL路径中提取任务ID
-                // 例如: /task/QGTJmPVYqMYfCdRb
-                const taskMatch = url.match(/\/task\/([A-Za-z0-9]+)/);
-
-                // 方法2: 尝试从文本中提取 #编号 和 任务名称
-                // 例如: #72480 框架协议导入-崔正华
-                const hashMatch = url.match(/#(\d+)\s+([^\shttps]+)/);
-
-                if (hashMatch) {
-                    return {
-                        taskId: hashMatch[1],
-                        taskName: hashMatch[2]
-                    };
+                // 提取开头的 #编号，支持多个编号用 & / 空格 / # / 中英文逗号分隔
+                // 例如: #98835&98732、#123 #456、#123,456
+                let taskId = '';
+                const numChunkMatch = textPart.match(/^#[\d]+(?:[&，,\s#]*[\d]+)*/);
+                if (numChunkMatch) {
+                    const digits = numChunkMatch[0].match(/\d+/g);
+                    if (digits && digits.length > 0) {
+                        taskId = digits.join('&');
+                    }
                 }
 
-                // 如果URL中包含任务信息，尝试从页面标题或其他地方获取
-                // 这里暂时返回null，需要用户手动输入或通过API获取
-                if (taskMatch) {
-                    console.log('从URL中提取到任务ID:', taskMatch[1]);
-                    // 注意：仅从URL无法获取任务名称，需要通过API查询
-                    return {
-                        taskId: taskMatch[1],
-                        taskName: null
-                    };
+                // 剩余部分作为任务名称，并去掉前导分隔符
+                let taskName = textPart.replace(/^#[\d]+(?:[&，,\s#]*[\d]+)*/, '').trim();
+                taskName = taskName.replace(/^[-—_/\s]+/, '');
+
+                // 如果文本中没有 #编号，尝试从 URL 路径提取任务ID
+                const taskMatch = (linkUrl || url).match(/\/task\/([A-Za-z0-9]+)/);
+                if (!taskId && taskMatch) {
+                    taskId = taskMatch[1];
                 }
 
-                return null;
+                if (!taskId && !taskName) {
+                    return null;
+                }
+
+                return {
+                    taskId: taskId || null,
+                    taskName: taskName || null
+                };
             } catch (error) {
                 console.error('解析ones链接失败:', error);
                 return null;
@@ -600,8 +773,8 @@
         let formList = [];
         // 存储表单的拼音映射
         let formPinyinMap = {};
-        // 当前筛选的模块
-        let currentModuleFilter = '';
+        // 当前选中的模块标签（'ALL' 表示全部模块）
+        let currentModuleTab = 'ALL';
 
         // 在线编辑器状态
         let luckySheetReady = false;
@@ -610,6 +783,7 @@
         let savedOnlineRowsPerSheet = {};  // { sheetName: [rowData, ...] }
         let currentOnlineRowsPerSheet = {};  // 当前编辑器中的数据
         let pendingValidationErrors = null;  // 待回显的行级校验错误
+        let displayedValidationErrors = null;  // 已显示的行级校验错误，用于快速清空
 
         /**
          * 加载表单列表
@@ -622,8 +796,8 @@
                         formList = data.data;
                         // 生成拼音映射
                         generateFormPinyin();
-                        // 初始化模块筛选器
-                        initModuleFilter();
+                        // 初始化模块标签
+                        initModuleTabs();
                         renderFormSelection();
                         updateSelectedTags();
                     } else {
@@ -662,32 +836,63 @@
         }
 
         /**
-         * 初始化模块筛选器
+         * 初始化模块标签栏
          */
-        function initModuleFilter() {
-            const moduleSet = new Set();
+        function initModuleTabs() {
+            const tabsList = document.getElementById('moduleTabsList');
+            if (!tabsList) return;
+
+            // 按模块分组统计
+            const moduleMap = {};
             formList.forEach(form => {
-                if (form.parent_menu_name) {
-                    moduleSet.add(form.parent_menu_name);
+                const moduleName = form.parent_menu_name || '未分类';
+                if (!moduleMap[moduleName]) {
+                    moduleMap[moduleName] = { total: 0, selected: 0 };
+                }
+                moduleMap[moduleName].total++;
+                if (selectedFormIds.includes(form.id)) {
+                    moduleMap[moduleName].selected++;
                 }
             });
-            
-            const select = document.getElementById('moduleFilterSelect');
-            // 清空现有选项（保留“全部模块”）
-            select.innerHTML = '<option value="">全部模块</option>';
-            
-            // 按字母顺序排序模块名称
-            const sortedModules = Array.from(moduleSet).sort();
-            
-            sortedModules.forEach(module => {
-                const option = document.createElement('option');
-                option.value = module;
-                option.textContent = module;
-                select.appendChild(option);
+
+            const sortedModules = Object.keys(moduleMap).sort();
+
+            let html = `
+                <div class="module-tab ${currentModuleTab === 'ALL' ? 'active' : ''}"
+                     data-module="ALL" onclick="switchModuleTab('ALL')">
+                    <i class="bi bi-grid-3x3-gap"></i>
+                    <span>全部模块</span>
+                    <span class="tab-count">${formList.length}</span>
+                </div>
+            `;
+
+            sortedModules.forEach(moduleName => {
+                const data = moduleMap[moduleName];
+                const selectedBadge = data.selected > 0
+                    ? `<span class="tab-selected">${data.selected}</span>`
+                    : '';
+                html += `
+                    <div class="module-tab ${currentModuleTab === moduleName ? 'active' : ''}"
+                         data-module="${moduleName}" onclick="switchModuleTab('${moduleName}')">
+                        <i class="bi bi-folder"></i>
+                        <span>${moduleName}</span>
+                        ${selectedBadge}
+                        <span class="tab-count">${data.total}</span>
+                    </div>
+                `;
             });
-            
-            console.log('模块筛选器初始化完成，共', sortedModules.length, '个模块');
+
+            tabsList.innerHTML = html;
         }
+
+        /**
+         * 切换模块标签
+         */
+        window.switchModuleTab = function(moduleName) {
+            currentModuleTab = moduleName;
+            initModuleTabs();
+            filterForms();
+        };
 
         /**
          * 渲染表单选择列表
@@ -697,7 +902,7 @@
             const formsToRender = filteredForms || formList;
 
             if (formsToRender.length === 0) {
-                container.innerHTML = '<div class="text-muted">暂无可用表单</div>';
+                container.innerHTML = '<div class="text-muted text-center py-5"><i class="bi bi-inbox fs-2 d-block mb-2"></i>暂无可用表单</div>';
                 return;
             }
 
@@ -720,28 +925,34 @@
                 const moduleForms = groupedForms[moduleName];
                 const moduleId = 'module_' + moduleName.replace(/\s+/g, '_');
                 
-                // 添加模块标题（可点击折叠）
+                // 模块内已选数量
+                const moduleSelectedCount = moduleForms.filter(f => selectedFormIds.includes(f.id)).length;
+                const selectedBadge = moduleSelectedCount > 0
+                    ? `<span class="badge bg-primary">${moduleSelectedCount}</span>`
+                    : '';
+
                 html += `
-                    <div class="mb-3">
-                        <h6 class="text-primary border-bottom pb-2 d-flex justify-content-between align-items-center" 
-                            style="cursor: pointer; user-select: none;" 
-                            onclick="toggleModule('${moduleId}')">
-                            <span>
-                                <i class="bi bi-folder" id="icon_${moduleId}"></i> 
-                                ${moduleName} (${moduleForms.length})
-                            </span>
-                            <i class="bi bi-chevron-down" id="arrow_${moduleId}" style="transition: transform 0.2s;"></i>
-                        </h6>
-                        <div class="row g-2" id="${moduleId}">
+                    <div class="form-module-block" id="block_${moduleId}">
+                        <div class="form-module-title">
+                            <h6>
+                                <i class="bi bi-folder"></i>
+                                ${moduleName}
+                            </h6>
+                            <div class="form-module-meta">
+                                ${selectedBadge}
+                                <span class="badge bg-light text-dark border">${moduleForms.length}</span>
+                            </div>
+                        </div>
+                        <div class="row g-2">
                 `;
-                
+
                 moduleForms.forEach(form => {
                     const isChecked = selectedFormIds.includes(form.id) ? 'checked' : '';
                     html += `
-                        <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                        <div class="col-xl-2 col-lg-3 col-md-4 col-sm-4 col-6">
                             <div class="form-check form-check-card" style="position: relative;">
-                                <input class="form-check-input" type="checkbox" 
-                                       id="form_${form.id}" 
+                                <input class="form-check-input" type="checkbox"
+                                       id="form_${form.id}"
                                        value="${form.id}"
                                        ${isChecked}
                                        onchange="toggleFormSelection(${form.id})">
@@ -752,7 +963,7 @@
                         </div>
                     `;
                 });
-                
+
                 html += `
                         </div>
                     </div>
@@ -770,9 +981,9 @@
             
             let filtered = formList;
             
-            // 先按模块筛选
-            if (currentModuleFilter) {
-                filtered = filtered.filter(form => form.parent_menu_name === currentModuleFilter);
+            // 先按当前模块标签筛选
+            if (currentModuleTab && currentModuleTab !== 'ALL') {
+                filtered = filtered.filter(form => form.parent_menu_name === currentModuleTab);
             }
             
             // 再按文本搜索
@@ -803,65 +1014,7 @@
          */
         window.clearFormSearch = function() {
             document.getElementById('formSearchInput').value = '';
-            renderFormSelection();
-        };
-
-        /**
-         * 按模块筛选表单
-         */
-        window.filterFormsByModule = function() {
-            currentModuleFilter = document.getElementById('moduleFilterSelect').value;
             filterForms();
-        };
-
-        /**
-         * 切换模块折叠状态
-         */
-        window.toggleModule = function(moduleId) {
-            const content = document.getElementById(moduleId);
-            const arrow = document.getElementById('arrow_' + moduleId);
-            const icon = document.getElementById('icon_' + moduleId);
-            
-            if (!content || !arrow) return;
-            
-            const isHidden = content.style.display === 'none';
-            
-            if (isHidden) {
-                // 展开
-                content.style.display = 'flex';
-                arrow.style.transform = 'rotate(0deg)';
-                icon.className = 'bi bi-folder';
-            } else {
-                // 折叠
-                content.style.display = 'none';
-                arrow.style.transform = 'rotate(-90deg)';
-                icon.className = 'bi bi-folder2-open';
-            }
-        };
-
-        /**
-         * 全部展开或折叠所有模块
-         */
-        window.toggleAllModules = function(expand) {
-            const allContents = document.querySelectorAll('[id^="module_"]');
-            const allArrows = document.querySelectorAll('[id^="arrow_module_"]');
-            const allIcons = document.querySelectorAll('[id^="icon_module_"]');
-            
-            allContents.forEach((content, index) => {
-                if (expand) {
-                    content.style.display = 'flex';
-                } else {
-                    content.style.display = 'none';
-                }
-            });
-            
-            allArrows.forEach((arrow) => {
-                arrow.style.transform = expand ? 'rotate(0deg)' : 'rotate(-90deg)';
-            });
-            
-            allIcons.forEach((icon) => {
-                icon.className = expand ? 'bi bi-folder' : 'bi bi-folder2-open';
-            });
         };
 
         /**
@@ -875,10 +1028,13 @@
                 selectedFormIds.push(formId);
             }
             console.log('已选择的表单:', selectedFormIds);
-            
+
             // 更新选中标签
             updateSelectedTags();
-            
+
+            // 更新模块标签的已选数量
+            initModuleTabs();
+
             // 重新渲染以保持搜索后的选中状态
             filterForms();
         };
@@ -1527,17 +1683,19 @@
                 container: 'luckysheet',
                 title: '在线编辑导入数据',
                 lang: 'zh',
-                showinfobar: true,
+                // 隐藏顶部信息栏（表格标题）和统计栏，保留底部 Sheet 标签栏用于多表单切换
+                // 公式栏由 sheetFormulaBar 默认开启；通过 CSS 确保公式提示框在模态框之上
+                showinfobar: false,
                 showsheetbar: true,
-                showstatisticBar: true,
+                showstatisticBar: false,
                 showtoolbar: true,
                 showtoolbarConfig: true,
                 sheetBarConfig: {
-                    add: true,
-                    delete: true,
-                    rename: true,
-                    color: true,
-                    move: true
+                    add: false,
+                    delete: false,
+                    rename: false,
+                    color: false,
+                    move: false
                 },
                 enableAddRow: true,
                 enableAddBackTop: true,
@@ -1621,22 +1779,30 @@
         };
 
         /**
-         * 清空错误信息列
+         * 清空错误信息列（只清空实际显示过错误的单元格，避免全表逐行写入导致卡顿）
          */
         function clearErrorColumn() {
             if (!luckySheetReady || typeof luckysheet === 'undefined') return;
-            const sheets = luckysheet.getAllSheets ? luckysheet.getAllSheets() : [];
-            sheets.forEach(sheet => {
-                const config = onlineEditorConfigs[sheet.name];
+            if (!displayedValidationErrors) return;
+
+            Object.entries(displayedValidationErrors).forEach(([sheetName, rowErrors]) => {
+                if (!rowErrors || rowErrors.length === 0) return;
+                const config = onlineEditorConfigs[sheetName];
                 if (!config) return;
                 const errorColIndex = (config.columns || buildSpreadsheetColumns(config)).length;
-                const sheetData = sheet.data || [];
-                const rangeValues = [];
-                for (let r = 0; r < sheetData.length; r++) {
-                    rangeValues.push({ r: r, c: errorColIndex, v: '' });
-                }
+
+                const rangeValues = [{ r: 0, c: errorColIndex, v: '' }];
+                rowErrors.forEach(err => {
+                    const frontendRow = (err.rowIndex || 0) - 1;
+                    if (frontendRow > 0) {
+                        rangeValues.push({ r: frontendRow, c: errorColIndex, v: '' });
+                    }
+                });
+
                 batchSetRangeValues(rangeValues);
             });
+
+            displayedValidationErrors = null;
         }
 
         /**
@@ -1645,6 +1811,9 @@
         function fillValidationErrors(errorsBySheet) {
             if (!luckySheetReady || typeof luckysheet === 'undefined') return;
             if (!errorsBySheet) return;
+
+            // 记录当前显示的错误，用于后续快速清空
+            displayedValidationErrors = JSON.parse(JSON.stringify(errorsBySheet));
 
             Object.entries(errorsBySheet).forEach(([sheetName, rowErrors]) => {
                 if (!rowErrors || rowErrors.length === 0) return;
@@ -1677,7 +1846,7 @@
                     vt: 0
                 });
                 if (typeof luckysheet.setColumnWidth === 'function') {
-                    luckysheet.setColumnWidth([{ col: errorColIndex, len: 280 }]);
+                    luckysheet.setColumnWidth({ [errorColIndex]: 280 });
                 }
 
                 rowErrors.forEach(err => {
@@ -1710,7 +1879,8 @@
                 return;
             }
 
-            clearErrorColumn();
+                        // 错误列在读取数据时不会被读取；关闭弹窗后表格会销毁，
+            // 因此保存前不必清空错误列，避免触发不必要的 setRangeValue / Web Worker
 
             const rowsPerSheet = getSpreadsheetData();
             const validationErrors = validateOnlineData(rowsPerSheet);

@@ -3,16 +3,24 @@
 {% block title %}表单配置项{% endblock %}
 
 {% block main_content %}
-<div class="container-fluid p-3">
+<div class="container-fluid p-4">
+    <!-- 页面标题区 -->
     <div class="row mb-4">
         <div class="col-md-12">
-            <h4>表单配置项管理</h4>
-            <small class="text-muted">管理可复用的下拉框、单选框等配置项，供动态表单引用</small>
+            <div class="d-flex align-items-center mb-2">
+                <div class="bg-primary bg-gradient rounded-3 p-2 me-3 shadow-sm">
+                    <i class="bi bi-sliders2 text-white fs-4"></i>
+                </div>
+                <div>
+                    <h4 class="mb-0 fw-bold">表单配置项管理</h4>
+                    <small class="text-muted">管理可复用的下拉框、单选框等配置项，供动态表单引用</small>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Tab 导航 -->
-    <ul class="nav nav-tabs mb-3" role="tablist">
+    <ul class="nav nav-tabs component-nav-tabs mb-3" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#componentTab"
                     type="button">
@@ -30,99 +38,108 @@
     <div class="tab-content">
         <!-- 表单配置项 Tab -->
         <div class="tab-pane fade show active" id="componentTab">
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <span>配置项列表</span>
-            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#componentModal" onclick="showAddComponentModal()">
-                <i class="bi bi-plus-lg"></i> 新增配置项
-            </button>
-        </div>
-        <div class="card-body">
-            <!-- 搜索和筛选控制 -->
-            <div class="row mb-3 align-items-end">
-                <div class="col-md-4">
-                    <label class="form-label form-label-sm text-muted">文本搜索</label>
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text"><i class="bi bi-search"></i></span>
-                        <input type="text" class="form-control" id="searchInput" placeholder="搜索配置项名称..." onkeyup="handleSearch()">
-                        <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
+            <div class="card modern-card">
+                <div class="card-header modern-card-header d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-list-check me-2"></i>
+                        <span>配置项列表</span>
                     </div>
+                    <button type="button" class="btn btn-light btn-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#componentModal" onclick="showAddComponentModal()">
+                        <i class="bi bi-plus-lg"></i> 新增配置项
+                    </button>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label form-label-sm text-muted">类型筛选</label>
-                    <select class="form-select form-select-sm" id="typeFilter" onchange="handleSearch()">
-                        <option value="">全部类型</option>
-                        <option value="select">下拉框</option>
-                        <option value="radio">单选框</option>
-                    </select>
-                </div>
-                <div class="col-md-6 text-end">
-                    <small class="text-muted" id="searchResultInfo"></small>
+                <div class="card-body">
+                    <!-- 搜索和筛选控制 -->
+                    <div class="row mb-4 align-items-end modern-toolbar">
+                        <div class="col-md-4">
+                            <label class="form-label form-label-sm text-muted">文本搜索</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                                <input type="text" class="form-control border-start-0" id="searchInput" placeholder="搜索配置项名称..." onkeyup="handleSearch()">
+                                <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label form-label-sm text-muted">类型筛选</label>
+                            <select class="form-select form-select-sm" id="typeFilter" onchange="handleSearch()">
+                                <option value="">全部类型</option>
+                                <option value="select">下拉框</option>
+                                <option value="radio">单选框</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <small class="text-muted" id="searchResultInfo"></small>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive modern-table-wrap">
+                        <table class="table table-hover modern-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>配置项名称</th>
+                                    <th>类型</th>
+                                    <th>选项数量</th>
+                                    <th>使用次数</th>
+                                    <th>创建时间</th>
+                                    <th class="text-end">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="componentListBody">
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 分页控制 -->
+                    <div class="row mb-3 align-items-center">
+                        <div class="col-md-6">
+                            <small class="text-muted" id="searchResultInfo"></small>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <span class="text-muted small me-2">每页显示:</span>
+                            <select class="form-select form-select-sm d-inline-block" style="width: auto;"
+                                    id="pageSizeSelect" onchange="changePageSize(this.value)">
+                                <option value="5">5条</option>
+                                <option value="10" selected>10条</option>
+                                <option value="20">20条</option>
+                                <option value="50">50条</option>
+                            </select>
+                            <span id="paginationInfo" class="ms-3 text-muted small">共 0 条，第 0/0 页</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 分页导航 -->
+                    <nav id="componentPagination" class="mt-3">
+                        <ul class="pagination pagination-sm justify-content-center mb-0"></ul>
+                    </nav>
                 </div>
             </div>
-
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>配置项名称</th>
-                        <th>类型</th>
-                        <th>选项数量</th>
-                        <th>使用次数</th>
-                        <th>创建时间</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="componentListBody">
-                    <tr>
-                        <td colspan="6" class="text-center">加载中...</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <!-- 分页控制 -->
-            <div class="row mb-3 align-items-center">
-                <div class="col-md-6">
-                    <small class="text-muted" id="searchResultInfo"></small>
-                </div>
-                <div class="col-md-6 text-end">
-                    <span class="text-muted small me-2">每页显示:</span>
-                    <select class="form-select form-select-sm d-inline-block" style="width: auto;"
-                            id="pageSizeSelect" onchange="changePageSize(this.value)">
-                        <option value="5">5条</option>
-                        <option value="10" selected>10条</option>
-                        <option value="20">20条</option>
-                        <option value="50">50条</option>
-                    </select>
-                    <span id="paginationInfo" class="ms-3 text-muted small">共 0 条，第 0/0 页</span>
-                </div>
-            </div>
-            
-            <!-- 分页导航 -->
-            <nav id="componentPagination" class="mt-3">
-                <ul class="pagination pagination-sm justify-content-center mb-0"></ul>
-            </nav>
         </div>
-    </div>
-</div>
 
         <!-- 数据库IP配置 Tab -->
         <div class="tab-pane fade" id="databaseIpTab">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span>数据库IP配置列表</span>
-                    <button type="button" class="btn btn-primary btn-sm" onclick="showAddDatabaseIpModal()">
+            <div class="card modern-card">
+                <div class="card-header modern-card-header d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-hdd-network me-2"></i>
+                        <span>数据库IP配置列表</span>
+                    </div>
+                    <button type="button" class="btn btn-light btn-sm fw-semibold" onclick="showAddDatabaseIpModal()">
                         <i class="bi bi-plus-lg"></i> 新增配置
                     </button>
                 </div>
                 <div class="card-body">
                     <!-- 搜索栏 -->
-                    <div class="row mb-3">
+                    <div class="row mb-4 align-items-end modern-toolbar">
                         <div class="col-md-6">
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-search"></i></span>
-                                <input type="text" class="form-control" id="dbIpSearchInput" placeholder="搜索配置名称或IP地址..." onkeyup="handleDbIpSearch()">
+                            <label class="form-label form-label-sm text-muted">搜索配置</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                                <input type="text" class="form-control border-start-0" id="dbIpSearchInput" placeholder="搜索配置名称或IP地址..." onkeyup="handleDbIpSearch()">
                                 <button class="btn btn-outline-secondary" type="button" onclick="clearDbIpSearch()">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
@@ -133,23 +150,25 @@
                         </div>
                     </div>
 
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>配置名称</th>
-                                <th>IP地址</th>
-                                <th>数据库名</th>
-                                <th>状态</th>
-                                <th>创建时间</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="databaseIpListBody">
-                            <tr>
-                                <td colspan="6" class="text-center">加载中...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="table-responsive modern-table-wrap">
+                        <table class="table table-hover modern-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>配置名称</th>
+                                    <th>IP地址</th>
+                                    <th>数据库名</th>
+                                    <th>状态</th>
+                                    <th>创建时间</th>
+                                    <th class="text-end">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="databaseIpListBody">
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
                     <!-- 分页控制 -->
                     <div class="row mb-3 align-items-center">
@@ -180,35 +199,41 @@
 
 <!-- 配置项编辑模态框 -->
 <div class="modal fade" id="componentModal" tabindex="-1" aria-labelledby="componentModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="editorTitle">新增配置项</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content modal-content-modern">
+            <div class="modal-header modal-header-gradient-primary">
+                <h5 class="modal-title" id="editorTitle">
+                    <i class="bi bi-sliders2"></i> 新增配置项
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body component-modal-body">
                 <!-- 基本信息 -->
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label">配置项名称 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="componentName" placeholder="例如: 订单状态">
-                        <small class="text-muted">名称将作为唯一标识</small>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">组件类型 <span class="text-danger">*</span></label>
-                        <select class="form-select" id="componentType" onchange="handleTypeChange()">
-                            <option value="select">下拉框</option>
-                            <option value="radio">单选框</option>
-                        </select>
+                <div class="modal-section-card">
+                    <div class="modal-section-title"><i class="bi bi-info-circle"></i> 基本信息</div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="modal-form-label">配置项名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="componentName" placeholder="例如: 订单状态">
+                            <small class="text-muted" style="font-size: 0.75rem;">名称将作为唯一标识</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="modal-form-label">组件类型 <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" id="componentType" onchange="handleTypeChange()">
+                                <option value="select">下拉框</option>
+                                <option value="radio">单选框</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
-                <hr>
-
                 <!-- 选项配置 -->
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0">选项配置</h6>
+                <div class="modal-section-card mb-0">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <div class="modal-section-title mb-1"><i class="bi bi-list-check"></i> 选项配置</div>
+                            <small class="text-muted" id="optionsHint">至少需要配置一个选项，可通过拖动或点击箭头调整顺序</small>
+                        </div>
                         <div>
                             <button type="button" class="btn btn-sm btn-outline-success me-1" onclick="showImportOptionsModal()">
                                 <i class="bi bi-upload"></i> 批量导入
@@ -218,14 +243,13 @@
                             </button>
                         </div>
                     </div>
-                    <small class="text-muted d-block mb-3" id="optionsHint">至少需要配置一个选项，可通过拖动或点击箭头调整顺序</small>
 
                     <!-- 选项搜索 -->
-                    <div class="row mb-2">
+                    <div class="row mb-3">
                         <div class="col-md-8">
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text"><i class="bi bi-search"></i></span>
-                                <input type="text" class="form-control" id="optionSearchInput" placeholder="搜索选项值或文本..." onkeyup="handleOptionSearch()">
+                                <input type="text" class="form-control" id="optionSearchInput" placeholder="搜索编码或中文名..." onkeyup="handleOptionSearch()">
                                 <button class="btn btn-outline-secondary" type="button" onclick="clearOptionSearch()">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
@@ -233,6 +257,19 @@
                         </div>
                         <div class="col-md-4 text-end">
                             <small class="text-muted" id="optionSearchResultInfo"></small>
+                        </div>
+                    </div>
+
+                    <!-- 选项列表表头 -->
+                    <div class="option-list-header d-flex align-items-center gap-2 mb-2 px-3">
+                        <i class="bi bi-grip-vertical text-transparent" style="width: 14px;"></i>
+                        <span class="badge bg-transparent option-number" style="min-width: 30px; visibility: hidden;">#</span>
+                        <div class="flex-grow-1">
+                            <div class="row g-2">
+                                <div class="col-md-4"><span class="text-muted small fw-semibold">编码</span></div>
+                                <div class="col-md-6"><span class="text-muted small fw-semibold">中文名</span></div>
+                                <div class="col-md-2 text-center"><span class="text-muted small fw-semibold">操作</span></div>
+                            </div>
                         </div>
                     </div>
 
@@ -260,8 +297,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-success" onclick="saveComponent()">
+                <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success btn-modal-action" onclick="saveComponent()">
                     <i class="bi bi-save"></i> 保存配置
                 </button>
             </div>
@@ -271,37 +308,38 @@
 
 <!-- 批量导入选项模态框 -->
 <div class="modal fade" id="importOptionsModal" tabindex="-1" aria-labelledby="importOptionsModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="importOptionsModalLabel">批量导入选项</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content modal-content-modern">
+            <div class="modal-header modal-header-gradient-success">
+                <h5 class="modal-title" id="importOptionsModalLabel">
+                    <i class="bi bi-upload"></i> 批量导入选项
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">选择Excel文件 <span class="text-danger">*</span></label>
-                    <input type="file" class="form-control" id="importOptionsFile" accept=".xlsx,.xls">
-                    <small class="text-muted">支持 .xlsx 和 .xls 格式</small>
+            <div class="modal-body component-modal-body">
+                <div class="modal-section-card">
+                    <label class="modal-form-label">选择Excel文件 <span class="text-danger">*</span></label>
+                    <input type="file" class="form-control form-control-sm" id="importOptionsFile" accept=".xlsx,.xls">
+                    <small class="text-muted" style="font-size: 0.75rem;">支持 .xlsx 和 .xls 格式</small>
                 </div>
-                <div class="alert alert-info">
-                    <h6 class="alert-heading">文件格式要求：</h6>
+                <div class="alert alert-info modern-alert">
+                    <h6 class="alert-heading"><i class="bi bi-info-circle"></i> 文件格式要求</h6>
                     <ul class="mb-0">
-                        <li>必须包含"代码项编号"列（作为选项值）</li>
-                        <li>必须包含"代码项中文名称"列（作为选项显示文本）</li>
+                        <li>必须包含"代码项编号"列（作为选项<strong>编码</strong>）</li>
+                        <li>必须包含"代码项中文名称"列（作为选项<strong>中文名</strong>）</li>
                         <li>第一行为表头，从第二行开始为数据</li>
                         <li>会自动跳过空行和重复项</li>
                     </ul>
                 </div>
                 <div id="importPreviewArea" style="display: none;">
-                    <hr>
-                    <h6>预览（前10条）</h6>
+                    <div class="modal-section-title"><i class="bi bi-eye"></i> 预览（前10条）</div>
                     <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                         <table class="table table-sm table-bordered">
                             <thead class="table-light">
                                 <tr>
                                     <th>序号</th>
-                                    <th>值（value）</th>
-                                    <th>显示文本（label）</th>
+                                    <th>编码</th>
+                                    <th>中文名</th>
                                 </tr>
                             </thead>
                             <tbody id="importPreviewBody">
@@ -312,8 +350,8 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" id="confirmImportBtn" onclick="confirmImportOptions()" disabled>
+                <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success btn-modal-action" id="confirmImportBtn" onclick="confirmImportOptions()" disabled>
                     <i class="bi bi-check-lg"></i> 确认导入
                 </button>
             </div>
@@ -323,42 +361,125 @@
 
 <!-- 数据库IP配置编辑模态框 -->
 <div class="modal fade" id="databaseIpModal" tabindex="-1" aria-labelledby="databaseIpModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="dbIpEditorTitle">新增数据库IP配置</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-modern">
+            <div class="modal-header modal-header-gradient-info">
+                <h5 class="modal-title" id="dbIpEditorTitle">
+                    <i class="bi bi-hdd-network"></i> 新增数据库IP配置
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body component-modal-body">
                 <!-- 基本信息 -->
-                <div class="row mb-3">
-                    <div class="col-md-12">
-                        <label class="form-label">配置名称 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="dbIpConfigName" placeholder="例如: 生产环境数据库">
+                <div class="modal-section-card">
+                    <div class="modal-section-title"><i class="bi bi-info-circle"></i> 基本信息</div>
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="modal-form-label">配置名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="dbIpConfigName" placeholder="例如: 生产环境数据库">
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="modal-form-label">IP地址 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="dbIpAddress" placeholder="例如: 192.168.1.100">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="modal-form-label">数据库名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="dbIpDatabaseName" placeholder="例如: my_database">
+                        </div>
                     </div>
                 </div>
 
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label">IP地址 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="dbIpAddress" placeholder="例如: 192.168.1.100">
+                <div class="modal-section-card mb-0">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="dbIpIsActive" checked>
+                        <label class="form-check-label" for="dbIpIsActive">启用此配置</label>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">数据库名 <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="dbIpDatabaseName" placeholder="例如: my_database">
-                    </div>
-                </div>
-
-                <div class="form-check form-switch mb-3">
-                    <input class="form-check-input" type="checkbox" id="dbIpIsActive" checked>
-                    <label class="form-check-label" for="dbIpIsActive">启用此配置</label>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-success" onclick="saveDatabaseIpConfig()">
+                <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-success btn-modal-action" onclick="saveDatabaseIpConfig()">
                     <i class="bi bi-save"></i> 保存配置
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 查看引用模态框 -->
+<div class="modal fade" id="usageModal" tabindex="-1" aria-labelledby="usageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content usage-modal-content">
+            <div class="modal-header usage-modal-header">
+                <div class="d-flex align-items-center">
+                    <div class="usage-icon bg-white bg-opacity-25 rounded-circle p-2 me-3">
+                        <i class="bi bi-diagram-3 text-white fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title text-white mb-0" id="usageModalLabel">配置项引用详情</h5>
+                        <small class="text-white-50" id="usageModalSubtitle">查看该配置项在表单中的引用情况</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <!-- 统计卡片 -->
+                <div class="usage-stats-row p-3">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="usage-stat-card">
+                                <div class="usage-stat-icon text-primary">
+                                    <i class="bi bi-hash"></i>
+                                </div>
+                                <div class="usage-stat-info">
+                                    <span class="usage-stat-value" id="usageCountValue">0</span>
+                                    <span class="usage-stat-label">引用次数</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="usage-stat-card">
+                                <div class="usage-stat-icon text-success">
+                                    <i class="bi bi-file-earmark-text"></i>
+                                </div>
+                                <div class="usage-stat-info">
+                                    <span class="usage-stat-value" id="usageFormCountValue">0</span>
+                                    <span class="usage-stat-label">引用表单数</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="usage-stat-card">
+                                <div class="usage-stat-icon text-info">
+                                    <i class="bi bi-check-circle"></i>
+                                </div>
+                                <div class="usage-stat-info">
+                                    <span class="usage-stat-value" id="usageStatusValue">正常</span>
+                                    <span class="usage-stat-label">使用状态</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 引用列表 -->
+                <div class="usage-list-section p-3">
+                    <h6 class="usage-list-title">
+                        <i class="bi bi-link-45deg me-1"></i>引用列表
+                    </h6>
+                    <div class="usage-list-container" id="usageListContainer">
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-2"></i>
+                            <p class="mt-2 mb-0">暂无引用记录</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer usage-modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">关闭</button>
             </div>
         </div>
     </div>
@@ -627,8 +748,8 @@ function renderComponentList() {
     const tbody = document.getElementById('componentListBody');
 
     if (allComponents.length === 0 && totalComponentsCount === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">暂无数据</td></tr>';
-        document.getElementById('paginationContainer').innerHTML = '';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">暂无数据</td></tr>';
+        document.getElementById('componentPagination').querySelector('ul').innerHTML = '';
         document.getElementById('paginationInfo').textContent = '';
         return;
     }
@@ -640,24 +761,35 @@ function renderComponentList() {
 
     tbody.innerHTML = pageData.map(component => `
         <tr>
-            <td><strong>${component.name}</strong></td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <div class="component-icon ${component.type === 'select' ? 'bg-info bg-opacity-10 text-info' : 'bg-warning bg-opacity-10 text-warning'} rounded-circle p-2 me-2">
+                        <i class="bi ${component.type === 'select' ? 'bi-menu-down' : 'bi-ui-radios'}"></i>
+                    </div>
+                    <span class="fw-semibold">${component.name}</span>
+                </div>
+            </td>
             <td>
                 ${component.type === 'select' ?
-                    '<span class="badge bg-info">下拉框</span>' :
-                    '<span class="badge bg-warning">单选框</span>'}
+                    '<span class="badge rounded-pill badge-select"><i class="bi bi-menu-down me-1"></i>下拉框</span>' :
+                    '<span class="badge rounded-pill badge-radio"><i class="bi bi-ui-radios me-1"></i>单选框</span>'}
             </td>
-            <td>${component.option_count} 个</td>
-            <td>${component.usage_count} 次</td>
-            <td>${component.created_at}</td>
+            <td><span class="text-muted">${component.option_count}</span> <small class="text-muted">个</small></td>
             <td>
-                <button class="btn btn-sm btn-outline-primary me-1" onclick="editComponent(${component.id})" data-bs-toggle="modal" data-bs-target="#componentModal">
-                    <i class="bi bi-pencil"></i> 编辑
+                <span class="badge bg-light text-dark border usage-badge">
+                    <i class="bi bi-link-45deg me-1 text-primary"></i>${component.usage_count} 次引用
+                </span>
+            </td>
+            <td><span class="text-muted small">${component.created_at}</span></td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-action btn-action-primary me-1" data-bs-toggle="modal" data-bs-target="#componentModal" onclick="editComponent(${component.id})" title="编辑">
+                    <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-info me-1" onclick="viewUsage(${component.id})">
-                    <i class="bi bi-eye"></i> 查看引用
+                <button class="btn btn-sm btn-action btn-action-info me-1" onclick="viewUsage(${component.id})" title="查看引用">
+                    <i class="bi bi-eye"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteComponent(${component.id})">
-                    <i class="bi bi-trash"></i> 删除
+                <button class="btn btn-sm btn-action btn-action-danger" onclick="deleteComponent(${component.id})" title="删除">
+                    <i class="bi bi-trash"></i>
                 </button>
             </td>
         </tr>
@@ -677,7 +809,7 @@ function renderComponentList() {
 function renderPagination(totalPages) {
     const paginationContainer = document.getElementById('componentPagination').querySelector('ul');
 
-    // 如枟没有数据，不显示分页
+    // 如果没有数据，不显示分页
     if (totalPages === 0) {
         paginationContainer.innerHTML = '';
         return;
@@ -796,7 +928,7 @@ function handleTypeChange() {
  */
 function showAddComponentModal() {
     currentEditingId = null;
-    document.getElementById('editorTitle').textContent = '新增配置项';
+    document.getElementById('editorTitle').innerHTML = '<i class="bi bi-sliders2"></i> 新增配置项';
 
     // 清空表单
     document.getElementById('componentName').value = '';
@@ -834,7 +966,7 @@ function showAddComponentModal() {
  */
 function editComponent(id) {
     currentEditingId = id;
-    document.getElementById('editorTitle').textContent = '编辑配置项';
+    document.getElementById('editorTitle').innerHTML = '<i class="bi bi-sliders2"></i> 编辑配置项';
 
     // 从后端获取详情
     fetch(`/api/components/${id}/`)
@@ -901,15 +1033,15 @@ function addOptionToDOM(data = null) {
                     <div class="row g-2">
                         <div class="col-md-4">
                             <input type="text" class="form-control form-control-sm option-value"
-                                   placeholder="值（value）" value="${data?.value || ''}"
+                                   placeholder="请输入编码" value="${data?.value || ''}"
                                    oninput="updateOptionData(this)">
                         </div>
                         <div class="col-md-6">
                             <input type="text" class="form-control form-control-sm option-label"
-                                   placeholder="显示文本（label）" value="${data?.label || ''}"
+                                   placeholder="请输入中文名" value="${data?.label || ''}"
                                    oninput="updateOptionData(this)">
                         </div>
-                        <div class="col-md-2 d-flex gap-1">
+                        <div class="col-md-2 d-flex gap-1 justify-content-center">
                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="moveOptionUp(this)" title="上移">
                                 <i class="bi bi-arrow-up"></i>
                             </button>
@@ -1001,27 +1133,87 @@ function viewUsage(id) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const usage = data.data;
-                let message = `配置项 "${usage.component_name}" 被引用了 ${usage.usage_count} 次\n\n`;
-
-                if (usage.references && usage.references.length > 0) {
-                    message += '引用的表单：\n';
-                    usage.references.forEach((ref, idx) => {
-                        message += `${idx + 1}. ${ref.form_name} - ${ref.field_label}\n`;
-                    });
-                } else {
-                    message += '暂无引用记录';
-                }
-
-                alert(message);
+                renderUsageModal(data.data);
             } else {
-                alert('查看引用失败: ' + data.error);
+                showToast('查看引用失败: ' + (data.error || '未知错误'), 'error');
             }
         })
         .catch(error => {
             console.error('请求失败:', error);
-            alert('网络请求失败');
+            showToast('网络请求失败', 'error');
         });
+}
+
+/**
+ * 转义 HTML 特殊字符
+ */
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+
+/**
+ * 渲染查看引用模态框
+ */
+function renderUsageModal(usage) {
+    const componentName = usage.component_name || '未命名配置项';
+    const usageCount = usage.usage_count || 0;
+    const references = usage.references || [];
+
+    // 计算引用的唯一表单数
+    const uniqueForms = new Set(references.map(ref => ref.form_name));
+    const formCount = uniqueForms.size;
+
+    // 更新标题和统计
+    document.getElementById('usageModalLabel').textContent = `配置项引用详情：${componentName}`;
+    document.getElementById('usageModalSubtitle').textContent = usageCount > 0
+        ? `该配置项已被 ${usageCount} 个字段引用，分布在 ${formCount} 个表单中`
+        : '该配置项暂未被任何表单引用';
+    document.getElementById('usageCountValue').textContent = usageCount;
+    document.getElementById('usageFormCountValue').textContent = formCount;
+    document.getElementById('usageStatusValue').textContent = usageCount > 0 ? '使用中' : '未使用';
+
+    // 渲染引用列表
+    const listContainer = document.getElementById('usageListContainer');
+    if (references.length === 0) {
+        listContainer.innerHTML = `
+            <div class="usage-empty-state">
+                <i class="bi bi-inbox"></i>
+                <p class="mt-2 mb-0">暂无引用记录</p>
+                <small class="text-muted">该配置项尚未被任何表单字段引用</small>
+            </div>
+        `;
+    } else {
+        listContainer.innerHTML = `
+            <div class="list-group usage-list">
+                ${references.map((ref, idx) => `
+                    <div class="list-group-item usage-list-item">
+                        <div class="d-flex align-items-start">
+                            <span class="usage-list-number">${idx + 1}</span>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="usage-form-name">
+                                        <i class="bi bi-file-earmark-text me-1 text-primary"></i>
+                                        ${escapeHtml(ref.form_name) || '未命名表单'}
+                                    </span>
+                                    <span class="badge bg-light text-dark border">${escapeHtml(ref.field_label) || '未命名字段'}</span>
+                                </div>
+                                <small class="text-muted">
+                                    <i class="bi bi-tag me-1"></i>字段标签：${escapeHtml(ref.field_label) || '未命名'}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    // 显示模态框
+    const modal = new bootstrap.Modal(document.getElementById('usageModal'));
+    modal.show();
 }
 
 /**
@@ -1446,8 +1638,8 @@ function renderDatabaseIpConfigList() {
     const tbody = document.getElementById('databaseIpListBody');
     
     if (filteredDatabaseIpConfigs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center">暂无数据</td></tr>';
-        document.getElementById('dbIpPaginationContainer').innerHTML = '';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">暂无数据</td></tr>';
+        document.getElementById('dbIpPagination').querySelector('ul').innerHTML = '';
         document.getElementById('dbIpPaginationInfo').textContent = '';
         return;
     }
@@ -1460,21 +1652,28 @@ function renderDatabaseIpConfigList() {
     
     tbody.innerHTML = pageData.map(config => `
         <tr>
-            <td><strong>${config.name}</strong></td>
-            <td><code>${config.ip_address}</code></td>
-            <td>${config.database_name}</td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <div class="db-ip-row-icon ${config.is_active ? 'bg-success bg-opacity-10 text-success' : 'bg-secondary bg-opacity-10 text-secondary'} rounded-circle p-2 me-2">
+                        <i class="bi bi-hdd-network"></i>
+                    </div>
+                    <span class="fw-semibold">${config.name}</span>
+                </div>
+            </td>
+            <td><code class="db-ip-code">${config.ip_address}</code></td>
+            <td><span class="text-muted">${config.database_name}</span></td>
             <td>
                 ${config.is_active ? 
-                    '<span class="badge bg-success">启用</span>' : 
-                    '<span class="badge bg-secondary">禁用</span>'}
+                    '<span class="badge rounded-pill bg-success bg-opacity-10 text-success border border-success border-opacity-20"><i class="bi bi-check-circle-fill me-1"></i>启用</span>' : 
+                    '<span class="badge rounded-pill bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-20"><i class="bi bi-pause-circle-fill me-1"></i>禁用</span>'}
             </td>
-            <td>${config.created_at}</td>
-            <td>
-                <button class="btn btn-sm btn-outline-primary me-1" onclick="editDatabaseIpConfig(${config.id})" data-bs-toggle="modal" data-bs-target="#databaseIpModal">
-                    <i class="bi bi-pencil"></i> 编辑
+            <td><span class="text-muted small">${config.created_at}</span></td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-action btn-action-primary me-1" onclick="editDatabaseIpConfig(${config.id})" title="编辑">
+                    <i class="bi bi-pencil"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteDatabaseIpConfig(${config.id})">
-                    <i class="bi bi-trash"></i> 删除
+                <button class="btn btn-sm btn-action btn-action-danger" onclick="deleteDatabaseIpConfig(${config.id})" title="删除">
+                    <i class="bi bi-trash"></i>
                 </button>
             </td>
         </tr>
@@ -1597,16 +1796,17 @@ function clearDbIpSearch() {
  */
 function showAddDatabaseIpModal() {
     currentEditingDbIpId = null;
-    document.getElementById('dbIpEditorTitle').textContent = '新增数据库IP配置';
-    
+    document.getElementById('dbIpEditorTitle').innerHTML = '<i class="bi bi-hdd-network"></i> 新增数据库IP配置';
+
     // 清空表单
     document.getElementById('dbIpConfigName').value = '';
     document.getElementById('dbIpAddress').value = '';
     document.getElementById('dbIpDatabaseName').value = '';
     document.getElementById('dbIpIsActive').checked = true;
-    
-    // 显示模态框
-    const modal = new bootstrap.Modal(document.getElementById('databaseIpModal'));
+
+    // 显示模态框（复用实例，避免重复创建导致背景残留）
+    const modalEl = document.getElementById('databaseIpModal');
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     modal.show();
 }
 
@@ -1615,7 +1815,7 @@ function showAddDatabaseIpModal() {
  */
 function editDatabaseIpConfig(id) {
     currentEditingDbIpId = id;
-    document.getElementById('dbIpEditorTitle').textContent = '编辑数据库IP配置';
+    document.getElementById('dbIpEditorTitle').innerHTML = '<i class="bi bi-hdd-network"></i> 编辑数据库IP配置';
     
     // 从后端获取详情
     fetch(`/api/database-ip-config/${id}/`)
@@ -1628,8 +1828,9 @@ function editDatabaseIpConfig(id) {
                 document.getElementById('dbIpDatabaseName').value = config.database_name;
                 document.getElementById('dbIpIsActive').checked = config.is_active;
                 
-                // 显示模态框
-                const modal = new bootstrap.Modal(document.getElementById('databaseIpModal'));
+                // 显示模态框（复用实例，避免重复创建导致背景残留）
+                const modalEl = document.getElementById('databaseIpModal');
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
                 modal.show();
             } else {
                 console.error('加载详情失败:', data.message);
@@ -1689,7 +1890,8 @@ function saveDatabaseIpConfig() {
         if (data.success) {
             alert(data.message || '保存成功');
             // 关闭模态框
-            const modal = bootstrap.Modal.getInstance(document.getElementById('databaseIpModal'));
+            const modalEl = document.getElementById('databaseIpModal');
+            const modal = bootstrap.Modal.getInstance(modalEl) || bootstrap.Modal.getOrCreateInstance(modalEl);
             modal.hide();
             // 重新加载列表
             loadDatabaseIpConfigList();
@@ -1734,10 +1936,476 @@ document.addEventListener('DOMContentLoaded', function() {
     loadComponentList();
     initSortable();
     loadDatabaseIpConfigList();
+
+    // 数据库IP模态框关闭后兜底清理背景，防止页面变灰无法点击
+    document.getElementById('databaseIpModal').addEventListener('hidden.bs.modal', function () {
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+    });
 });
 </script>
 
 <style>
+/* ===== 现代卡片与页面样式 ===== */
+.modern-card {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.modern-card-header {
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    color: #ffffff;
+    font-weight: 600;
+    padding: 1rem 1.25rem;
+    border-bottom: none;
+}
+
+.modern-card-header .btn-light {
+    color: #0d6efd;
+    border: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    transition: all 0.2s ease;
+}
+
+.modern-card-header .btn-light:hover {
+    background-color: #f8f9fa;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.modern-toolbar {
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    padding: 1rem;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* ===== Tab 导航样式 ===== */
+.component-nav-tabs {
+    border-bottom: 2px solid #e9ecef;
+}
+
+.component-nav-tabs .nav-link {
+    color: #6c757d;
+    font-weight: 500;
+    padding: 0.75rem 1.25rem;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s ease;
+}
+
+.component-nav-tabs .nav-link:hover {
+    color: #0d6efd;
+    border-bottom-color: #cfe2ff;
+}
+
+.component-nav-tabs .nav-link.active {
+    color: #0d6efd;
+    border-bottom-color: #0d6efd;
+    background: transparent;
+    font-weight: 600;
+}
+
+/* ===== 现代表格样式 ===== */
+.modern-table-wrap {
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.modern-table {
+    margin-bottom: 0;
+    font-size: 0.9rem;
+}
+
+.modern-table thead th {
+    background-color: #f8f9fa;
+    color: #495057;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #e9ecef;
+    padding: 0.85rem 1rem;
+}
+
+.modern-table tbody td {
+    padding: 1rem;
+    border-bottom: 1px solid #f1f3f5;
+    vertical-align: middle;
+}
+
+.modern-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.modern-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* ===== 行内图标 ===== */
+.component-icon,
+.db-ip-row-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 0.9rem;
+}
+
+/* ===== 徽章样式 ===== */
+.badge-select {
+    background-color: rgba(13, 202, 240, 0.12);
+    color: #087990;
+    font-weight: 500;
+    padding: 0.45em 0.85em;
+}
+
+.badge-radio {
+    background-color: rgba(255, 193, 7, 0.12);
+    color: #997404;
+    font-weight: 500;
+    padding: 0.45em 0.85em;
+}
+
+.usage-badge {
+    font-weight: 500;
+    padding: 0.45em 0.85em;
+}
+
+.db-ip-code {
+    background-color: #f8f9fa;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #495057;
+    border: 1px solid #e9ecef;
+}
+
+/* ===== 操作按钮样式 ===== */
+.btn-action {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.btn-action-primary {
+    color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.08);
+    border-color: rgba(13, 110, 253, 0.15);
+}
+
+.btn-action-primary:hover {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
+.btn-action-info {
+    color: #0dcaf0;
+    background-color: rgba(13, 202, 240, 0.08);
+    border-color: rgba(13, 202, 240, 0.15);
+}
+
+.btn-action-info:hover {
+    background-color: #0dcaf0;
+    color: #fff;
+}
+
+.btn-action-danger {
+    color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.08);
+    border-color: rgba(220, 53, 69, 0.15);
+}
+
+.btn-action-danger:hover {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+/* ===== 查看引用模态框样式 ===== */
+.usage-modal-content {
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+.usage-modal-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-bottom: none;
+    padding: 1.5rem;
+}
+
+.usage-modal-footer {
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    padding: 1rem 1.5rem;
+}
+
+.usage-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.usage-stats-row {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.usage-stat-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    border: 1px solid #e9ecef;
+}
+
+.usage-stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background-color: rgba(13, 110, 253, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    margin-right: 0.875rem;
+}
+
+.usage-stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.usage-stat-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #212529;
+    line-height: 1.2;
+}
+
+.usage-stat-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.usage-list-section {
+    background-color: #ffffff;
+}
+
+.usage-list-title {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.usage-list {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #e9ecef;
+}
+
+.usage-list-item {
+    border: none;
+    border-bottom: 1px solid #f1f3f5;
+    padding: 1rem;
+    transition: background-color 0.15s ease;
+}
+
+.usage-list-item:last-child {
+    border-bottom: none;
+}
+
+.usage-list-item:hover {
+    background-color: #f8f9fa;
+}
+
+.usage-list-number {
+    min-width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 0.875rem;
+}
+
+.usage-form-name {
+    font-weight: 600;
+    color: #212529;
+}
+
+.usage-empty-state {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: #6c757d;
+}
+
+.usage-empty-state i {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 0.5rem;
+    opacity: 0.6;
+}
+
+/* ===== 现代化模态框样式 ===== */
+.component-modal-body {
+    background-color: #f8fafc;
+    padding: 1.5rem;
+}
+
+.modal-content-modern {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+    overflow: hidden;
+}
+
+.modal-content-modern .modal-header {
+    border-bottom: none;
+    padding: 1rem 1.5rem;
+}
+
+.modal-header-gradient-primary {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: #fff;
+}
+
+.modal-header-gradient-success {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    color: #fff;
+}
+
+.modal-header-gradient-info {
+    background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+    color: #fff;
+}
+
+.modal-content-modern .modal-title {
+    font-weight: 600;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.modal-content-modern .modal-footer {
+    border-top: 1px solid #e2e8f0;
+    background-color: #fff;
+    padding: 1rem 1.5rem;
+}
+
+.modal-section-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    border: 1px solid #e2e8f0;
+}
+
+.modal-section-card:last-child {
+    margin-bottom: 0;
+}
+
+.modal-section-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #334155;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.modal-form-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #475569;
+    margin-bottom: 0.25rem;
+}
+
+.btn-modal-action {
+    border-radius: 8px;
+    padding: 0.45rem 1rem;
+    font-weight: 500;
+    font-size: 0.88rem;
+}
+
+.option-list-header {
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.option-list-header span {
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+}
+
+.modern-alert {
+    border-radius: 10px;
+    border: none;
+    font-size: 0.85rem;
+}
+
+/* ===== 分页样式优化 ===== */
+.pagination {
+    gap: 0.25rem;
+}
+
+.pagination .page-link {
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    color: #495057;
+    font-weight: 500;
+    min-width: 34px;
+    text-align: center;
+    transition: all 0.15s ease;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: #fff;
+}
+
+.pagination .page-item.disabled .page-link {
+    background-color: #f8f9fa;
+    color: #adb5bd;
+}
+
+.pagination .page-link:hover:not(.disabled) {
+    background-color: #e9ecef;
+    border-color: #dee2e6;
+    color: #0d6efd;
+}
+
+/* ===== 拖拽排序样式 ===== */
 .sortable-ghost {
     opacity: 0.4;
     background-color: #f0f0f0;
