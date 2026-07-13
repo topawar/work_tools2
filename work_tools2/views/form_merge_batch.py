@@ -322,9 +322,8 @@ def batch_import_merge(request):
             # 如果有失败的Sheet，生成带有错误信息的Excel文件（包含所有Sheet）
             excel_file_path = None
             if not all_success:
-                from openpyxl import Workbook
                 from openpyxl.styles import Font, Alignment, PatternFill
-                
+
                 # 创建结果Workbook
                 wb_result = Workbook()
                 

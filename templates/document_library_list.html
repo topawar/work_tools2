@@ -1,0 +1,758 @@
+{% extends "base.html" %}
+
+{% block title %}文档库{% endblock %}
+
+{% block main_content %}
+    <div class="container-fluid p-0 doc-library-page">
+        <!-- 顶部操作栏 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="m-0 page-title">
+                <i class="bi bi-journal-bookmark-fill me-2 text-primary"></i>文档库
+            </h4>
+            <a href="/document-library/edit/" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>新建文档
+            </a>
+        </div>
+
+        <!-- 搜索区域 -->
+        <div class="search-card">
+            <div class="row g-3 align-items-center">
+                <div class="col-12 col-md-8 col-lg-6">
+                    <div class="search-input-group">
+                        <span class="search-icon"><i class="bi bi-search"></i></span>
+                        <input type="text" id="searchKeyword" class="form-control search-input"
+                               placeholder="搜索文档标题或正文内容..." onkeyup="if(event.key==='Enter') loadDocuments(1)">
+                    </div>
+                </div>
+                <div class="col-12 col-md-4 col-lg-6 text-md-end">
+                    <button class="btn btn-primary" onclick="loadDocuments(1)">
+                        <i class="bi bi-search me-1"></i>查询
+                    </button>
+                    <button class="btn btn-outline-secondary ms-2" onclick="resetSearch()">
+                        <i class="bi bi-x-circle me-1"></i>重置
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 批量操作栏 -->
+        <div class="batch-toolbar" id="batchToolbar">
+            <div class="batch-toolbar-left">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAllCurrentPage(this.checked)">
+                    <label class="form-check-label" for="selectAllCheckbox">全选本页</label>
+                </div>
+                <span class="text-muted small selected-info" id="selectedInfo">已选 0 项</span>
+            </div>
+            <button class="btn btn-outline-danger btn-sm" id="batchDeleteBtn" onclick="confirmBatchDelete()" disabled>
+                <i class="bi bi-trash me-1"></i>批量删除
+            </button>
+        </div>
+
+        <!-- 文档列表 -->
+        <div class="doc-list-card">
+            <div class="table-responsive">
+                <table class="table doc-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 48px;" class="text-center">
+                                <input class="form-check-input" type="checkbox" id="headerSelectAllCheckbox" onchange="toggleSelectAllCurrentPage(this.checked)">
+                            </th>
+                            <th class="ps-0">文档标题</th>
+                            <th style="width: 130px;">关联表单</th>
+                            <th style="width: 170px;">更新时间</th>
+                            <th style="width: 140px;" class="text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="documentTableBody">
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-5">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 分页控制 -->
+        <div class="row mb-3 align-items-center" id="paginationControlArea">
+            <div class="col-md-6">
+                <span class="text-muted small" id="paginationInfo">共 0 条，第 0/0 页</span>
+            </div>
+            <div class="col-md-6 text-end">
+                <span class="text-muted small me-2">每页显示:</span>
+                <select class="form-select form-select-sm d-inline-block" style="width: auto;"
+                        id="pageSizeSelect" onchange="changePageSize(this.value)">
+                    <option value="8" selected>8条</option>
+                    <option value="15">15条</option>
+                    <option value="30">30条</option>
+                    <option value="50">50条</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 分页导航 -->
+        <nav id="paginationArea" aria-label="Page navigation" class="mt-3">
+            <ul class="pagination pagination-sm justify-content-center mb-0" id="paginationList"></ul>
+        </nav>
+    </div>
+
+    <!-- 关联表单模态框 -->
+    <div class="modal fade" id="linkedFormsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-link-45deg me-1 text-primary"></i>关联表单
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="linked-forms-loading text-center py-5 text-muted" id="linkedFormsLoading">
+                        <span class="spinner-border spinner-border-sm me-2"></span>加载中...
+                    </div>
+                    <div class="linked-forms-empty text-center py-5 text-muted" id="linkedFormsEmpty" style="display: none;">
+                        <i class="bi bi-inbox display-6 mb-2 d-block"></i>
+                        暂无关联表单
+                    </div>
+                    <div class="table-responsive" id="linkedFormsTableWrapper" style="display: none;">
+                        <table class="table linked-forms-table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">表单名称</th>
+                                    <th style="width: 110px;">调用次数</th>
+                                </tr>
+                            </thead>
+                            <tbody id="linkedFormsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认模态框 -->
+    <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">确认删除</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="deleteConfirmText"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">删除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量删除确认模态框 -->
+    <div class="modal fade" id="batchDeleteConfirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">确认批量删除</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="batchDeleteConfirmText"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmBatchDeleteBtn" onclick="batchDelete()">删除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .doc-library-page {
+            max-width: 1200px;
+        }
+
+        .page-title {
+            font-weight: 700;
+            font-size: 1.35rem;
+            color: #1e293b;
+        }
+
+        .search-card {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .search-input-group {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            color: #94a3b8;
+            font-size: 1rem;
+            z-index: 4;
+            pointer-events: none;
+        }
+
+        .search-input {
+            padding-left: 42px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            background: #fff;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.15);
+        }
+
+        .doc-list-card {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+        }
+
+        .doc-table {
+            --bs-table-bg: transparent;
+            --bs-table-border-color: #f1f5f9;
+        }
+
+        .doc-table thead th {
+            background: #f8fafc;
+            color: #64748b;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .doc-table tbody td {
+            padding: 1rem 1rem;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+        }
+
+        .doc-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .doc-table tbody tr {
+            transition: background 0.15s;
+        }
+
+        .doc-table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .doc-title-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .doc-title-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: #eff6ff;
+            color: #3b82f6;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .doc-title-text {
+            font-weight: 600;
+            color: #1e293b;
+            line-height: 1.4;
+        }
+
+        .doc-title-text:hover {
+            color: #3b82f6;
+        }
+
+        .doc-linked-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0.35em 0.65em;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: none;
+            background: transparent;
+        }
+
+        button.doc-linked-badge {
+            cursor: pointer;
+        }
+
+        .doc-linked-badge.linked {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .doc-linked-badge.none {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .doc-update-time {
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+
+        .batch-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        }
+
+        .batch-toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .batch-toolbar .form-check {
+            margin: 0;
+            min-height: auto;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .batch-toolbar .form-check-input {
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .selected-info {
+            color: #64748b;
+        }
+
+        .doc-action-btn {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .row-checkbox {
+            cursor: pointer;
+        }
+
+        .doc-table thead th .form-check-input {
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .pagination {
+            --bs-pagination-color: #64748b;
+            --bs-pagination-border-color: #e2e8f0;
+            --bs-pagination-hover-color: #3b82f6;
+            --bs-pagination-hover-bg: #f1f5f9;
+            --bs-pagination-hover-border-color: #e2e8f0;
+            --bs-pagination-active-color: #fff;
+            --bs-pagination-active-bg: #3b82f6;
+            --bs-pagination-active-border-color: #3b82f6;
+            --bs-pagination-disabled-color: #cbd5e1;
+            --bs-pagination-disabled-bg: #f8fafc;
+            --bs-pagination-disabled-border-color: #e2e8f0;
+            border-radius: 8px;
+        }
+
+        .page-link {
+            font-size: 0.85rem;
+            padding: 0.4rem 0.75rem;
+        }
+
+.linked-forms-table {
+            --bs-table-bg: transparent;
+            --bs-table-border-color: #f1f5f9;
+        }
+
+        .linked-forms-table thead th {
+            background: #f8fafc;
+            color: #64748b;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .linked-forms-table tbody td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+        }
+
+        .linked-forms-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        @media (max-width: 767.98px) {
+            .search-card .text-md-end {
+                text-align: left !important;
+            }
+        }
+    </style>
+
+    <script src="/static/js/axios.min.js"></script>
+    <script>
+
+        let currentPage = 1;
+        let pageSize = 8;
+        let pendingDeleteId = null;
+        let selectedDocIds = new Set();
+        let currentPageDocIds = [];
+
+        document.addEventListener('DOMContentLoaded', function () {
+            loadDocuments();
+        });
+
+        function loadDocuments(page = 1) {
+            currentPage = page;
+            const keyword = document.getElementById('searchKeyword').value.trim();
+
+            const params = new URLSearchParams({
+                page: currentPage,
+                page_size: pageSize
+            });
+            if (keyword) params.append('keyword', keyword);
+
+            const tbody = document.getElementById('documentTableBody');
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-5"><span class="spinner-border spinner-border-sm me-2"></span>加载中...</td></tr>';
+
+            axios.get(`/api/document-library/?${params.toString()}`)
+                .then(response => {
+                    if (response.data.success) {
+                        renderDocuments(response.data.data);
+                        renderPagination(response.data.total, response.data.page, response.data.page_size);
+                    } else {
+                        showToast(response.data.message || '加载失败', 'error');
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-5">加载失败</td></tr>';
+                    }
+                })
+                .catch(error => {
+                    showToast('加载文档列表失败', 'error');
+                    console.error(error);
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-5">加载失败</td></tr>';
+                });
+        }
+
+        function changePageSize(newSize) {
+            pageSize = parseInt(newSize, 10) || 8;
+            loadDocuments(1);
+        }
+
+        function renderDocuments(docs) {
+            const tbody = document.getElementById('documentTableBody');
+            if (!docs || docs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-5">暂无文档</td></tr>';
+                currentPageDocIds = [];
+                updateSelectionUI();
+                return;
+            }
+
+            currentPageDocIds = docs.map(doc => doc.id);
+
+            tbody.innerHTML = docs.map(doc => {
+                const linkedClass = doc.linked_count > 0 ? 'linked' : 'none';
+                const linkedIcon = doc.linked_count > 0 ? 'bi-link-45deg' : 'bi-link';
+                const badgeTag = doc.linked_count > 0 ? 'button' : 'span';
+                const badgeType = doc.linked_count > 0 ? 'type="button"' : '';
+                const badgeAction = doc.linked_count > 0 ? `onclick="openLinkedFormsModal(${doc.id}, '${escapeHtml(doc.title || '未命名文档')}')"` : '';
+                const checked = selectedDocIds.has(doc.id) ? 'checked' : '';
+                return `
+                <tr>
+                    <td class="text-center">
+                        <input class="form-check-input row-checkbox" type="checkbox" value="${doc.id}" ${checked} onchange="toggleSelectDoc(${doc.id}, this.checked)">
+                    </td>
+                    <td class="ps-0">
+                        <a href="/document-library/edit/${doc.id}/" class="text-decoration-none doc-title-cell">
+                            <span class="doc-title-icon"><i class="bi bi-file-text"></i></span>
+                            <span class="doc-title-text">${escapeHtml(doc.title || '未命名文档')}</span>
+                        </a>
+                    </td>
+                    <td>
+                        <${badgeTag} ${badgeType} class="doc-linked-badge ${linkedClass}" ${badgeAction} title="${doc.linked_count > 0 ? '点击查看关联表单' : '未关联表单'}">
+                            <i class="bi ${linkedIcon}"></i>${doc.linked_count}
+                        </${badgeTag}>
+                    </td>
+                    <td class="doc-update-time">${doc.updated_at}</td>
+                    <td class="text-center">
+                        <a href="/document-library/edit/${doc.id}/?edit=1" class="btn btn-sm btn-outline-primary doc-action-btn me-1" title="编辑">
+                            <i class="bi bi-pencil-square"></i>
+                        </a>
+                        <button class="btn btn-sm btn-outline-danger doc-action-btn" onclick="confirmDelete(${doc.id}, '${escapeHtml(doc.title || '未命名文档')}', ${doc.linked_count})" title="删除">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `}).join('');
+
+            updateSelectionUI();
+        }
+
+        function renderPagination(total, page, pageSize) {
+            const totalPages = Math.ceil(total / pageSize) || 1;
+            const paginationInfo = document.getElementById('paginationInfo');
+            const paginationList = document.getElementById('paginationList');
+
+            paginationInfo.textContent = `共 ${total} 条，第 ${page}/${totalPages} 页`;
+
+            if (totalPages <= 1) {
+                paginationList.innerHTML = '';
+                return;
+            }
+
+            const pages = getPaginationPages(page, totalPages);
+            let html = '';
+            html += `<li class="page-item ${page === 1 ? 'disabled' : ''}"><a class="page-link" href="javascript:void(0)" onclick="${page === 1 ? '' : `loadDocuments(${page - 1})`}">上一页</a></li>`;
+
+            pages.forEach(p => {
+                if (p === '...') {
+                    html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+                } else {
+                    html += `<li class="page-item ${p === page ? 'active' : ''}"><a class="page-link" href="javascript:void(0)" onclick="loadDocuments(${p})">${p}</a></li>`;
+                }
+            });
+
+            html += `<li class="page-item ${page === totalPages ? 'disabled' : ''}"><a class="page-link" href="javascript:void(0)" onclick="${page === totalPages ? '' : `loadDocuments(${page + 1})`}">下一页</a></li>`;
+            paginationList.innerHTML = html;
+        }
+
+        function getPaginationPages(current, total) {
+            const pages = [];
+            const delta = 2;
+            const range = [];
+            for (let i = Math.max(2, current - delta); i <= Math.min(total - 1, current + delta); i++) {
+                range.push(i);
+            }
+            if (current - delta > 2) {
+                range.unshift('...');
+            }
+            if (current + delta < total - 1) {
+                range.push('...');
+            }
+            if (total > 1) {
+                pages.push(1);
+                pages.push(...range);
+                pages.push(total);
+            } else {
+                pages.push(1);
+            }
+            return pages;
+        }
+
+        function resetSearch() {
+            document.getElementById('searchKeyword').value = '';
+            selectedDocIds.clear();
+            loadDocuments(1);
+        }
+
+        function toggleSelectDoc(docId, checked) {
+            if (checked) {
+                selectedDocIds.add(docId);
+            } else {
+                selectedDocIds.delete(docId);
+            }
+            updateSelectionUI();
+        }
+
+        function toggleSelectAllCurrentPage(isChecked) {
+            const headerCheckbox = document.getElementById('headerSelectAllCheckbox');
+            const toolbarCheckbox = document.getElementById('selectAllCheckbox');
+            if (headerCheckbox) headerCheckbox.checked = isChecked;
+            if (toolbarCheckbox) toolbarCheckbox.checked = isChecked;
+
+            currentPageDocIds.forEach(id => {
+                if (isChecked) {
+                    selectedDocIds.add(id);
+                } else {
+                    selectedDocIds.delete(id);
+                }
+            });
+
+            // 同步当前页所有行复选框状态
+            document.querySelectorAll('.row-checkbox').forEach(cb => {
+                cb.checked = isChecked;
+            });
+
+            updateSelectionUI();
+        }
+
+        function updateSelectionUI() {
+            const headerCheckbox = document.getElementById('headerSelectAllCheckbox');
+            const toolbarCheckbox = document.getElementById('selectAllCheckbox');
+            const selectedInfo = document.getElementById('selectedInfo');
+            const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+
+            const currentPageSelectedCount = currentPageDocIds.filter(id => selectedDocIds.has(id)).length;
+            const allSelectedCount = selectedDocIds.size;
+
+            // 当前页是否全选
+            const allCurrentSelected = currentPageDocIds.length > 0 && currentPageSelectedCount === currentPageDocIds.length;
+            if (headerCheckbox) headerCheckbox.checked = allCurrentSelected;
+            if (toolbarCheckbox) toolbarCheckbox.checked = allCurrentSelected;
+
+            if (selectedInfo) {
+                selectedInfo.textContent = `已选 ${allSelectedCount} 项`;
+            }
+            if (batchDeleteBtn) {
+                batchDeleteBtn.disabled = allSelectedCount === 0;
+            }
+        }
+
+        function confirmBatchDelete() {
+            if (selectedDocIds.size === 0) {
+                showToast('请选择要删除的文档', 'warning');
+                return;
+            }
+            const modal = new bootstrap.Modal(document.getElementById('batchDeleteConfirmModal'));
+            document.getElementById('batchDeleteConfirmText').textContent = `确定删除选中的 ${selectedDocIds.size} 个文档吗？删除后不可恢复。`;
+            modal.show();
+        }
+
+        function batchDelete() {
+            if (selectedDocIds.size === 0) return;
+
+            const ids = Array.from(selectedDocIds);
+            axios.post('/api/document-library/batch-delete/', { ids: ids })
+                .then(response => {
+                    const modalEl = document.getElementById('batchDeleteConfirmModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+
+                    if (response.data.success) {
+                        showToast(response.data.message || '删除成功', 'success');
+                        selectedDocIds.clear();
+                        loadDocuments(currentPage);
+                    } else {
+                        showToast(response.data.message || '删除失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    showToast('批量删除失败', 'error');
+                    console.error(error);
+                });
+        }
+
+        function openLinkedFormsModal(docId, docTitle) {
+            const modalEl = document.getElementById('linkedFormsModal');
+            const modal = new bootstrap.Modal(modalEl);
+            const loadingEl = document.getElementById('linkedFormsLoading');
+            const emptyEl = document.getElementById('linkedFormsEmpty');
+            const tableWrapperEl = document.getElementById('linkedFormsTableWrapper');
+            const tableBodyEl = document.getElementById('linkedFormsTableBody');
+            const modalTitleEl = modalEl.querySelector('.modal-title');
+
+            modalTitleEl.innerHTML = `<i class="bi bi-link-45deg me-1 text-primary"></i>关联表单 - ${escapeHtml(docTitle)}`;
+            loadingEl.style.display = 'block';
+            emptyEl.style.display = 'none';
+            tableWrapperEl.style.display = 'none';
+            tableBodyEl.innerHTML = '';
+            modal.show();
+
+            axios.get(`/api/document-library/${docId}/linked-forms/`)
+                .then(response => {
+                    loadingEl.style.display = 'none';
+                    if (response.data.success && response.data.data && response.data.data.length > 0) {
+                        renderLinkedForms(response.data.data);
+                        tableWrapperEl.style.display = 'block';
+                    } else {
+                        emptyEl.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    loadingEl.style.display = 'none';
+                    emptyEl.style.display = 'block';
+                    emptyEl.innerHTML = '<i class="bi bi-exclamation-circle display-6 mb-2 d-block"></i>加载失败';
+                    console.error(error);
+                });
+        }
+
+        function renderLinkedForms(forms) {
+            const tbody = document.getElementById('linkedFormsTableBody');
+            tbody.innerHTML = forms.map(form => `
+                <tr>
+                    <td class="ps-4">
+                        <div class="fw-semibold text-dark">${escapeHtml(form.form_name || '未命名表单')}</div>
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-dark border">${form.call_count}</span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function confirmDelete(id, title, linkedCount) {
+            pendingDeleteId = id;
+            const text = linkedCount > 0
+                ? `确定删除文档“${title}”吗？该文档已被 ${linkedCount} 个表单关联，删除后关联将自动解除。`
+                : `确定删除文档“${title}”吗？删除后不可恢复。`;
+            document.getElementById('deleteConfirmText').textContent = text;
+            const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+            modal.show();
+        }
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
+            if (!pendingDeleteId) return;
+            axios.post(`/api/document-library/delete/${pendingDeleteId}/`)
+                .then(response => {
+                    const modalEl = document.getElementById('deleteConfirmModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                    if (response.data.success) {
+                        showToast('删除成功', 'success');
+                        loadDocuments(currentPage);
+                    } else {
+                        showToast(response.data.message || '删除失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    showToast('删除失败', 'error');
+                    console.error(error);
+                })
+                .finally(() => {
+                    pendingDeleteId = null;
+                });
+        });
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+{% endblock %}

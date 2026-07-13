@@ -1,0 +1,1001 @@
+{% extends "base.html" %}
+
+{% block title %}动态表单使用统计{% endblock %}
+
+{% block main_content %}
+<div class="container-fluid p-4">
+    <!-- 页面标题区 -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="d-flex align-items-center mb-2">
+                <div class="bg-primary bg-gradient rounded-3 p-2 me-3 shadow-sm">
+                    <i class="bi bi-graph-up-arrow text-white fs-4"></i>
+                </div>
+                <div>
+                    <h4 class="mb-0 fw-bold">动态表单使用统计</h4>
+                    <small class="text-muted">按模块统计动态表单调用次数，识别长期未使用的表单</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-4 col-sm-6">
+            <div class="stat-card stat-card-primary clickable-stat" onclick="openFormDetailModal('all')" title="点击弹出全部表单">
+                <div class="stat-icon"><i class="bi bi-table"></i></div>
+                <div class="stat-info">
+                    <div class="stat-label">总表单数 <i class="bi bi-box-arrow-in-up-right small ms-1"></i></div>
+                    <div class="stat-value" id="statTotalForms">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6">
+            <div class="stat-card stat-card-success clickable-stat" onclick="openFormDetailModal('called')" title="点击弹出已调用表单">
+                <div class="stat-icon"><i class="bi bi-lightning"></i></div>
+                <div class="stat-info">
+                    <div class="stat-label">总调用次数 <i class="bi bi-box-arrow-in-up-right small ms-1"></i></div>
+                    <div class="stat-value" id="statTotalCalls">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 col-sm-6">
+            <div class="stat-card stat-card-warning clickable-stat" onclick="openFormDetailModal('inactive')" title="点击弹出长期未使用表单">
+                <div class="stat-icon"><i class="bi bi-calendar-x"></i></div>
+                <div class="stat-info">
+                    <div class="stat-label">3个月未调用 <i class="bi bi-box-arrow-in-up-right small ms-1"></i></div>
+                    <div class="stat-value" id="statInactiveCount">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 统计日期提示 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="text-muted small">
+                <i class="bi bi-info-circle"></i>
+                统计截止日期：<span id="statsDate">-</span>；长期未使用清单以 <strong id="baselineDate">-</strong> 为基准，统计该日期前创建且此后无调用记录的表单。观察期（至 <strong id="checkDate">-</strong>）结束后，基准每日向后滚动一天。
+            </div>
+        </div>
+    </div>
+
+    <!-- 建议删除提示条 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-warning d-none d-flex align-items-center justify-content-between inactive-alert" role="alert" id="inactiveAlert">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+                    <div>
+                        <div class="fw-bold">存在长期未使用的表单</div>
+                        <div class="small">检测到 <strong id="alertInactiveCount">0</strong> 个表单在 <span id="alertBaselineDate">-</span> 前创建且此后未被调用，可批量删除以精简配置。</div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline-dark btn-sm fw-semibold" onclick="openFormDetailModal('inactive')">
+                    <i class="bi bi-list-check"></i> 查看清单
+                </button>
+            </div>
+            <div class="alert alert-success d-none d-flex align-items-center" role="alert" id="inactiveOkAlert">
+                <i class="bi bi-check-circle-fill fs-4 me-3"></i>
+                <div>
+                    <div class="fw-bold" id="okAlertTitle">暂无长期未使用的表单</div>
+                    <div class="small" id="okAlertText">所有动态表单在基准日期后均有调用记录。</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图表区 -->
+    <div class="card modern-card mb-4">
+        <div class="card-header modern-card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-bar-chart-line me-2"></i>
+                <span>调用统计图表</span>
+            </div>
+            <div class="btn-group chart-type-group" role="group" aria-label="图表类型">
+                <button type="button" class="btn btn-light btn-sm active" data-chart="bar" onclick="switchChart('bar')">
+                    <i class="bi bi-bar-chart-fill"></i> 柱状图
+                </button>
+                <button type="button" class="btn btn-light btn-sm" data-chart="line" onclick="switchChart('line')">
+                    <i class="bi bi-graph-up"></i> 折线图
+                </button>
+                <button type="button" class="btn btn-light btn-sm" data-chart="pie" onclick="switchChart('pie')">
+                    <i class="bi bi-pie-chart-fill"></i> 饼图
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <div id="usageChart" style="width: 100%; height: 420px;"></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- 表单调用明细模态框 -->
+<div class="modal fade" id="formDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header modal-header-gradient-primary" id="formDetailModalHeader">
+                <h5 class="modal-title" id="formDetailModalTitle"><i class="bi bi-list-check"></i> 表单调用明细</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 筛选与工具栏 -->
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                    <div class="btn-group detail-filter-group" role="group" aria-label="调用状态筛选">
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-filter="all" onclick="switchDetailFilter('all')">
+                            <i class="bi bi-grid"></i> 全部
+                        </button>
+                        <button type="button" class="btn btn-outline-success btn-sm" data-filter="called" onclick="switchDetailFilter('called')">
+                            <i class="bi bi-check-circle"></i> 已调用
+                        </button>
+                        <button type="button" class="btn btn-outline-warning btn-sm" data-filter="inactive" onclick="switchDetailFilter('inactive')">
+                            <i class="bi bi-exclamation-triangle"></i> 长期未使用
+                        </button>
+                    </div>
+                    <div class="input-group search-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control form-control-sm" id="detailSearch" placeholder="搜索表单名称或所属模块..." oninput="onDetailSearch()">
+                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearDetailSearch()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div class="d-flex gap-2 ms-auto">
+                        <button type="button" class="btn btn-light btn-sm fw-semibold" onclick="exportDetailTable()">
+                            <i class="bi bi-download"></i> 导出
+                        </button>
+                        <button type="button" class="btn btn-light btn-sm fw-semibold" onclick="refreshData()">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
+                        <button type="button" class="btn btn-danger btn-sm fw-semibold" id="batchDeleteBtn" onclick="batchDelete()" disabled>
+                            <i class="bi bi-trash"></i> 批量删除
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 表格 -->
+                <div class="table-responsive modern-table-wrap border rounded-3">
+                    <table class="table table-hover modern-table mb-0" id="detailTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 45px;">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                    </div>
+                                </th>
+                                <th>表单名称</th>
+                                <th>所属模块</th>
+                                <th style="width: 100px;">调用次数</th>
+                                <th style="width: 150px;">最后调用时间</th>
+                                <th style="width: 110px;">未调用天数</th>
+                                <th style="width: 110px;">状态</th>
+                                <th style="width: 80px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailTableBody">
+                            <tr>
+                                <td colspan="8" class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">加载中...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                    <div class="text-muted small" id="paginationInfo"></div>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+                    </nav>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量删除确认模态框 -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header modal-header-gradient-danger">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> 确认删除表单</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger modern-alert">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <strong>警告：</strong>删除后不可恢复，将同时删除该表单配置及其侧边栏菜单！
+                </div>
+                <p>已选择 <strong id="deleteCount">0</strong> 个表单，确定要删除吗？</p>
+                <ul class="list-group list-group-flush" id="deleteList" style="max-height: 200px; overflow-y: auto;"></ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-modal-action" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger btn-modal-action" onclick="confirmBatchDelete()">
+                    <i class="bi bi-trash"></i> 确认删除
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/echarts.min.js"></script>
+<script>
+    let currentChartType = 'bar';
+    let chartInstance = null;
+    let statisticsData = null;
+    let allForms = [];
+    let filteredAllForms = [];
+    let detailFilter = 'all';
+    let detailSearchKeyword = '';
+    let detailCurrentPage = 1;
+    const detailPageSize = 10;
+    let selectedFormIds = new Set();
+
+    const FILTER_CONFIG = {
+        all: { title: '全部表单', icon: 'bi-grid', headerClass: 'modal-header-gradient-primary' },
+        called: { title: '已调用表单', icon: 'bi-check-circle', headerClass: 'modal-header-gradient-success' },
+        inactive: { title: '长期未使用表单', icon: 'bi-exclamation-triangle', headerClass: 'modal-header-gradient-warning' }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        chartInstance = echarts.init(document.getElementById('usageChart'));
+        loadStatistics();
+
+        window.addEventListener('resize', function() {
+            if (chartInstance) chartInstance.resize();
+        });
+
+        document.getElementById('formDetailModal').addEventListener('hidden.bs.modal', function() {
+            document.getElementById('detailSearch').value = '';
+        });
+    });
+
+    function loadStatistics() {
+        fetch('/api/usage-statistics/')
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    statisticsData = res.data;
+                    allForms = statisticsData.all_forms || [];
+                    applyDetailFilter();
+                    renderSummary(statisticsData.summary);
+                    renderAlert(statisticsData.summary);
+                    renderChart(currentChartType);
+                } else {
+                    showToast(res.message || '加载统计失败', 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('加载统计失败', 'error');
+            });
+    }
+
+    function refreshData() {
+        selectedFormIds.clear();
+        detailCurrentPage = 1;
+        detailFilter = 'all';
+        detailSearchKeyword = '';
+        document.getElementById('detailSearch').value = '';
+        updateDetailFilterButtons();
+        updateModalHeader();
+        loadStatistics();
+    }
+
+    function renderSummary(summary) {
+        document.getElementById('statTotalForms').textContent = summary.total_forms;
+        document.getElementById('statTotalCalls').textContent = summary.total_calls;
+        document.getElementById('statInactiveCount').textContent = summary.inactive_count;
+        document.getElementById('statsDate').textContent = summary.stats_date;
+        document.getElementById('baselineDate').textContent = summary.inactive_baseline_date;
+        document.getElementById('checkDate').textContent = summary.inactive_check_date;
+        document.getElementById('alertBaselineDate').textContent = summary.inactive_baseline_date;
+    }
+
+    function renderAlert(summary) {
+        const alertBox = document.getElementById('inactiveAlert');
+        const okBox = document.getElementById('inactiveOkAlert');
+        const okTitle = document.getElementById('okAlertTitle');
+        const okText = document.getElementById('okAlertText');
+        document.getElementById('alertInactiveCount').textContent = summary.inactive_count;
+
+        if (!summary.observation_period_ended) {
+            alertBox.classList.add('d-none');
+            okBox.classList.remove('d-none');
+            okTitle.textContent = '长期未使用清单尚未启用';
+            okText.textContent = `观察期至 ${summary.inactive_check_date} 结束，结束后将展示 ${summary.inactive_baseline_date} 前创建且此后无调用记录的表单。`;
+            return;
+        }
+
+        if (summary.inactive_count > 0) {
+            alertBox.classList.remove('d-none');
+            okBox.classList.add('d-none');
+        } else {
+            alertBox.classList.add('d-none');
+            okBox.classList.remove('d-none');
+            okTitle.textContent = '暂无长期未使用的表单';
+            okText.textContent = `所有在 ${summary.inactive_baseline_date} 前创建的表单在该日期后均有调用记录。`;
+        }
+    }
+
+    function openFormDetailModal(filter) {
+        detailFilter = filter || 'all';
+        detailCurrentPage = 1;
+        detailSearchKeyword = '';
+        document.getElementById('detailSearch').value = '';
+        updateDetailFilterButtons();
+        updateModalHeader();
+        applyDetailFilter();
+        const modal = new bootstrap.Modal(document.getElementById('formDetailModal'));
+        modal.show();
+    }
+
+    function updateModalHeader() {
+        const config = FILTER_CONFIG[detailFilter] || FILTER_CONFIG.all;
+        const headerEl = document.getElementById('formDetailModalHeader');
+        headerEl.className = 'modal-header ' + config.headerClass;
+        document.getElementById('formDetailModalTitle').innerHTML = `<i class="bi ${config.icon}"></i> ${config.title}`;
+    }
+
+    function switchChart(type) {
+        currentChartType = type;
+        document.querySelectorAll('.chart-type-group .btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.chart === type) btn.classList.add('active');
+        });
+        renderChart(type);
+    }
+
+    function renderChart(type) {
+        if (!statisticsData) return;
+
+        let option;
+        const colorPalette = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+
+        if (type === 'bar') {
+            const xData = statisticsData.module_stats.map(item => item.module);
+            const yData = statisticsData.module_stats.map(item => item.count);
+            option = {
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                xAxis: { type: 'category', data: xData, axisLabel: { interval: 0, rotate: xData.length > 6 ? 30 : 0 } },
+                yAxis: { type: 'value', minInterval: 1 },
+                series: [{
+                    data: yData,
+                    type: 'bar',
+                    itemStyle: { borderRadius: [6, 6, 0, 0], color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: '#4f46e5' },
+                        { offset: 1, color: '#0ea5e9' }
+                    ])},
+                    label: { show: true, position: 'top' }
+                }]
+            };
+        } else if (type === 'line') {
+            option = {
+                tooltip: { trigger: 'axis' },
+                grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                xAxis: { type: 'category', boundaryGap: false, data: statisticsData.monthly_trend.months },
+                yAxis: { type: 'value', minInterval: 1 },
+                series: [{
+                    data: statisticsData.monthly_trend.counts,
+                    type: 'line',
+                    smooth: true,
+                    areaStyle: { opacity: 0.2 },
+                    itemStyle: { color: '#10b981' },
+                    lineStyle: { width: 3 },
+                    symbol: 'circle',
+                    symbolSize: 8
+                }]
+            };
+        } else if (type === 'pie') {
+            const pieData = statisticsData.module_stats
+                .filter(item => item.count > 0)
+                .map(item => ({ value: item.count, name: item.module }));
+            option = {
+                tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+                legend: { orient: 'vertical', left: 'left', type: 'scroll' },
+                color: colorPalette,
+                series: [{
+                    type: 'pie',
+                    radius: ['40%', '70%'],
+                    avoidLabelOverlap: true,
+                    itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
+                    label: { show: true, formatter: '{b}\n{c}次' },
+                    data: pieData
+                }]
+            };
+        }
+
+        chartInstance.setOption(option, true);
+    }
+
+    function switchDetailFilter(filter) {
+        detailFilter = filter;
+        detailCurrentPage = 1;
+        updateDetailFilterButtons();
+        updateModalHeader();
+        applyDetailFilter();
+    }
+
+    function updateDetailFilterButtons() {
+        document.querySelectorAll('.detail-filter-group .btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.filter === detailFilter) btn.classList.add('active');
+        });
+    }
+
+    function onDetailSearch() {
+        detailSearchKeyword = document.getElementById('detailSearch').value.trim().toLowerCase();
+        detailCurrentPage = 1;
+        applyDetailFilter();
+    }
+
+    function clearDetailSearch() {
+        document.getElementById('detailSearch').value = '';
+        onDetailSearch();
+    }
+
+    function applyDetailFilter() {
+        let result = [...allForms];
+
+        if (detailFilter === 'called') {
+            result = result.filter(item => item.call_count > 0);
+        } else if (detailFilter === 'inactive') {
+            result = result.filter(item => item.is_inactive);
+        }
+
+        if (detailSearchKeyword) {
+            result = result.filter(item =>
+                (item.form_name || '').toLowerCase().includes(detailSearchKeyword) ||
+                (item.module || '').toLowerCase().includes(detailSearchKeyword)
+            );
+        }
+
+        result.sort((a, b) => {
+            if (a.call_count !== b.call_count) return b.call_count - a.call_count;
+            return (b.days_since || 0) - (a.days_since || 0);
+        });
+
+        filteredAllForms = result;
+        renderDetailTable();
+    }
+
+    function getFormStatus(item) {
+        if (item.is_inactive) {
+            return { label: '长期未使用', className: 'bg-warning text-dark' };
+        }
+        if (item.call_count === 0) {
+            return { label: '未调用', className: 'bg-danger' };
+        }
+        return { label: '已调用', className: 'bg-success' };
+    }
+
+    function renderDetailTable() {
+        const tbody = document.getElementById('detailTableBody');
+        const paginationEl = document.getElementById('pagination');
+        const infoEl = document.getElementById('paginationInfo');
+
+        if (filteredAllForms.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                        未找到匹配的表单
+                    </td>
+                </tr>
+            `;
+            paginationEl.innerHTML = '';
+            infoEl.textContent = '共 0 条';
+            document.getElementById('selectAll').checked = false;
+            updateBatchDeleteBtn();
+            return;
+        }
+
+        const total = filteredAllForms.length;
+        const totalPages = Math.ceil(total / detailPageSize) || 1;
+        if (detailCurrentPage > totalPages) detailCurrentPage = totalPages;
+        const start = (detailCurrentPage - 1) * detailPageSize;
+        const end = start + detailPageSize;
+        const pageItems = filteredAllForms.slice(start, end);
+
+        tbody.innerHTML = pageItems.map(item => {
+            const status = getFormStatus(item);
+            const lastCall = item.last_called_at || '-';
+            const checked = selectedFormIds.has(item.form_id) ? 'checked' : '';
+            return `
+                <tr>
+                    <td>
+                        <div class="form-check">
+                            <input class="form-check-input row-checkbox" type="checkbox" value="${item.form_id}"
+                                data-name="${escapeHtml(item.form_name)}" onchange="toggleRow('${item.form_id}')" ${checked}>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="fw-semibold">${escapeHtml(item.form_name)}</div>
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-dark border">${escapeHtml(item.module)}</span>
+                    </td>
+                    <td>${item.call_count}</td>
+                    <td class="text-muted">${lastCall}</td>
+                    <td><span class="${item.days_since > 0 ? 'text-danger' : 'text-muted'} fw-semibold">${item.days_since_label}</span></td>
+                    <td>
+                        <span class="badge ${status.className}">${status.label}</span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" onclick="singleDelete('${item.form_id}', '${escapeHtml(item.form_name)}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        infoEl.textContent = `共 ${total} 条，第 ${detailCurrentPage}/${totalPages} 页，每页 ${detailPageSize} 条`;
+        renderPagination(totalPages);
+        syncSelectAll();
+        updateBatchDeleteBtn();
+    }
+
+    function renderPagination(totalPages) {
+        const paginationEl = document.getElementById('pagination');
+        if (totalPages <= 1) {
+            paginationEl.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        html += `<li class="page-item ${detailCurrentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="javascript:void(0)" onclick="goPage(${detailCurrentPage - 1})">上一页</a>
+        </li>`;
+
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === 1 || i === totalPages || (i >= detailCurrentPage - 2 && i <= detailCurrentPage + 2)) {
+                html += `<li class="page-item ${i === detailCurrentPage ? 'active' : ''}">
+                    <a class="page-link" href="javascript:void(0)" onclick="goPage(${i})">${i}</a>
+                </li>`;
+            } else if (i === detailCurrentPage - 3 || i === detailCurrentPage + 3) {
+                html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+        }
+
+        html += `<li class="page-item ${detailCurrentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="javascript:void(0)" onclick="goPage(${detailCurrentPage + 1})">下一页</a>
+        </li>`;
+
+        paginationEl.innerHTML = html;
+    }
+
+    function goPage(page) {
+        detailCurrentPage = page;
+        renderDetailTable();
+    }
+
+    function toggleSelectAll() {
+        const checked = document.getElementById('selectAll').checked;
+        document.querySelectorAll('#detailTable .row-checkbox').forEach(cb => {
+            cb.checked = checked;
+            if (checked) {
+                selectedFormIds.add(cb.value);
+            } else {
+                selectedFormIds.delete(cb.value);
+            }
+        });
+        updateBatchDeleteBtn();
+    }
+
+    function toggleRow(formId) {
+        const cb = document.querySelector(`#detailTable .row-checkbox[value="${formId}"]`);
+        if (cb.checked) {
+            selectedFormIds.add(formId);
+        } else {
+            selectedFormIds.delete(formId);
+        }
+        updateBatchDeleteBtn();
+        syncSelectAll();
+    }
+
+    function syncSelectAll() {
+        const allBoxes = document.querySelectorAll('#detailTable .row-checkbox');
+        const allChecked = allBoxes.length > 0 && Array.from(allBoxes).every(cb => cb.checked);
+        document.getElementById('selectAll').checked = allChecked;
+    }
+
+    function updateBatchDeleteBtn() {
+        const btn = document.getElementById('batchDeleteBtn');
+        btn.disabled = selectedFormIds.size === 0;
+        btn.innerHTML = `<i class="bi bi-trash"></i> 批量删除 (${selectedFormIds.size})`;
+    }
+
+    function exportDetailTable() {
+        if (!filteredAllForms.length) {
+            showToast('当前没有可导出的数据', 'warning');
+            return;
+        }
+        const headers = ['表单名称', '所属模块', '调用次数', '最后调用时间', '创建时间', '未调用天数', '状态'];
+        const rows = filteredAllForms.map(item => {
+            const status = getFormStatus(item);
+            return [
+                item.form_name,
+                item.module,
+                item.call_count,
+                item.last_called_at || '-',
+                item.created_at || '-',
+                item.days_since_label,
+                status.label
+            ];
+        });
+
+        let csvContent = '\uFEFF' + [headers, ...rows].map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `动态表单调用明细_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function batchDelete() {
+        if (selectedFormIds.size === 0) return;
+        const selected = [];
+        document.querySelectorAll('#detailTable .row-checkbox:checked').forEach(cb => {
+            selected.push({ id: cb.value, name: cb.dataset.name });
+        });
+        showDeleteConfirm(selected);
+    }
+
+    function singleDelete(formId, formName) {
+        showDeleteConfirm([{ id: formId, name: formName }]);
+    }
+
+    function showDeleteConfirm(items) {
+        document.getElementById('deleteCount').textContent = items.length;
+        const list = document.getElementById('deleteList');
+        list.innerHTML = items.map(item => `
+            <li class="list-group-item py-1 px-0 d-flex justify-content-between align-items-center">
+                <span>${escapeHtml(item.name)}</span>
+                <span class="text-muted small">${item.id}</span>
+            </li>
+        `).join('');
+
+        const modalEl = document.getElementById('deleteConfirmModal');
+        modalEl.dataset.formIds = JSON.stringify(items.map(i => i.id));
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+
+    function confirmBatchDelete() {
+        const modalEl = document.getElementById('deleteConfirmModal');
+        const formIds = JSON.parse(modalEl.dataset.formIds || '[]');
+        if (formIds.length === 0) return;
+
+        bootstrap.Modal.getInstance(modalEl).hide();
+
+        fetch('/api/usage-statistics/batch-delete/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ form_ids: formIds })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                const data = res.data;
+                if (data.failed_count === 0) {
+                    showToast(`成功删除 ${data.success_count} 个表单`, 'success');
+                } else {
+                    showToast(`删除完成：成功 ${data.success_count} 个，失败 ${data.failed_count} 个`, 'warning');
+                }
+                selectedFormIds.clear();
+                refreshData();
+            } else {
+                showToast(res.message || '删除失败', 'error');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('删除请求失败', 'error');
+        });
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+
+<style>
+/* ===== 现代卡片与页面样式 ===== */
+.modern-card {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.modern-card-header {
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    color: #ffffff;
+    font-weight: 600;
+    padding: 1rem 1.25rem;
+    border-bottom: none;
+}
+
+/* ===== 统计卡片 ===== */
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    background: #fff;
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    border-left: 4px solid;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    height: 100%;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.stat-card-primary { border-left-color: #4f46e5; }
+.stat-card-success { border-left-color: #10b981; }
+.stat-card-warning { border-left-color: #f59e0b; }
+.stat-card-danger { border-left-color: #ef4444; }
+
+.clickable-stat {
+    cursor: pointer;
+    position: relative;
+}
+
+.clickable-stat::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    transition: background-color 0.15s ease;
+}
+
+.clickable-stat:hover::after {
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+.clickable-stat:active {
+    transform: translateY(0);
+}
+
+.stat-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.stat-card-primary .stat-icon { background: linear-gradient(135deg, #4f46e5, #6366f1); }
+.stat-card-success .stat-icon { background: linear-gradient(135deg, #059669, #10b981); }
+.stat-card-warning .stat-icon { background: linear-gradient(135deg, #d97706, #f59e0b); }
+.stat-card-danger .stat-icon { background: linear-gradient(135deg, #dc2626, #ef4444); }
+
+/* ===== 明细筛选按钮 ===== */
+.detail-filter-group .btn {
+    font-weight: 500;
+    padding: 0.35rem 0.85rem;
+}
+.detail-filter-group .btn.active {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.2;
+}
+
+/* ===== 消息提示条 ===== */
+.inactive-alert {
+    border-radius: 12px;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    color: #92400e;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.inactive-alert .btn-outline-dark {
+    border-color: #92400e;
+    color: #92400e;
+}
+
+.inactive-alert .btn-outline-dark:hover {
+    background: #92400e;
+    color: #fff;
+}
+
+/* ===== 图表类型按钮 ===== */
+.chart-type-group .btn {
+    border: none;
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.12);
+    font-weight: 500;
+    padding: 0.35rem 0.85rem;
+}
+
+.chart-type-group .btn:hover,
+.chart-type-group .btn.active {
+    background: #fff;
+    color: #0d6efd;
+}
+
+/* ===== 搜索框 ===== */
+.search-group {
+    width: 320px;
+    max-width: 100%;
+}
+
+.search-group .input-group-text,
+.search-group .form-control,
+.search-group .btn {
+    border-color: #e2e8f0;
+    font-size: 0.85rem;
+}
+
+/* ===== 现代化表格 ===== */
+.modern-table-wrap {
+    padding: 0;
+}
+
+.modern-table {
+    font-size: 0.88rem;
+    margin-bottom: 0;
+}
+
+.modern-table thead th {
+    background-color: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+}
+
+.modern-table tbody td {
+    padding: 0.7rem 0.85rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+}
+
+.modern-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.modern-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.modern-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ===== 现代化模态框 ===== */
+.modal-content {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+    overflow: hidden;
+}
+
+.modal-header {
+    border-bottom: none;
+    padding: 1rem 1.5rem;
+}
+
+.modal-header-gradient-primary {
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    color: #fff;
+}
+
+.modal-header-gradient-success {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    color: #fff;
+}
+
+.modal-header-gradient-warning {
+    background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+    color: #fff;
+}
+
+.modal-header-gradient-danger {
+    background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+    color: #fff;
+}
+
+.modal-title {
+    font-weight: 600;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    background-color: #f8fafc;
+}
+
+.modal-footer {
+    border-top: 1px solid #e2e8f0;
+    background-color: #fff;
+    padding: 1rem 1.5rem;
+}
+
+.modern-alert {
+    border-radius: 10px;
+    border: none;
+    font-size: 0.85rem;
+}
+
+.btn-modal-action {
+    border-radius: 8px;
+    padding: 0.45rem 1rem;
+    font-weight: 500;
+    font-size: 0.88rem;
+}
+
+.page-link {
+    color: #475569;
+    border-color: #e2e8f0;
+}
+
+.page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.page-item.disabled .page-link {
+    color: #94a3b8;
+}
+</style>
+{% endblock %}

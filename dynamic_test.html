@@ -1,85 +1,999 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="/static/bootstrap-icons-1.13.1/bootstrap-icons.css">
+    <style>
+        /* 侧边栏样式 */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            width: 100%;
+            max-width: 240px;
+            background-color: #1e293b;
+            color: #f1f5f9;
+            overflow-y: auto;
+            overflow-x: hidden;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Microsoft YaHei", sans-serif;
+            font-size: 14px;
+        }
 
-{% block title %}{% endblock %}
+        /* 自定义滚动条样式 */
+        .sidebar::-webkit-scrollbar {
+            width: 5px;
+        }
 
-{% block main_content %}
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .sidebar .nav-link {
+            color: rgba(241, 245, 249, 0.75);
+            font-size: 14px;
+            padding: 8px 14px;
+            border-radius: 8px;
+            margin: 2px 10px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+
+        .sidebar .nav-link .menu-icon {
+            margin-right: 10px;
+            font-size: 15px;
+            width: 18px;
+            text-align: center;
+            color: rgba(241, 245, 249, 0.55);
+            flex-shrink: 0;
+        }
+
+        .sidebar .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.06);
+            color: #f8fafc;
+        }
+
+        .sidebar .nav-link.active {
+            background-color: rgba(56, 189, 248, 0.12);
+            color: #38bdf8;
+        }
+
+        .sidebar .nav-link.active::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 18px;
+            border-radius: 0 3px 3px 0;
+            background-color: #38bdf8;
+        }
+
+        .sidebar .nav-link .arrow {
+            margin-left: auto;
+            font-size: 12px;
+            color: rgba(241, 245, 249, 0.45);
+            transition: transform 0.25s ease;
+        }
+
+        .sidebar .nav-link[aria-expanded="true"] .arrow {
+            transform: rotate(90deg);
+        }
+
+        /* 二级菜单样式 */
+        .submenu {
+            list-style: none;
+            padding-left: 0;
+            margin: 2px 10px 6px;
+            display: none;
+            position: relative;
+        }
+
+        .submenu.show {
+            display: block;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .submenu::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .submenu::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 2px;
+        }
+
+        .submenu::before {
+            content: "";
+            position: absolute;
+            left: 18px;
+            top: 6px;
+            bottom: 6px;
+            width: 1px;
+            background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .submenu .nav-link {
+            font-size: 13px;
+            padding: 6px 14px 6px 34px;
+            position: relative;
+            color: rgba(241, 245, 249, 0.6);
+            border-radius: 6px;
+            margin: 1px 0;
+        }
+
+        .submenu .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: rgba(241, 245, 249, 0.95);
+        }
+
+        .submenu .nav-link.active {
+            background-color: rgba(56, 189, 248, 0.1);
+            color: #38bdf8;
+        }
+
+        /* 搜索框样式 */
+        .search-box {
+            padding: 16px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            position: relative;
+        }
+
+        .search-box input {
+            background-color: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #f1f5f9;
+            padding: 9px 14px;
+            border-radius: 999px;
+            width: 100%;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+
+        .search-box input::placeholder {
+            color: rgba(241, 245, 249, 0.4);
+        }
+
+        .search-box input:focus {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: rgba(56, 189, 248, 0.4);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+        }
+
+        /* 主体内容区 */
+        html, body {
+            min-height: 100vh;
+        }
+
+        body > .container-fluid {
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        body > .container-fluid > .row {
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        .main-content {
+            margin-left: 240px !important;
+            width: calc(100% - 240px);
+            background-color: #f1f5f9;
+            min-height: 100vh;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content-wrapper {
+            flex: 1;
+            background-color: #ffffff;
+            min-height: 100vh;
+            padding: 16px;
+            box-shadow: -2px 0 8px rgba(0, 0, 0, 0.03);
+        }
+
+        /* 搜索结果列表 */
+        .search-results {
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: absolute;
+            width: calc(100% - 30px);
+            z-index: 1000;
+            margin-top: 5px;
+            left: 15px;
+        }
+
+        .search-results.show {
+            display: block;
+        }
+
+        .search-result-item {
+            color: #333;
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            margin: 0;
+            border-radius: 0;
+            display: flex;
+            align-items: flex-start;
+            text-decoration: none;
+            transition: background-color 0.15s;
+            cursor: pointer;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item.selected {
+            background-color: #f8f9fa;
+        }
+
+        .search-result-item.selected {
+            background-color: #e9f5ff;
+        }
+
+        .search-result-item i {
+            margin-right: 10px;
+            margin-top: 2px;
+            color: #6c757d;
+            flex-shrink: 0;
+            width: 18px;
+            text-align: center;
+        }
+
+        .search-result-item .result-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .search-result-item .result-text {
+            font-size: 14px;
+            color: #000000;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .search-result-item .result-text .text-muted {
+            color: #6c757d;
+        }
+
+        .search-result-item mark {
+            padding: 0 1px;
+            border-radius: 2px;
+            background-color: #fff3cd;
+            color: inherit;
+            font-weight: 600;
+        }
+
+        .search-result-item mark.match-pinyin {
+            background-color: #d1ecf1;
+        }
+
+        .search-result-item mark.match-initial {
+            background-color: #d4edda;
+        }
+
+        .no-results {
+            padding: 15px;
+            text-align: center;
+            color: #999;
+        }
+
+        /* 菜单分组标题 */
+        .menu-group-title {
+            padding: 20px 20px 6px;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: rgba(241, 245, 249, 0.35);
+            font-weight: 600;
+            letter-spacing: 1.5px;
+        }
+    </style>
+    
+</head>
+<body>
+  <!-- Toast 通知容器 -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;" id="toastContainer">
+    </div>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- 侧边栏 -->
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse show">
+                <div class="position-sticky pt-3">
+                    <!-- 搜索框 -->
+                    <div class="search-box">
+                        <input type="text"
+                               id="sidebarSearch"
+                               class="form-control"
+                               placeholder="搜索页面..."
+                               autocomplete="off">
+                        <div class="search-results" id="searchResults"></div>
+                    </div>
+
+                    <!-- 动态菜单 -->
+                    <ul class="nav flex-column" id="mainNav">
+                        
+                            <li class="menu-group-title">主菜单</li>
+                            
+                                
+                                    <!-- 无子菜单的一级菜单 -->
+                                    <li class="nav-item">
+                                        <a class="nav-link "
+                                           href="/">
+                                            
+                                            首页
+                                        </a>
+                                    </li>
+                                
+                            
+                                
+                                    <!-- 无子菜单的一级菜单 -->
+                                    <li class="nav-item">
+                                        <a class="nav-link "
+                                           href="/form_merge/">
+                                            
+                                            表单合并
+                                        </a>
+                                    </li>
+                                
+                            
+                                
+                                    <!-- 有子菜单的一级菜单 -->
+                                    <li class="nav-item">
+                                        <a class="nav-link expanded" href="#" data-bs-toggle="collapse"
+                                           data-bs-target="#menu4" aria-expanded="true">
+                                            
+                                            合同
+                                            <i class="bi bi-chevron-right arrow"></i>
+                                        </a>
+                                        <ul class="submenu collapse show" id="menu4">
+                                            
+                                                <li>
+                                                    <a class="nav-link active"
+                                                       href="/dynamic/1">
+                                                        合同明细单价修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/6">
+                                                        合同预算修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/7">
+                                                        合同失效日期和状态修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/8">
+                                                        合同创建人修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/9">
+                                                        简化寻源框架合同转换为普通框架合同
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/10">
+                                                        终止合同
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/11">
+                                                        终止简化寻源合同
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/20">
+                                                        本单位合同编号与合同名称修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/22">
+                                                        合同签订日期修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/23">
+                                                        合同适用范围修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/24">
+                                                        合同生效日期修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/26">
+                                                        合同适用清单修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/27">
+                                                        合同供应商修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/30">
+                                                        合同名称修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/34">
+                                                        简化寻源中标金额和预算金额修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/37">
+                                                        合同类型修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/39">
+                                                        核电erp合同删除
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/49">
+                                                        合同审批系统修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/53">
+                                                        合同头金额修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/63">
+                                                        合同报价类型修改为其他
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/2">
+                                                        物资编码修改
+                                                    </a>
+                                                </li>
+                                            
+                                        </ul>
+                                    </li>
+                                
+                            
+                                
+                                    <!-- 有子菜单的一级菜单 -->
+                                    <li class="nav-item">
+                                        <a class="nav-link " href="#" data-bs-toggle="collapse"
+                                           data-bs-target="#menu23" aria-expanded="false">
+                                            <i class="bi bi-folder menu-icon"></i>
+                                            计划
+                                            <i class="bi bi-chevron-right arrow"></i>
+                                        </a>
+                                        <ul class="submenu collapse " id="menu23">
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/5">
+                                                        项目集采类型的修正
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/29">
+                                                        需求计划明细物资编码修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/32">
+                                                        采购包状态修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/35">
+                                                        需求计划需求池调整
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/36">
+                                                        删除框架协议下的订单
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/38">
+                                                        作废需求计划和采购包
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/57">
+                                                        需求计划明细改为紧急采购
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/64">
+                                                        删除预算申请单
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/65">
+                                                        计划明细是否应用短名单协议
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/67">
+                                                        需求计划明细单价修改
+                                                    </a>
+                                                </li>
+                                            
+                                        </ul>
+                                    </li>
+                                
+                            
+                                
+                                    <!-- 有子菜单的一级菜单 -->
+                                    <li class="nav-item">
+                                        <a class="nav-link " href="#" data-bs-toggle="collapse"
+                                           data-bs-target="#menu31" aria-expanded="false">
+                                            <i class="bi bi-folder menu-icon"></i>
+                                            寻源
+                                            <i class="bi bi-chevron-right arrow"></i>
+                                        </a>
+                                        <ul class="submenu collapse " id="menu31">
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/12">
+                                                        合同起草、签约单位修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/14">
+                                                        是否报送国资委修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/15">
+                                                        物项重要性修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/16">
+                                                        浮动单价类型修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/17">
+                                                        核电erp终止
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/18">
+                                                        项目物理轮次修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/19">
+                                                        订单执行人修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/25">
+                                                        项目名称修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/31">
+                                                        是否在ECP发布事前公示发布修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/33">
+                                                        标段预估采购规模修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/40">
+                                                        恢复作废的定标结果
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/50">
+                                                        项目终止恢复
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/51">
+                                                        标段明细_合同起草、签约单位修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/52">
+                                                        定标名次和分数修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/54">
+                                                        作废采购方案
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/55">
+                                                        定标修改供应商评审结果
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/56">
+                                                        中标通知书发出时间修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/59">
+                                                        取消采购项目审查-代理
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/60">
+                                                        取消采购项目审查-自主
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/61">
+                                                        询价单内部编号修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/68">
+                                                        定标方式评标改为投标
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/77">
+                                                        定标方式投标改为评标
+                                                    </a>
+                                                </li>
+                                            
+                                        </ul>
+                                    </li>
+                                
+                            
+                                
+                                    <!-- 有子菜单的一级菜单 -->
+                                    <li class="nav-item">
+                                        <a class="nav-link " href="#" data-bs-toggle="collapse"
+                                           data-bs-target="#menu49" aria-expanded="false">
+                                            <i class="bi bi-folder menu-icon"></i>
+                                            pm配置
+                                            <i class="bi bi-chevron-right arrow"></i>
+                                        </a>
+                                        <ul class="submenu collapse " id="menu49">
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/28">
+                                                        组织唯一标识修改
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/41">
+                                                        修改用户所属组织
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/58">
+                                                        供应商注册登记地点修改
+                                                    </a>
+                                                </li>
+                                            
+                                        </ul>
+                                    </li>
+                                
+                            
+                                
+                                    <!-- 有子菜单的一级菜单 -->
+                                    <li class="nav-item">
+                                        <a class="nav-link " href="#" data-bs-toggle="collapse"
+                                           data-bs-target="#menu91" aria-expanded="false">
+                                            <i class="bi bi-folder menu-icon"></i>
+                                            数据迁移
+                                            <i class="bi bi-chevron-right arrow"></i>
+                                        </a>
+                                        <ul class="submenu collapse " id="menu91">
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/69">
+                                                        订单计划数据迁移
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/70">
+                                                        合同数据迁移
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/71">
+                                                        定标数据迁移
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/72">
+                                                        询价单数据迁移
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/73">
+                                                        采购方案数据迁移
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/74">
+                                                        简化采购包数据迁移
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/75">
+                                                        采购包数据迁移
+                                                    </a>
+                                                </li>
+                                            
+                                                <li>
+                                                    <a class="nav-link "
+                                                       href="/dynamic/76">
+                                                        需求计划数据迁移
+                                                    </a>
+                                                </li>
+                                            
+                                        </ul>
+                                    </li>
+                                
+                            
+                        
+                            <li class="menu-group-title">系统设置</li>
+                            
+                                
+                                    <!-- 无子菜单的一级菜单 -->
+                                    <li class="nav-item">
+                                        <a class="nav-link "
+                                           href="/file_path_config/">
+                                            
+                                            文件生成路径配置
+                                        </a>
+                                    </li>
+                                
+                            
+                                
+                                    <!-- 无子菜单的一级菜单 -->
+                                    <li class="nav-item">
+                                        <a class="nav-link "
+                                           href="/table_config/">
+                                            
+                                            动态表单配置
+                                        </a>
+                                    </li>
+                                
+                            
+                                
+                                    <!-- 无子菜单的一级菜单 -->
+                                    <li class="nav-item">
+                                        <a class="nav-link "
+                                           href="/component_config/">
+                                            
+                                            表单配置项
+                                        </a>
+                                    </li>
+                                
+                            
+                                
+                                    <!-- 无子菜单的一级菜单 -->
+                                    <li class="nav-item">
+                                        <a class="nav-link "
+                                           href="/database_config">
+                                            
+                                            数据库表单配置
+                                        </a>
+                                    </li>
+                                
+                            
+                        
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- 主体内容 -->
+            <main class="main-content">
+                <div class="content-wrapper">
+                    
     <div class="container-fluid p-0">
-        <div class="d-flex justify-content-between align-items-center">
-            <h4 class="form-page-title" id="formName"></h4>
-            <button type="button" id="viewDocumentBtn" class="btn btn-outline-info btn-sm" style="display: none;"
-                    onclick="openDocumentViewer()">
-                <i class="bi bi-journal-text me-1"></i>查看说明
-            </button>
-        </div>
+        <h4 class="mb-4" id="formName"></h4>
 
-        <!-- 公共字段 -->
-        <div class="form-section-card">
-            <div class="form-section-header">
-                <i class="bi bi-info-circle-fill"></i>
-                <h5>基础信息</h5>
-            </div>
-            <div class="form-section-body">
-                <div class="row g-3 align-items-center mb-3">
-                    <div class="input-group modern-input-group">
-                        <span class="input-group-text"><i class="bi bi-link-45deg me-1"></i>onesLink</span>
-                        <input type="text" id="onesLink" class="form-control" placeholder="请输入 onesLink">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3 align-items-center">
+                    <div class="input-group mb-3" style="width: 1200px">
+                        <span class="input-group-text" required>onesLink</span>
+                        <input type="text" id="onesLink" class="form-control" placeholder="onesLink">
                     </div>
                 </div>
-                <div class="row g-3">
-                    <div class="col-xl-4 col-lg-6 col-md-6">
-                        <div class="input-group modern-input-group">
-                            <span class="input-group-text"><i class="bi bi-file-earmark-text me-1"></i>文件名</span>
-                            <input type="text" id="filePrefix" class="form-control" readonly>
-                            <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('filePrefix', this)"
-                                    title="点击编辑">
-                                <i class="bi bi-pencil-square"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="col-xl-4 col-lg-6 col-md-6">
-                        <div class="input-group modern-input-group">
-                            <span class="input-group-text"><i class="bi bi-hash me-1"></i>编号</span>
-                            <input type="text" id="dynamicNo" class="form-control" readonly>
-                            <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('dynamicNo', this)"
-                                    title="点击编辑">
-                                <i class="bi bi-pencil-square"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="col-xl-4 col-lg-6 col-md-6">
-                        <div class="input-group modern-input-group">
-                            <span class="input-group-text"><i class="bi bi-journal-text me-1"></i>操作备注</span>
-                            <input type="text" id="ops_remark" class="form-control" readonly>
-                            <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('ops_remark', this)"
-                                    title="点击编辑">
-                                <i class="bi bi-pencil-square"></i>
-                            </button>
-                        </div>
+                <div class="row g-3 align-items-center">
+                    <div class="input-group mb-3" style="width: 500px">
+                        <span class="input-group-text">文件名</span>
+                        <input type="text" id="filePrefix" class="form-control" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('filePrefix', this)"
+                                title="点击编辑">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
                     </div>
                 </div>
-            </div>
-        </div>
+                <div class="row g-3 align-items-center">
+                    <div class="input-group mb-3" style="width: 500px">
+                        <span class="input-group-text">编号</span>
+                        <input type="text" id="dynamicNo" class="form-control" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('dynamicNo', this)"
+                                title="点击编辑">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="row g-3 align-items-center">
+                    <div class="input-group mb-3" style="width: 500px">
+                        <span class="input-group-text">操作备注</span>
+                        <input type="text" id="ops_remark" class="form-control" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit('ops_remark', this)"
+                                title="点击编辑">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                    </div>
+                </div>
 
-        <!-- 查询字段 -->
-        <div class="form-section-card">
-            <div class="form-section-header">
-                <i class="bi bi-search"></i>
-                <h5>查询字段</h5>
-            </div>
-            <div class="form-section-body">
+                <h4>查询字段</h4>
+                <hr class="layui-border-blue">
+                <!-- 动态生成的文本类型输入框容器 -->
                 <div id="queryContainer">
-                    <!-- 动态生成的查询字段 -->
+                    <!-- 所有文本类型的新值在一行，所有原值在一行 -->
                 </div>
-            </div>
-        </div>
 
-        <!-- 修改字段 -->
-        <div class="form-section-card">
-            <div class="form-section-header">
-                <i class="bi bi-pencil-square"></i>
-                <h5>修改字段</h5>
-            </div>
-            <div class="form-section-body">
+
+                <h4>修改字段</h4>
+                <hr class="layui-border-blue">
                 <!-- 动态生成的下拉框容器 -->
                 <div id="selectContainer">
                     <!-- 每种下拉框单独一行 -->
@@ -109,457 +1023,115 @@
                 <div id="supplementContainer">
                     <!-- 每个补充框单独一行，包含主输入框和子输入框 -->
                 </div>
-            </div>
-        </div>
-
-        <!-- 功能按钮区域 -->
-        <div class="btn-toolbar-modern mb-4" id="formActionButtons">
-            <a href="javascript:void(0)" onclick="downloadTemplate()" class="btn btn-outline-primary"
-               id="downloadTemplateBtn">
-                <i class="bi bi-download"></i> 下载导入模板
-            </a>
-            <input type="file" id="batchImportFile" accept=".xlsx" style="display: none;"
-                   onchange="handleBatchImportFile(this)">
-            <button type="button" onclick="document.getElementById('batchImportFile').click()"
-                    class="btn btn-outline-secondary"
-                    id="batchImportBtn">
-                <i class="bi bi-upload"></i> 从文件导入
-            </button>
-            <button type="button" onclick="openOnlineEditor()"
-                    class="btn btn-outline-success"
-                    id="onlineEditorBtn">
-                <i class="bi bi-table"></i> 在线编辑导入
-            </button>
-            <button type="button" onclick="previewOnlineData()"
-                    class="btn btn-outline-primary"
-                    id="previewOnlineDataBtn">
-                <i class="bi bi-eye"></i> 预览已保存数据
-            </button>
-            <span id="batchImportFileName" style="color: #666; margin-left: 10px;"></span>
-            <span id="savedOnlineRowsStatus" style="margin-left: 10px;"></span>
-        </div>
-
-        <!-- 在线编辑器容器（Bootstrap 全屏模态框） -->
-        <div class="modal fade" id="luckysheetModal" tabindex="-1" aria-labelledby="luckysheetModalLabel" aria-hidden="true" data-bs-focus="false">
-            <div class="modal-dialog modal-fullscreen">
-                <div class="modal-content">
-                    <div class="modal-header py-2">
-                        <h5 class="modal-title fs-6" id="luckysheetModalLabel">
-                            <i class="bi bi-table me-1"></i>在线编辑导入数据
-                        </h5>
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="importFromFile()">
-                                <i class="bi bi-file-earmark-excel"></i> 从Excel导入
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearSpreadsheetData()">
-                                <i class="bi bi-trash"></i> 清空数据
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="previewOnlineData()">
-                                <i class="bi bi-eye"></i> 预览
-                            </button>
-                            <button type="button" class="btn btn-sm btn-secondary" onclick="closeOnlineEditor()">取消</button>
-                            <button type="button" class="btn btn-sm btn-success" onclick="saveOnlineEditorData()">保存</button>
-                        </div>
-                    </div>
-                    <div class="modal-body p-0" style="overflow: hidden; background: #f5f5f5;">
-                        <div id="luckysheet" style="width: 100%; height: 100%;"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 在线编辑数据预览弹窗 -->
-        <div class="modal fade" id="onlineDataPreviewModal" tabindex="-1" aria-labelledby="onlineDataPreviewModalLabel" aria-hidden="true" data-bs-focus="false">
-            <div class="modal-dialog modal-xl modal-dialog-scrollable">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title fs-6" id="onlineDataPreviewModalLabel">
-                            <i class="bi bi-eye me-1"></i>已保存的在线编辑数据
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div id="onlineDataPreviewTable" style="max-height: 60vh; overflow: auto;">
-                            <p class="text-muted">暂无保存的数据</p>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 补充框字段值预览弹窗（单条模式） -->
-        <div class="modal fade" id="supplementPreviewModal" tabindex="-1" aria-labelledby="supplementPreviewModalLabel" aria-hidden="true" data-bs-focus="false">
-            <div class="modal-dialog modal-dialog-scrollable">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title fs-6" id="supplementPreviewModalLabel">
-                            <i class="bi bi-eye me-1"></i>补充字段预览
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div id="supplementPreviewContent">
-                            <p class="text-muted">暂无数据</p>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 说明文档查看弹窗 -->
-        <div class="modal fade" id="documentViewerModal" tabindex="-1" aria-labelledby="documentViewerModalLabel" aria-hidden="true" data-bs-focus="false">
-            <div class="modal-dialog modal-fullscreen-lg-down modal-xl modal-dialog-scrollable">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title fs-6" id="documentViewerModalLabel">
-                            <i class="bi bi-journal-text me-1"></i>说明文档
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body p-0">
-                        <div class="doc-viewer-layout">
-                            <!-- 大纲侧边栏 -->
-                            <div class="doc-viewer-outline" id="documentViewerOutline">
-                                <div class="doc-viewer-outline-header">
-                                    <i class="bi bi-list-ul me-1"></i>文档大纲
-                                </div>
-                                <div class="doc-viewer-outline-empty" id="documentViewerOutlineEmpty">暂无标题</div>
-                                <div class="doc-viewer-outline-list" id="documentViewerOutlineList"></div>
-                            </div>
-                            <!-- 正文内容 -->
-                            <div class="doc-viewer-content-wrapper">
-                                <div id="documentViewerContent">
-                                    <p class="text-muted p-4">加载中...</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <a id="documentViewerEditLink" href="#" target="_blank" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-pencil-square me-1"></i>编辑文档
+                <!-- 功能按钮区域 -->
+                <div class="row g-3 align-items-center mb-4" id="formActionButtons">
+                    <div class="col-auto">
+                        <a href="javascript:void(0)" onclick="downloadTemplate()" class="btn btn-outline-primary"
+                           id="downloadTemplateBtn">
+                            <i class="bi bi-download"></i> 下载导入模板
                         </a>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    </div>
+                    <div class="col-auto">
+                        <input type="file" id="batchImportFile" accept=".xlsx" style="display: none;"
+                               onchange="handleBatchImportFile(this)">
+                        <button type="button" onclick="document.getElementById('batchImportFile').click()"
+                                class="btn btn-outline-secondary"
+                                id="batchImportBtn">
+                            <i class="bi bi-upload"></i> 从文件导入
+                        </button>
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" onclick="openOnlineEditor()"
+                                class="btn btn-outline-success"
+                                id="onlineEditorBtn">
+                            <i class="bi bi-table"></i> 在线编辑导入
+                        </button>
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" onclick="previewOnlineData()"
+                                class="btn btn-outline-primary"
+                                id="previewOnlineDataBtn">
+                            <i class="bi bi-eye"></i> 预览已保存数据
+                        </button>
+                    </div>
+                    <div class="col-auto">
+                        <span id="batchImportFileName" style="color: #666; margin-left: 10px;"></span>
+                    </div>
+                    <div class="col-auto">
+                        <span id="savedOnlineRowsStatus" style="margin-left: 10px;"></span>
                     </div>
                 </div>
-            </div>
-        </div>
-        <!-- 文档图片放大预览弹窗 -->
-        <div class="modal fade" id="imageZoomModal" tabindex="-1" aria-labelledby="imageZoomModalLabel" aria-hidden="true" data-bs-focus="false">
-            <div class="modal-dialog modal-fullscreen modal-dialog-centered">
-                <div class="modal-content bg-dark">
-                    <div class="modal-header border-0">
-                        <h5 class="modal-title fs-6 text-white" id="imageZoomModalLabel">
-                            <i class="bi bi-image me-1"></i>图片预览
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body d-flex align-items-center justify-content-center p-0" style="overflow: hidden;">
-                        <img id="imageZoomTarget" src="" alt="预览图片" draggable="false"
-                             style="max-width: 100%; max-height: 100%; transition: transform 0.2s ease; cursor: grab;">
-                    </div>
-                    <div class="modal-footer border-0 justify-content-center gap-2 pb-3">
-                        <button type="button" class="btn btn-outline-light btn-sm" onclick="adjustImageZoom(0.2)" title="放大">
-                            <i class="bi bi-zoom-in"></i>
-                        </button>
-                        <button type="button" class="btn btn-outline-light btn-sm" onclick="adjustImageZoom(-0.2)" title="缩小">
-                            <i class="bi bi-zoom-out"></i>
-                        </button>
-                        <button type="button" class="btn btn-outline-light btn-sm" onclick="resetImageZoom()" title="重置">
-                            <i class="bi bi-arrows-fullscreen"></i>
-                        </button>
+
+                <!-- 在线编辑器容器（Bootstrap 全屏模态框） -->
+                <div class="modal fade" id="luckysheetModal" tabindex="-1" aria-labelledby="luckysheetModalLabel" aria-hidden="true" data-bs-focus="false">
+                    <div class="modal-dialog modal-fullscreen">
+                        <div class="modal-content">
+                            <div class="modal-header py-2">
+                                <h5 class="modal-title fs-6" id="luckysheetModalLabel">
+                                    <i class="bi bi-table me-1"></i>在线编辑导入数据
+                                </h5>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="importFromFile()">
+                                        <i class="bi bi-file-earmark-excel"></i> 从Excel导入
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearSpreadsheetData()">
+                                        <i class="bi bi-trash"></i> 清空数据
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="previewOnlineData()">
+                                        <i class="bi bi-eye"></i> 预览
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="closeOnlineEditor()">取消</button>
+                                    <button type="button" class="btn btn-sm btn-success" onclick="saveOnlineEditorData()">保存</button>
+                                </div>
+                            </div>
+                            <div class="modal-body p-0" style="overflow: hidden; background: #f5f5f5;">
+                                <div id="luckysheet" style="width: 100%; height: 100%;"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+                <!-- 在线编辑数据预览弹窗 -->
+                <div class="modal fade" id="onlineDataPreviewModal" tabindex="-1" aria-labelledby="onlineDataPreviewModalLabel" aria-hidden="true" data-bs-focus="false">
+                    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title fs-6" id="onlineDataPreviewModalLabel">
+                                    <i class="bi bi-eye me-1"></i>已保存的在线编辑数据
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div id="onlineDataPreviewTable" style="max-height: 60vh; overflow: auto;">
+                                    <p class="text-muted">暂无保存的数据</p>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <input type="file" id="xsImportFile" accept=".xlsx" style="display: none;" onchange="handleXsFileImport(this)">
+
+                <!-- 提交结果显示区域 -->
+                <div id="submitResultArea" style="display: none; margin-bottom: 20px;">
+                    <div class="alert" id="resultAlert" role="alert">
+                        <h5 class="alert-heading" id="resultTitle"></h5>
+                        <p id="resultMessage"></p>
+                        <hr>
+                        <div id="resultActions"></div>
+                    </div>
+                </div>
+                <button onclick="submit()" class="layui-btn">提交</button>
+
+
             </div>
         </div>
-
-        <input type="file" id="xsImportFile" accept=".xlsx" style="display: none;" onchange="handleXsFileImport(this)">
-
-        <!-- 提交结果显示区域 -->
-        <div id="submitResultArea" style="display: none; margin-bottom: 20px;">
-            <div class="alert" id="resultAlert" role="alert">
-                <h5 class="alert-heading" id="resultTitle"></h5>
-                <p id="resultMessage"></p>
-                <hr>
-                <div id="resultActions"></div>
-            </div>
-        </div>
-        <button onclick="submit()" class="layui-btn">提交</button>
-
     </div>
 
     <!-- Luckysheet 模态框自定义样式 -->
     <style>
-        /* 动态表单页面现代化样式 */
-        .form-page-title {
-            font-weight: 700;
-            font-size: 1.4rem;
-            color: #1e293b;
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .form-section-card {
-            background: #fff;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
-            margin-bottom: 1.25rem;
-        }
-
-        .form-section-header {
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            border-bottom: 1px solid #e2e8f0;
-            border-radius: 12px 12px 0 0;
-            padding: 0.85rem 1.25rem;
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-        }
-
-        .form-section-body {
-            padding: 1.25rem;
-            border-radius: 0 0 12px 12px;
-        }
-
-        .form-section-header h5 {
-            margin: 0;
-            font-weight: 600;
-            font-size: 1rem;
-            color: #1e293b;
-        }
-
-        .form-section-header i {
-            color: #0d6efd;
-            font-size: 1.1rem;
-        }
-
-        .modern-input-group .input-group-text {
-            background: #f8fafc;
-            border-color: #e2e8f0;
-            color: #475569;
-            font-weight: 500;
-            font-size: 0.875rem;
-        }
-
-        .modern-input-group .form-control,
-        .modern-input-group .form-select {
-            border-color: #e2e8f0;
-            font-size: 0.9rem;
-        }
-
-        .modern-input-group .form-control:focus,
-        .modern-input-group .form-select:focus {
-            border-color: #86b7fe;
-            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
-        }
-
-        .modern-input-group .btn-outline-secondary {
-            border-color: #e2e8f0;
-            color: #64748b;
-        }
-
-        .modern-input-group .btn-outline-secondary:hover {
-            background: #f1f5f9;
-            color: #0d6efd;
-            border-color: #dbeafe;
-        }
-
-        /* 下拉框原/新值行：两列紧凑排列，间距由 gap 控制 */
-        .select-pair-row {
-            gap: 0.5rem;
-        }
-
-        .select-pair-item {
-            flex: 0 1 auto;
-            min-width: 280px;
-            max-width: 100%;
-        }
-
-        .field-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-            gap: 1rem;
-        }
-
-        .field-card {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 1rem;
-            transition: all 0.2s ease;
-        }
-
-        .field-card:hover {
-            border-color: #bfdbfe;
-            box-shadow: 0 4px 12px rgba(13, 110, 253, 0.06);
-        }
-
-        .field-label {
-            font-size: 0.8rem;
-            color: #64748b;
-            font-weight: 600;
-            margin-bottom: 0.4rem;
-        }
-
-        .field-input {
-            width: 100%;
-            padding: 0.5rem 0.75rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            transition: all 0.15s;
-        }
-
-        .field-input:focus {
-            outline: none;
-            border-color: #86b7fe;
-            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
-        }
-
-        .btn-toolbar-modern {
-            background: #fff;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-            padding: 0.85rem 1rem;
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-bottom: 1.25rem;
-        }
-
-        .btn-toolbar-modern .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-        }
-
-        .supplement-main-label {
-            background: #dcfce7 !important;
-            color: #166534 !important;
-            border-color: #bbf7d0 !important;
-        }
-
-        .modern-input-group .btn-outline-secondary i {
-            font-size: 0.9rem;
-        }
-
-        .supplement-matched {
-            border-color: #10b981 !important;
-            background-color: #ecfdf5 !important;
-            box-shadow: 0 0 0 0.2rem rgba(16, 185, 129, 0.15) !important;
-        }
-
-        .supplement-error {
-            border-color: #ff4d4f !important;
-            background-color: #fff1f0 !important;
-            box-shadow: 0 0 0 0.2rem rgba(255, 77, 79, 0.15) !important;
-        }
-
-        .supplement-hint {
-            display: flex;
-            align-items: center;
-            gap: 0.35rem;
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-
-        .supplement-preview-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .supplement-preview-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.5rem 0.75rem;
-            background: #f8fafc;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
-        }
-
-        .supplement-preview-label {
-            font-weight: 500;
-            color: #475569;
-            font-size: 0.85rem;
-            flex-shrink: 0;
-            margin-right: 0.75rem;
-        }
-
-        .supplement-preview-value {
-            color: #0f172a;
-            font-size: 0.9rem;
-            word-break: break-all;
-            text-align: right;
-        }
-
-        .radio-group-modern {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            align-items: center;
-            padding: 0.35rem 0;
-        }
-
-        .radio-group-modern .form-check {
-            position: relative;
-            margin: 0;
-            padding: 0;
-        }
-
-        .radio-group-modern .form-check-input {
-            position: absolute;
-            opacity: 0;
-            width: 0;
-            height: 0;
-            margin: 0;
-            pointer-events: none;
-        }
-
-        .radio-group-modern .form-check-label {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 64px;
-            padding: 0.45rem 1rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 999px;
-            background: #fff;
-            color: #475569;
-            font-size: 0.875rem;
-            line-height: 1.4;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            user-select: none;
-        }
-
-        .radio-group-modern .form-check-label:hover {
-            background: #f8fafc;
-            border-color: #cbd5e1;
-        }
-
-        .radio-group-modern .form-check-input:checked + .form-check-label {
-            background: #eff6ff;
-            border-color: #3b82f6;
-            color: #2563eb;
-            font-weight: 500;
-        }
-
-        .radio-group-modern .form-check-input:focus + .form-check-label {
-            box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.2);
-        }
-
         /* 全屏模态框：给 Luckysheet 最大化编辑空间 */
         #luckysheetModal.modal {
             z-index: 1055;
@@ -576,15 +1148,14 @@
             height: 100%;
         }
 
-        /* 确保 Luckysheet 内部弹出菜单、颜色选择器、公式帮助/搜索框在模态框之上 */
+        /* 确保 Luckysheet 内部弹出菜单、颜色选择器、函数提示框在模态框之上 */
         .luckysheet-cols-menu,
         .luckysheet-rightgclick-menu,
         .luckysheet-toolbar-button-hover,
         .luckysheet-toolbar-submenu,
         .luckysheet-color-picker,
-        .luckysheet-formula-help-c,
-        .luckysheet-formula-search-c,
-        .luckysheet-formula-functionrange {
+        .luckysheet-functionbox,
+        .luckysheet-formula-function-criteria {
             z-index: 1060 !important;
         }
         /* 部分 Luckysheet 弹窗使用行内 style，通过父容器层级兜底 */
@@ -641,387 +1212,6 @@
             z-index: 9999 !important;
         }
 
-        /* 说明文档代码块样式 */
-        #documentViewerContent pre[class*="language-"],
-        #documentViewerContent pre {
-            background: #1e293b;
-            color: #e2e8f0;
-            padding: 1rem;
-            border-radius: 8px;
-            font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            font-size: 0.9rem;
-            line-height: 1.5;
-            overflow-x: auto;
-            margin: 0.75rem 0;
-        }
-
-        #documentViewerContent pre code {
-            background: transparent;
-            color: inherit;
-            padding: 0;
-            font-family: inherit;
-            font-size: inherit;
-        }
-
-        #documentViewerContent code:not(pre code) {
-            background: #f1f5f9;
-            color: #334155;
-            padding: 0.15em 0.35em;
-            border-radius: 4px;
-            font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            font-size: 0.9em;
-        }
-
-        /* 说明文档查看弹窗 - 块式布局 */
-        .doc-viewer-layout {
-            display: flex;
-            min-height: 60vh;
-            max-height: 75vh;
-        }
-
-        .doc-viewer-outline {
-            width: 240px;
-            flex-shrink: 0;
-            border-right: 1px solid #e2e8f0;
-            background: #f8fafc;
-            padding: 1rem;
-            overflow-y: auto;
-        }
-
-        .doc-viewer-outline-header {
-            font-weight: 600;
-            color: #1e293b;
-            margin-bottom: 0.75rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 0.95rem;
-        }
-
-        .doc-viewer-outline-empty {
-            color: #94a3b8;
-            font-size: 0.85rem;
-            text-align: center;
-            padding: 1rem 0;
-        }
-
-        .doc-viewer-outline-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .doc-viewer-outline-item {
-            display: block;
-            padding: 0.35rem 0.6rem;
-            border-radius: 6px;
-            color: #475569;
-            font-size: 0.85rem;
-            line-height: 1.4;
-            text-decoration: none;
-            cursor: pointer;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            transition: background 0.15s, color 0.15s;
-        }
-
-        .doc-viewer-outline-item:hover,
-        .doc-viewer-outline-item.active {
-            background: #eff6ff;
-            color: #2563eb;
-        }
-
-        .doc-viewer-outline-item.level-1 { padding-left: 0.5rem; font-weight: 600; }
-        .doc-viewer-outline-item.level-2 { padding-left: 1rem; }
-        .doc-viewer-outline-item.level-3 { padding-left: 1.5rem; }
-        .doc-viewer-outline-item.level-4 { padding-left: 2rem; }
-        .doc-viewer-outline-item.level-5 { padding-left: 2.5rem; }
-        .doc-viewer-outline-item.level-6 { padding-left: 3rem; }
-
-        .doc-viewer-content-wrapper {
-            flex: 1;
-            overflow-y: auto;
-            background: #fff;
-        }
-
-        #documentViewerContent {
-            padding: 2rem 3rem;
-            max-width: 900px;
-            margin: 0 auto;
-            line-height: 1.8;
-            font-size: 16px;
-            color: #1f2937;
-        }
-
-        #documentViewerContent h1,
-        #documentViewerContent h2,
-        #documentViewerContent h3,
-        #documentViewerContent h4,
-        #documentViewerContent h5,
-        #documentViewerContent h6 {
-            color: #111827;
-            font-weight: 600;
-            margin-top: 2rem;
-            margin-bottom: 1rem;
-            scroll-margin-top: 20px;
-        }
-
-        #documentViewerContent h1 { font-size: 2rem; }
-        #documentViewerContent h2 { font-size: 1.6rem; }
-        #documentViewerContent h3 { font-size: 1.35rem; }
-        #documentViewerContent h4 { font-size: 1.15rem; }
-        #documentViewerContent h5 { font-size: 1rem; }
-        #documentViewerContent h6 { font-size: 0.9rem; }
-
-        #documentViewerContent p {
-            margin-bottom: 1rem;
-        }
-
-        #documentViewerContent img {
-            max-width: 100%;
-            border-radius: 8px;
-            margin: 1rem 0;
-            cursor: zoom-in;
-        }
-
-        #imageZoomModal .modal-body img {
-            object-fit: contain;
-            user-select: none;
-        }
-
-        #imageZoomModal .modal-body img:active {
-            cursor: grabbing;
-        }
-
-        #documentViewerContent blockquote {
-            border-left: 4px solid #3b82f6;
-            background: #f8fafc;
-            padding: 1rem 1.25rem;
-            border-radius: 0 8px 8px 0;
-            margin: 1rem 0;
-        }
-
-        #documentViewerContent table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1rem 0;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        #documentViewerContent th,
-        #documentViewerContent td {
-            border: 1px solid #e2e8f0;
-            padding: 0.6rem 0.8rem;
-        }
-
-        #documentViewerContent th {
-            background: #f8fafc;
-            font-weight: 600;
-        }
-
-        #documentViewerContent ul,
-        #documentViewerContent ol {
-            margin-bottom: 1rem;
-            padding-left: 1.5rem;
-        }
-
-        #documentViewerContent li {
-            margin-bottom: 0.35rem;
-        }
-
-        #documentViewerContent hr {
-            margin: 1.5rem 0;
-            border-color: #e2e8f0;
-        }
-
-        /* 代码块复制按钮 */
-        .doc-code-wrapper {
-            position: relative;
-            margin: 1rem 0;
-        }
-
-        .doc-code-wrapper pre {
-            margin: 0 !important;
-            padding-top: 2.5rem !important;
-        }
-
-        .doc-code-copy-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-            padding: 6px 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 6px;
-            color: #cbd5e1;
-            font-size: 0.75rem;
-            cursor: pointer;
-            transition: background 0.15s, color 0.15s;
-            z-index: 2;
-        }
-
-        .doc-code-copy-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-            color: #fff;
-        }
-
-        .doc-code-copy-btn.copied {
-            background: rgba(34, 197, 94, 0.2);
-            border-color: rgba(34, 197, 94, 0.3);
-            color: #4ade80;
-        }
-
-        @media (max-width: 991.98px) {
-            .doc-viewer-outline {
-                display: none;
-            }
-            #documentViewerContent {
-                padding: 1.5rem;
-            }
-        }
-
-        /* 在线编辑数据预览 - 表单块风格 */
-        .preview-data-card {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            margin-bottom: 1rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-            overflow: hidden;
-        }
-
-        .preview-data-header {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1rem;
-            background: #f8fafc;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .preview-data-index {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-            background: #3b82f6;
-            color: #fff;
-            border-radius: 50%;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .preview-data-title {
-            font-weight: 600;
-            color: #1e293b;
-        }
-
-        .preview-data-body {
-            padding: 1rem;
-        }
-
-        .preview-section {
-            margin-bottom: 1rem;
-        }
-
-        .preview-section:last-child {
-            margin-bottom: 0;
-        }
-
-        .preview-section-title {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #475569;
-            margin-bottom: 0.5rem;
-            padding-bottom: 0.4rem;
-            border-bottom: 1px solid #f1f5f9;
-        }
-
-        .preview-section-body {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .preview-field-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            padding: 0.5rem 0.75rem;
-            background: #f8fafc;
-            border-radius: 8px;
-        }
-
-        .preview-field-label {
-            width: 120px;
-            flex-shrink: 0;
-            color: #64748b;
-            font-size: 0.85rem;
-            line-height: 1.5;
-        }
-
-        .preview-field-values {
-            flex: 1;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            align-items: center;
-            min-width: 0;
-        }
-
-        .preview-value-tag {
-            display: inline-block;
-            padding: 0.25rem 0.6rem;
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            color: #1e293b;
-            font-size: 0.85rem;
-            word-break: break-all;
-        }
-
-        .preview-value-tag.new {
-            background: #ecfdf5;
-            border-color: #a7f3d0;
-            color: #065f46;
-        }
-
-        .preview-value-tag.origin {
-            background: #fff1f2;
-            border-color: #fecdd3;
-            color: #9f1239;
-        }
-
-        .preview-value-tag.computed {
-            background: #eff6ff;
-            border-color: #bfdbfe;
-            color: #1e40af;
-            font-style: italic;
-        }
-
-        .preview-sub-field {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            align-items: center;
-            width: 100%;
-            margin-top: 0.25rem;
-            padding-top: 0.25rem;
-            border-top: 1px dashed #e2e8f0;
-        }
-
-        .preview-sub-label {
-            font-size: 0.8rem;
-            color: #94a3b8;
-        }
-
     </style>
 
     <!-- 引入 Layui 样式 -->
@@ -1075,9 +1265,6 @@
         // 存储待回显到在线表格的行级校验错误
         let pendingValidationErrors = null;
 
-        // 记录当前已显示在表格中的校验错误行，用于快速清空
-        let displayedValidationErrors = [];
-
         /**
          * 切换输入框的编辑状态
          * @param {string} inputId - 输入框ID
@@ -1119,7 +1306,7 @@
 
         /**
          * 从ones链接中解析内容
-         * @param {string} url - ones链接（可包含 #编号 任务名 和 URL）
+         * @param {string} url - ones链接
          * @returns {Object} 解析结果 {taskId, taskName}
          */
         function parseOnesLink(url) {
@@ -1128,42 +1315,36 @@
             }
 
             try {
-                // 把 URL 和前面的文本分开，避免 URL 中的 #/team/... 被误识别
-                const urlMatch = url.match(/https?:\/\/\S+/);
-                const linkUrl = urlMatch ? urlMatch[0] : '';
-                const textPart = urlMatch
-                    ? url.substring(0, url.indexOf(linkUrl)).trim()
-                    : url.trim();
+                // 匹配格式: #72480 框架协议导入-崔正华 https://...
+                // 或者从URL中提取任务信息
 
-                // 提取开头的 #编号，支持多个编号用 & / 空格 / # / 中英文逗号分隔
-                // 例如: #98835&98732、#123 #456、#123,456
-                let taskId = '';
-                const numChunkMatch = textPart.match(/^#[\d]+(?:[&，,\s#]*[\d]+)*/);
-                if (numChunkMatch) {
-                    const digits = numChunkMatch[0].match(/\d+/g);
-                    if (digits && digits.length > 0) {
-                        taskId = digits.join('&');
-                    }
+                // 方法1: 尝试从URL路径中提取任务ID
+                // 例如: /task/QGTJmPVYqMYfCdRb
+                const taskMatch = url.match(/\/task\/([A-Za-z0-9]+)/);
+
+                // 方法2: 尝试从文本中提取 #编号 和 任务名称
+                // 例如: #72480 框架协议导入-崔正华
+                const hashMatch = url.match(/#(\d+)\s+([^\shttps]+)/);
+
+                if (hashMatch) {
+                    return {
+                        taskId: hashMatch[1],
+                        taskName: hashMatch[2]
+                    };
                 }
 
-                // 剩余部分作为任务名称，并去掉前导分隔符
-                let taskName = textPart.replace(/^#[\d]+(?:[&，,\s#]*[\d]+)*/, '').trim();
-                taskName = taskName.replace(/^[-—_/\s]+/, '');
-
-                // 如果文本中没有 #编号，尝试从 URL 路径提取任务ID
-                const taskMatch = (linkUrl || url).match(/\/task\/([A-Za-z0-9]+)/);
-                if (!taskId && taskMatch) {
-                    taskId = taskMatch[1];
+                // 如果URL中包含任务信息，尝试从页面标题或其他地方获取
+                // 这里暂时返回null，需要用户手动输入或通过API获取
+                if (taskMatch) {
+                    console.log('从URL中提取到任务ID:', taskMatch[1]);
+                    // 注意：仅从URL无法获取任务名称，需要通过API查询
+                    return {
+                        taskId: taskMatch[1],
+                        taskName: null
+                    };
                 }
 
-                if (!taskId && !taskName) {
-                    return null;
-                }
-
-                return {
-                    taskId: taskId || null,
-                    taskName: taskName || null
-                };
+                return null;
             } catch (error) {
                 console.error('解析ones链接失败:', error);
                 return null;
@@ -1227,16 +1408,6 @@
 
 
         /**
-         * 通过 ID 安全获取输入框的值。
-         * 表名中可能包含 `.` 等特殊字符，直接使用 jQuery 选择器 `#id` 会解析失败，
-         * 因此改用 document.getElementById。
-         */
-        function getInputValueById(id) {
-            const el = document.getElementById(id);
-            return el ? (el.value || '').trim() : '';
-        }
-
-        /**
          * 获取所有输入框的值（全局方法）
          */
         window.getAllFormValues = function () {
@@ -1244,54 +1415,26 @@
             var $ = layui.$;
 
             // 1. 获取查询字段的值（动态生成的）
-            // 查询字段使用独立的 query_{bindingKey} 键，避免与修改字段冲突
             gQueryItems.forEach(function (item) {
-                const connectedTables = item.connectedTable || [];
-                const fieldType = item.type || 'text';
+                // 为查询字段生成唯一的 ID，格式：query_bindingKey_tableName
+                const tableName = item.connectedTable && item.connectedTable.length > 0 
+                    ? item.connectedTable[0] 
+                    : '';
+                const queryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
+                const queryVal = ($('#' + queryId).val() || '').trim();
 
-                // 普通查询字段：所有关联表共享同一个值
-                const tableName = connectedTables.length > 0 ? connectedTables[0] : '';
-                const baseQueryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
-                const queryKey = baseQueryId;
+                // 为查询字段生成唯一的键，格式：bindingKey_tableName
+                const uniqueKey = tableName ? `${item.bindingKey}_${tableName}` : item.bindingKey;
 
-                if (fieldType === 'difference_condition') {
-                    const newQueryId = `new_${baseQueryId}`;
-                    const originQueryId = `origin_${baseQueryId}`;
-                    const newVal = getInputValueById(newQueryId);
-                    const originVal = getInputValueById(originQueryId);
-                    result[queryKey] = {
-                        label: item.label,
-                        newValue: newVal,
-                        originValue: originVal,
-                        inputType: 'query',
-                        fieldType: 'difference_condition',
-                        ValidRule: item.ValidRule,
-                        bindingKey: item.bindingKey,
-                        connectedTable: item.connectedTable
-                    };
-                } else if (fieldType === 'calculated' || fieldType === 'subquery') {
-                    // 计算字段/子查询字段：无输入值，由后端表达式计算
-                    result[queryKey] = {
-                        label: item.label,
-                        value: '',
-                        inputType: 'query',
-                        fieldType: fieldType,
-                        ValidRule: item.ValidRule,
-                        bindingKey: item.bindingKey,
-                        connectedTable: item.connectedTable
-                    };
-                } else {
-                    const queryVal = getInputValueById(baseQueryId);
-                    result[queryKey] = {
-                        label: item.label,
-                        value: queryVal,
-                        inputType: 'query',
-                        fieldType: fieldType,
-                        ValidRule: item.ValidRule,
-                        bindingKey: item.bindingKey,
-                        connectedTable: item.connectedTable
-                    };
-                }
+                result[uniqueKey] = {
+                    label: item.label,
+                    value: queryVal,
+                    inputType: 'query',
+                    fieldType: item.type,
+                    ValidRule: item.ValidRule,
+                    bindingKey: item.bindingKey,  // 保留原始 bindingKey
+                    connectedTable: item.connectedTable  // 保留关联表信息
+                };
             });
 
             // 2. 获取公用字段的值（硬编码的三个输入框）
@@ -1337,9 +1480,9 @@
                 const newVal = ($('#' + newId).val() || '').trim();
                 const originVal = ($('#' + originId).val() || '').trim();
 
-                {#console.log("newId", newId);#}
-                {#console.log("newVal", newVal);#}
-                {#console.log("originVal", originVal);#}
+                
+                
+                
 
                 result[item.bindingKey] = {
                     label: item.label,
@@ -1459,49 +1602,25 @@
             var $ = layui.$;
 
             // 获取动态生成的查询字段
-            // 查询字段使用独立的 query_{bindingKey} 键，避免与修改字段冲突
             gQueryItems.forEach(function (item) {
-                const connectedTables = item.connectedTable || [];
-                const fieldType = item.type || 'text';
-
-                const tableName = connectedTables.length > 0 ? connectedTables[0] : '';
-                const baseQueryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
-                const queryKey = baseQueryId;
-
-                if (fieldType === 'difference_condition') {
-                    const newQueryId = `new_${baseQueryId}`;
-                    const originQueryId = `origin_${baseQueryId}`;
-                    result[queryKey] = {
-                        label: item.label,
-                        newValue: getInputValueById(newQueryId),
-                        originValue: getInputValueById(originQueryId),
-                        inputType: 'query',
-                        fieldType: 'difference_condition',
-                        ValidRule: item.ValidRule,
-                        bindingKey: item.bindingKey,
-                        connectedTable: item.connectedTable
-                    };
-                } else if (fieldType === 'calculated' || fieldType === 'subquery') {
-                    result[queryKey] = {
-                        label: item.label,
-                        value: '',
-                        inputType: 'query',
-                        fieldType: fieldType,
-                        ValidRule: item.ValidRule,
-                        bindingKey: item.bindingKey,
-                        connectedTable: item.connectedTable
-                    };
-                } else {
-                    result[queryKey] = {
-                        label: item.label,
-                        value: getInputValueById(baseQueryId),
-                        inputType: 'query',
-                        fieldType: fieldType,
-                        ValidRule: item.ValidRule,
-                        bindingKey: item.bindingKey,
-                        connectedTable: item.connectedTable
-                    };
-                }
+                // 为查询字段生成唯一的 ID，格式：query_bindingKey_tableName
+                const tableName = item.connectedTable && item.connectedTable.length > 0 
+                    ? item.connectedTable[0] 
+                    : '';
+                const queryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
+                
+                // 为查询字段生成唯一的键，格式：bindingKey_tableName
+                const uniqueKey = tableName ? `${item.bindingKey}_${tableName}` : item.bindingKey;
+                
+                result[uniqueKey] = {
+                    label: item.label,
+                    value: ($('#' + queryId).val() || '').trim(),
+                    inputType: 'query',
+                    fieldType: item.type,
+                    ValidRule: item.ValidRule,
+                    bindingKey: item.bindingKey,  // 保留原始 bindingKey
+                    connectedTable: item.connectedTable  // 保留关联表信息
+                };
             });
 
             // 获取硬编码的公用字段
@@ -1526,12 +1645,7 @@
         window.handleSupplementInput = function (bindingKey, element, valueType) {
             const value = element.value;
             const isOriginValue = valueType === 'originValue';
-
-            // 用户重新输入时，移除之前的匹配成功/失败样式和提示
-            element.classList.remove('supplement-matched', 'supplement-error');
-            element.removeAttribute('title');
-            hideSupplementHint(element.id);
-
+            
             console.log('=== 补充框输入 ===');
             console.log('bindingKey:', bindingKey);
             console.log('value:', value);
@@ -1568,18 +1682,7 @@
             if (!supplementItem) {
                 return;
             }
-
-            // 清除主输入框的匹配成功/失败样式和提示
-            const mainId = isOriginValue
-                ? `originMain${bindingKey.charAt(0).toUpperCase() + bindingKey.slice(1)}`
-                : `newMain${bindingKey.charAt(0).toUpperCase() + bindingKey.slice(1)}`;
-            const mainInput = document.getElementById(mainId);
-            if (mainInput) {
-                mainInput.classList.remove('supplement-matched', 'supplement-error');
-                mainInput.removeAttribute('title');
-                hideSupplementHint(mainId);
-            }
-
+            
             supplementItem.subFields.forEach((subField, index) => {
                 const subId = isOriginValue 
                     ? `originSub${bindingKey.charAt(0).toUpperCase() + bindingKey.slice(1)}_${index}`
@@ -1600,34 +1703,6 @@
                     subInput.style.backgroundColor = '';
                 }
             });
-        }
-
-
-        /**
-         * 显示补充框提示（成功/失败），与生成时统一放在输入框下方
-         * @param {string} inputId - 主输入框 ID
-         * @param {string} type - 'success' 或 'error'
-         * @param {string} message - 提示文本
-         */
-        function showSupplementHint(inputId, type, message) {
-            const hintEl = document.getElementById(`supplementHint_${inputId}`);
-            if (!hintEl) return;
-            const iconClass = type === 'success' ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger';
-            const textClass = type === 'success' ? 'text-success' : 'text-danger';
-            hintEl.innerHTML = `<i class="bi ${iconClass}"></i> <span class="${textClass}">${escapeHtml(message)}</span>`;
-            hintEl.style.display = 'flex';
-        }
-
-        /**
-         * 隐藏补充框提示
-         * @param {string} inputId - 主输入框 ID
-         */
-        function hideSupplementHint(inputId) {
-            const hintEl = document.getElementById(`supplementHint_${inputId}`);
-            if (hintEl) {
-                hintEl.style.display = 'none';
-                hintEl.innerHTML = '';
-            }
         }
 
 
@@ -1701,18 +1776,10 @@
                     // 只有一条数据，直接填充，不弹出表格
                     console.log('只查到一条数据，直接填充:', resultData[0]);
                     fillInputWithData(resultData[0], currentSupplementItem, element);
-                } else if (resultData && resultData.length > 1) {
-                    // 多条数据，弹出表格选择器
-                    console.log('查到 ' + resultData.length + ' 条数据，弹出表格选择框');
-                    showTablePicker(bindingKey, value, fieldType);
                 } else {
-                    // 无数据，清空子字段并在输入框下方显示红色提示，避免提交旧值
-                    console.log('未查到数据，清空中字段并显示失败提示');
-                    clearSupplementSubFields(bindingKey, isOriginInput);
-                    element.classList.remove('supplement-matched');
-                    element.classList.add('supplement-error');
-                    element.title = '未找到匹配数据';
-                    showSupplementHint(element.id, 'error', '未找到匹配数据');
+                    // 多条或无数据，弹出表格选择器
+                    console.log('查到 ' + (resultData ? resultData.length : 0) + ' 条数据，弹出表格选择框');
+                    showTablePicker(bindingKey, value, fieldType);
                 }
             }).catch(function(error) {
                 console.error('查询失败，弹出表格选择框:', error);
@@ -2196,11 +2263,6 @@
                 mainInputElement.style.borderColor = '';
                 mainInputElement.style.boxShadow = '';
                 mainInputElement.style.backgroundColor = '';
-                // 匹配成功提示
-                mainInputElement.classList.remove('supplement-error');
-                mainInputElement.classList.add('supplement-matched');
-                mainInputElement.title = '已匹配到补充数据';
-                showSupplementHint(targetMainId, 'success', '已匹配到补充数据');
             }
 
             // 填充子输入框（根据是新值还是原值来决定填充哪一行的子输入框）
@@ -2237,94 +2299,6 @@
 
             console.log('数据填充完成');
             console.log('已填充数据:', data);
-        };
-
-
-        /**
-         * 预览补充框所有字段值（单条模式）
-         * @param {string} bindingKey - 补充框 bindingKey
-         * @param {boolean} isOrigin - 是否预览原值
-         */
-        window.showSupplementPreview = function (bindingKey, isOrigin) {
-            const supplementItem = gSupplementItems.find(item => item.bindingKey === bindingKey);
-            if (!supplementItem) {
-                showToast('未找到补充框配置', 'warning');
-                return;
-            }
-            if (!supplementItem.mainTable || !supplementItem.mainField) {
-                showToast('补充框配置不完整：缺少主表或主字段', 'warning');
-                return;
-            }
-
-            const mainId = isOrigin
-                ? `originMain${bindingKey.charAt(0).toUpperCase() + bindingKey.slice(1)}`
-                : `newMain${bindingKey.charAt(0).toUpperCase() + bindingKey.slice(1)}`;
-            const mainInput = document.getElementById(mainId);
-            const mainValue = mainInput ? (mainInput.value || '').trim() : '';
-
-            const previewTitle = isOrigin ? '原值' : '新值';
-            const modalTitle = `${escapeHtml(supplementItem.label)} - ${previewTitle}补充字段预览`;
-            document.getElementById('supplementPreviewModalLabel').innerHTML = `<i class="bi bi-eye me-1"></i>${modalTitle}`;
-
-            if (!mainValue) {
-                document.getElementById('supplementPreviewContent').innerHTML = '<p class="text-muted">请先输入主字段值</p>';
-                const modal = new bootstrap.Modal(document.getElementById('supplementPreviewModal'));
-                modal.show();
-                return;
-            }
-
-            const auxiliaryValues = collectAuxiliaryValues(supplementItem, isOrigin);
-
-            fetch('/api/supplement/query/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    tableName: supplementItem.mainTable,
-                    mainField: supplementItem.mainField,
-                    subFields: supplementItem.subFields || [],
-                    searchValue: mainValue,
-                    auxiliaryValues: auxiliaryValues,
-                    quickCheck: true
-                })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (!data.success) {
-                        document.getElementById('supplementPreviewContent').innerHTML = `<p class="text-danger">查询失败：${escapeHtml(data.message || '未知错误')}</p>`;
-                    } else if (!data.data || data.data.length === 0) {
-                        document.getElementById('supplementPreviewContent').innerHTML = '<p class="text-muted">未找到匹配数据</p>';
-                    } else if (data.data.length > 1) {
-                        document.getElementById('supplementPreviewContent').innerHTML = '<p class="text-warning">匹配到多条数据，请通过数据选择器选择具体一条</p>';
-                    } else {
-                        const row = data.data[0];
-                        const mainField = supplementItem.mainField || 'main_value';
-                        let html = '<div class="supplement-preview-list">';
-                        html += `<div class="supplement-preview-item">
-                                    <span class="supplement-preview-label">${escapeHtml(supplementItem.label)}</span>
-                                    <span class="supplement-preview-value">${escapeHtml(row[mainField] !== undefined && row[mainField] !== null ? row[mainField] : '')}</span>
-                                 </div>`;
-                        (supplementItem.subFields || []).forEach(subField => {
-                            const dbField = subField.dbField || subField.bindingKey;
-                            const value = row[dbField];
-                            html += `<div class="supplement-preview-item">
-                                        <span class="supplement-preview-label">${escapeHtml(subField.label)}</span>
-                                        <span class="supplement-preview-value">${escapeHtml(value !== undefined && value !== null ? value : '')}</span>
-                                     </div>`;
-                        });
-                        html += '</div>';
-                        document.getElementById('supplementPreviewContent').innerHTML = html;
-                    }
-                    const modal = new bootstrap.Modal(document.getElementById('supplementPreviewModal'));
-                    modal.show();
-                })
-                .catch(error => {
-                    console.error('预览补充字段失败:', error);
-                    document.getElementById('supplementPreviewContent').innerHTML = '<p class="text-danger">查询请求失败</p>';
-                    const modal = new bootstrap.Modal(document.getElementById('supplementPreviewModal'));
-                    modal.show();
-                });
         };
 
 
@@ -2411,42 +2385,15 @@
             // 1. 查询字段
             const queryItems = dynamicTableConfig.queryItems || [];
             queryItems.forEach(item => {
-                const fieldType = item.type || 'text';
-                if (fieldType === 'difference_condition') {
-                    columns.push({
-                        index: colIndex++,
-                        key: '新' + item.label,
-                        label: '新' + item.label,
-                        type: 'text',
-                        category: 'query',
-                        queryValueType: 'new',
-                        bindingKey: item.bindingKey,
-                        width: calculateOptimalColumnWidth('新' + item.label)
-                    });
-                    columns.push({
-                        index: colIndex++,
-                        key: '原' + item.label,
-                        label: '原' + item.label,
-                        type: 'text',
-                        category: 'query',
-                        queryValueType: 'origin',
-                        bindingKey: item.bindingKey,
-                        width: calculateOptimalColumnWidth('原' + item.label)
-                    });
-                } else if (fieldType === 'calculated' || fieldType === 'subquery') {
-                    // 计算字段/子查询字段不显示在在线编辑表格中（由后端表达式计算）
-                    return;
-                } else {
-                    columns.push({
-                        index: colIndex++,
-                        key: item.label,
-                        label: item.label,
-                        type: fieldType,
-                        category: 'query',
-                        bindingKey: item.bindingKey,
-                        width: calculateOptimalColumnWidth(item.label)
-                    });
-                }
+                columns.push({
+                    index: colIndex++,
+                    key: item.label,
+                    label: item.label,
+                    type: item.type || 'text',
+                    category: 'query',
+                    bindingKey: item.bindingKey,
+                    width: 120
+                });
             });
 
             const updateItems = dynamicTableConfig.updateItems || [];
@@ -2607,14 +2554,7 @@
             if (!allValues) return '';
 
             // 查找当前列对应的表单值对象
-            let item = null;
-            if (col.category === 'query') {
-                // 查询字段使用独立的 query_{bindingKey} 键
-                item = allValues['query_' + col.bindingKey];
-            }
-            if (!item) {
-                item = allValues[col.bindingKey];
-            }
+            let item = allValues[col.bindingKey];
             if (!item) {
                 const keys = Object.keys(allValues);
                 for (const k of keys) {
@@ -2627,11 +2567,6 @@
             if (!item) return '';
 
             if (col.category === 'query') {
-                if (col.queryValueType === 'new') {
-                    return item.newValue || '';
-                } else if (col.queryValueType === 'origin') {
-                    return item.originValue || '';
-                }
                 return item.value || '';
             } else if (col.category === 'update' || col.category === 'sub') {
                 const key = col.key && col.key.startsWith('新') ? 'newValue' : 'originValue';
@@ -2650,11 +2585,7 @@
 
             if (col.category === 'query') {
                 const item = (dynamicTableConfig.queryItems || []).find(q => q.bindingKey === col.bindingKey);
-                if (!item) return '';
-                if (item.type === 'difference_condition' || item.type === 'calculated' || item.type === 'subquery') {
-                    return '';
-                }
-                return item.defaultValue || '';
+                return item ? (item.defaultValue || '') : '';
             }
 
             if (col.category === 'update' || col.category === 'sub') {
@@ -2742,19 +2673,18 @@
                 container: 'luckysheet',
                 title: '在线编辑导入数据',
                 lang: 'zh',
-                // 隐藏顶部信息栏（表格标题）和统计栏，保留底部 Sheet 标签栏以支持新增 Sheet
-                // 公式栏由 sheetFormulaBar 默认开启；通过 CSS 确保公式提示框在模态框之上
-                showinfobar: false,
+                // 显示顶部信息栏、底部 Sheet 标签栏和统计栏，接近原生 WPS/Office
+                showinfobar: true,
                 showsheetbar: true,
-                showstatisticBar: false,
+                showstatisticBar: true,
                 showtoolbar: true,
                 showtoolbarConfig: true,
                 sheetBarConfig: {
                     add: true,
                     delete: true,
                     rename: true,
-                    color: false,
-                    move: false
+                    color: true,
+                    move: true
                 },
                 enableAddRow: true,
                 enableAddBackTop: true,
@@ -3111,24 +3041,16 @@
         }
 
         /**
-         * 清空错误信息列（只清空实际显示过错误的单元格，避免全表逐行 setCellValue 导致卡顿）
+         * 清空错误信息列
          */
         function clearErrorColumn() {
             if (!luckySheetReady || typeof luckysheet === 'undefined') return;
-            if (!displayedValidationErrors || displayedValidationErrors.length === 0) return;
-
             const errorColIndex = luckyColumns.length;
-            const rangeValues = [{ r: 0, c: errorColIndex, v: '' }];
-
-            displayedValidationErrors.forEach(function (err) {
-                const frontendRow = (err.rowIndex || 0) - 1;
-                if (frontendRow > 0) {
-                    rangeValues.push({ r: frontendRow, c: errorColIndex, v: '' });
-                }
-            });
-
-            batchSetRangeValues(rangeValues);
-            displayedValidationErrors = [];
+            const sheetData = luckysheet.getSheetData();
+            const rowCount = sheetData.length;
+            for (let r = 0; r < rowCount; r++) {
+                luckysheet.setCellValue(r, errorColIndex, '');
+            }
         }
 
         /**
@@ -3154,18 +3076,15 @@
                 vt: 0
             });
 
-            // 设置错误列宽度（setColumnWidth 接收 {列索引: 宽度} 对象）
+            // 设置错误列宽度
             if (typeof luckysheet.setColumnWidth === 'function') {
-                luckysheet.setColumnWidth({ [errorColIndex]: 280 });
+                luckysheet.setColumnWidth([{ col: errorColIndex, len: 280 }]);
             } else {
                 const config = luckysheet.getConfig ? luckysheet.getConfig() : {};
                 if (config && config.columnlen) {
                     config.columnlen[errorColIndex] = 280;
                 }
             }
-
-            // 记录当前显示的错误，用于后续快速清空
-            displayedValidationErrors = rowErrors.slice();
 
             // 后端 rowIndex 从 2 开始（第 1 行为表头），前端数据行从第 1 行开始
             rowErrors.forEach(function (err) {
@@ -3247,8 +3166,8 @@
                 return;
             }
 
-            // 错误列在提取数据时不会被读取；关闭弹窗后表格会销毁，
-            // 因此保存前不必清空错误列，避免触发大量 setCellValue / Web Worker
+            // 清空错误信息列，避免旧错误随数据一起保存
+            clearErrorColumn();
 
             // 如果已选择文件导入，清空它，改用在线编辑数据
             if (batchImportFile) {
@@ -3301,7 +3220,7 @@
         };
 
         /**
-         * 预览已保存的在线编辑数据（按表单块结构渲染）
+         * 预览已保存的在线编辑数据
          */
         window.previewOnlineData = function () {
             const previewContainer = document.getElementById('onlineDataPreviewTable');
@@ -3310,7 +3229,20 @@
             if (!savedOnlineRows || savedOnlineRows.length === 0) {
                 previewContainer.innerHTML = '<p class="text-muted">暂无保存的数据</p>';
             } else {
-                previewContainer.innerHTML = savedOnlineRows.map((row, index) => buildPreviewBlock(row, index + 1)).join('');
+                let html = '<table class="table table-sm table-bordered table-striped"><thead><tr>';
+                luckyColumns.forEach(col => {
+                    html += '<th>' + escapeHtml(col.label) + '</th>';
+                });
+                html += '</tr></thead><tbody>';
+                savedOnlineRows.forEach(row => {
+                    html += '<tr>';
+                    luckyColumns.forEach(col => {
+                        html += '<td>' + escapeHtml(row[col.key] || '') + '</td>';
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                previewContainer.innerHTML = html;
             }
 
             const modalEl = document.getElementById('onlineDataPreviewModal');
@@ -3321,139 +3253,6 @@
             }
             modalInstance.show();
         };
-
-        /**
-         * 构建单行预览卡片（模拟动态表单块结构）
-         */
-        function buildPreviewBlock(row, index) {
-            const queryHtml = buildPreviewQuerySection(row);
-            const updateHtml = buildPreviewUpdateSection(row);
-
-            return `
-                <div class="preview-data-card">
-                    <div class="preview-data-header">
-                        <span class="preview-data-index">#${index}</span>
-                        <span class="preview-data-title">数据行 ${index}</span>
-                    </div>
-                    <div class="preview-data-body">
-                        ${queryHtml}
-                        ${updateHtml}
-                    </div>
-                </div>
-            `;
-        }
-
-        /**
-         * 构建预览查询字段区
-         */
-        function buildPreviewQuerySection(row) {
-            const queryItems = (dynamicTableConfig && dynamicTableConfig.queryItems) || [];
-            if (!queryItems.length) return '';
-
-            const fields = queryItems.map(item => {
-                const fieldType = item.type || 'text';
-                let valueHtml = '';
-
-                if (fieldType === 'difference_condition') {
-                    const newVal = escapeHtml(row['新' + item.label] || '');
-                    const originVal = escapeHtml(row['原' + item.label] || '');
-                    valueHtml = `<span class="preview-value-tag new">新：${newVal || '空'}</span><span class="preview-value-tag origin">原：${originVal || '空'}</span>`;
-                } else if (fieldType === 'calculated' || fieldType === 'subquery') {
-                    // 计算/子查询字段不在线编辑中，显示表达式占位
-                    const expr = item.expressions ? Object.values(item.expressions)[0] : '';
-                    valueHtml = `<span class="preview-value-tag computed">${escapeHtml(expr ? '由表达式计算' : '自动计算')}</span>`;
-                } else {
-                    const val = escapeHtml(row[item.label] || '');
-                    valueHtml = `<span class="preview-value-tag">${val || '空'}</span>`;
-                }
-
-                return `
-                    <div class="preview-field-row">
-                        <span class="preview-field-label">${escapeHtml(item.label || item.bindingKey)}</span>
-                        <div class="preview-field-values">${valueHtml}</div>
-                    </div>
-                `;
-            }).join('');
-
-            return `
-                <div class="preview-section">
-                    <div class="preview-section-title"><i class="bi bi-search me-1"></i>查询字段</div>
-                    <div class="preview-section-body">${fields}</div>
-                </div>
-            `;
-        }
-
-        /**
-         * 构建预览修改字段区
-         */
-        function buildPreviewUpdateSection(row) {
-            const updateItems = (dynamicTableConfig && dynamicTableConfig.updateItems) || [];
-            if (!updateItems.length) return '';
-
-            const fields = updateItems.map(item => {
-                const inputType = item.inputType;
-                if (inputType === 'calculated') {
-                    const expr = item.expressions ? Object.values(item.expressions)[0] : '';
-                    return `
-                        <div class="preview-field-row">
-                            <span class="preview-field-label">${escapeHtml(item.label || item.bindingKey)}</span>
-                            <div class="preview-field-values">
-                                <span class="preview-value-tag computed">${escapeHtml(expr ? '由表达式计算' : '自动计算')}</span>
-                            </div>
-                        </div>
-                    `;
-                }
-
-                if (inputType === 'supplement') {
-                    const mainNew = escapeHtml(row['新' + item.label] || '');
-                    const mainOrigin = escapeHtml(row['原' + item.label] || '');
-                    let subHtml = '';
-                    (item.subFields || []).forEach(sub => {
-                        const subType = sub.type || 'normal';
-                        if (subType === 'normal') return;
-                        const subNew = escapeHtml(row['新' + sub.label] || '');
-                        const subOrigin = escapeHtml(row['原' + sub.label] || '');
-                        subHtml += `
-                            <div class="preview-sub-field">
-                                <span class="preview-sub-label">${escapeHtml(sub.label)}</span>
-                                <span class="preview-value-tag new">新：${subNew || '空'}</span>
-                                <span class="preview-value-tag origin">原：${subOrigin || '空'}</span>
-                            </div>
-                        `;
-                    });
-
-                    return `
-                        <div class="preview-field-row">
-                            <span class="preview-field-label">${escapeHtml(item.label || item.bindingKey)}</span>
-                            <div class="preview-field-values">
-                                <span class="preview-value-tag new">新：${mainNew || '空'}</span>
-                                <span class="preview-value-tag origin">原：${mainOrigin || '空'}</span>
-                                ${subHtml}
-                            </div>
-                        </div>
-                    `;
-                }
-
-                const newVal = escapeHtml(row['新' + item.label] || '');
-                const originVal = escapeHtml(row['原' + item.label] || '');
-                return `
-                    <div class="preview-field-row">
-                        <span class="preview-field-label">${escapeHtml(item.label || item.bindingKey)}</span>
-                        <div class="preview-field-values">
-                            <span class="preview-value-tag new">新：${newVal || '空'}</span>
-                            <span class="preview-value-tag origin">原：${originVal || '空'}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            return `
-                <div class="preview-section">
-                    <div class="preview-section-title"><i class="bi bi-pencil-square me-1"></i>修改字段</div>
-                    <div class="preview-section-body">${fields}</div>
-                </div>
-            `;
-        }
 
         /**
          * 更新外层已保存在线数据的显示状态
@@ -4003,66 +3802,39 @@
 
                 // 查询字段和单选框做校验
                 if (item.inputType === 'radio' || item.inputType === 'query') {
+                    let newId;
+                    let errorLabel;
+                    let elementValue;
                     // 兼容 ValidRule 和 newValidRule 两种属性名
                     let validRule = item.ValidRule || item.newValidRule;
 
                     if (item.inputType === 'radio') {
                         // 单选框：ID 为 new 开头的字段，值在 newValue 中
-                        const newId = `new${key.charAt(0).toUpperCase() + key.slice(1)}`;
-                        const elementValue = item.newValue;
-                        if ((elementValue === '' || elementValue === null || elementValue === undefined) && validRule === 'required') {
-                            element = document.querySelector(`input[name="${newId}"]`);
-                            const errorId = `error_${newId}`;
-                            if (element) {
-                                markAsError(element, errorId, `新${item.label}不能为空`);
-                                console.error(`新${item.label}不能为空`);
-                                hasError = true;
-                            }
-                        }
+                        newId = `new${key.charAt(0).toUpperCase() + key.slice(1)}`;
+                        elementValue = item.newValue;
+                        errorLabel = `新${item.label}不能为空`;
                     } else if (item.inputType === 'query') {
-                        if (item.fieldType === 'calculated' || item.fieldType === 'subquery') {
-                            // 计算字段/子查询字段：无需用户填写，跳过校验
-                        } else if (item.fieldType === 'difference_condition') {
-                            // 差异条件：新值与原值分别校验
-                            const connectedTables = item.connectedTable || [];
-                            const tableName = connectedTables.length > 0 ? connectedTables[0] : '';
-                            const baseQueryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
-                            const newId = `new_${baseQueryId}`;
-                            const originId = `origin_${baseQueryId}`;
+                        // 查询字段：直接使用字段名作为 ID，值在 value 中
+                        newId = key;
+                        elementValue = item.value;
+                        errorLabel = `${item.label}不能为空`;
+                    }
 
-                            if ((item.newValue === '' || item.newValue === null || item.newValue === undefined) && validRule === 'required') {
-                                element = document.getElementById(newId);
-                                const errorId = `error_${newId}`;
-                                if (element) {
-                                    markAsError(element, errorId, `新${item.label}不能为空`);
-                                    console.error(`新${item.label}不能为空`);
-                                    hasError = true;
-                                }
-                            }
-                            if ((item.originValue === '' || item.originValue === null || item.originValue === undefined) && validRule === 'required') {
-                                element = document.getElementById(originId);
-                                const errorId = `error_${originId}`;
-                                if (element) {
-                                    markAsError(element, errorId, `原${item.label}不能为空`);
-                                    console.error(`原${item.label}不能为空`);
-                                    hasError = true;
-                                }
-                            }
+                    // 新值校验：检查空值和 required 规则
+                    if ((elementValue === '' || elementValue === null || elementValue === undefined) && validRule === 'required') {
+                        // 单选框特殊处理：通过 name 属性查找第一个 radio 元素
+                        if (item.inputType === 'radio') {
+                            element = document.querySelector(`input[name="${newId}"]`);
                         } else {
-                            // 普通查询字段：使用 query_{bindingKey}_{tableName} 作为 ID
-                            const connectedTables = item.connectedTable || [];
-                            const tableName = connectedTables.length > 0 ? connectedTables[0] : '';
-                            const newId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
-                            const elementValue = item.value;
-                            if ((elementValue === '' || elementValue === null || elementValue === undefined) && validRule === 'required') {
-                                element = document.getElementById(newId);
-                                const errorId = `error_${newId}`;
-                                if (element) {
-                                    markAsError(element, errorId, `${item.label}不能为空`);
-                                    console.error(`${item.label}不能为空`);
-                                    hasError = true;
-                                }
-                            }
+                            element = document.getElementById(newId);
+                        }
+
+                        const errorId = `error_${newId}`;
+
+                        if (element) {
+                            markAsError(element, errorId, errorLabel);
+                            console.error(errorLabel);
+                            hasError = true;
                         }
                     }
                 }
@@ -4578,7 +4350,7 @@
 
 
         window.onload = function () {
-            const formId = "{{ form_id }}";
+            const formId = "1";
 
             if (!formId) {
                 alert('缺少表单ID参数');
@@ -4622,12 +4394,6 @@
                 filePrefixInput.value = dynamicTableConfig.formName;
             }
 
-            // 如果表单关联了说明文档，显示查看按钮
-            const viewDocBtn = document.getElementById('viewDocumentBtn');
-            if (viewDocBtn) {
-                viewDocBtn.style.display = dynamicTableConfig.documentId ? 'inline-block' : 'none';
-            }
-
             function sortInputItems(items) {
                 return items.sort((a, b) => a.sortOrder - b.sortOrder);
             }
@@ -4636,76 +4402,37 @@
             function generateQueryHtml(items) {
                 if (items.length === 0) return '';
 
-                let queryHtml = '<div class="row g-3">';
+                const itemsPerRow = 4;
+                let queryHtml = '';
 
-                items.forEach(item => {
-                    const connectedTables = item.connectedTable || [];
-                    const tableName = connectedTables.length > 0 ? connectedTables[0] : '';
-                    const baseQueryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
-                    const fieldType = item.type || 'text';
+                for (let i = 0; i < items.length; i += itemsPerRow) {
+                    const rowItems = items.slice(i, i + itemsPerRow);
+                    queryHtml += '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
 
-                    if (fieldType === 'difference_condition') {
-                        // 差异条件：执行值与回退值分开填写
-                        const newQueryId = `new_${baseQueryId}`;
-                        const originQueryId = `origin_${baseQueryId}`;
-                        queryHtml += `
-                            <div class="col-xl-3 col-lg-4 col-md-6">
-                                <div class="input-group modern-input-group mb-2">
-                                    <span class="input-group-text">新${item.label}</span>
-                                    <input type="text"
-                                           id="${newQueryId}"
-                                           class="form-control"
-                                           value=""
-                                           data-binding-key="${item.bindingKey}"
-                                           data-field-type="query"
-                                           data-query-value-type="new"
-                                           placeholder="执行语句用">
-                                </div>
-                                <div class="input-group modern-input-group">
-                                    <span class="input-group-text">原${item.label}</span>
-                                    <input type="text"
-                                           id="${originQueryId}"
-                                           class="form-control"
-                                           value=""
-                                           data-binding-key="${item.bindingKey}"
-                                           data-field-type="query"
-                                           data-query-value-type="origin"
-                                           placeholder="回退语句用">
-                                </div>
-                            </div>
-                        `;
-                    } else if (fieldType === 'subquery') {
-                        // 子查询字段由后端表达式计算，不在动态表单上展示
-                        return;
-                    } else if (fieldType === 'calculated') {
-                        // 计算字段：不渲染输入框，仅显示标签说明
-                        queryHtml += `
-                            <div class="col-xl-3 col-lg-4 col-md-6">
-                                <div class="alert alert-light border py-2 mb-0">
-                                    <small><i class="bi bi-calculator me-1"></i><strong>${item.label}</strong>（计算字段）</small>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        // 普通文本查询字段
-                        queryHtml += `
-                            <div class="col-xl-3 col-lg-4 col-md-6">
-                                <div class="input-group modern-input-group">
-                                    <span class="input-group-text">${item.label}</span>
-                                    <input type="${fieldType}"
-                                           id="${baseQueryId}"
-                                           class="form-control"
-                                           value="${item.defaultValue || ''}"
-                                           data-binding-key="${item.bindingKey}"
-                                           data-field-type="query"
-                                           placeholder="请输入${item.label}">
-                                </div>
-                            </div>
-                        `;
-                    }
-                });
+                    rowItems.forEach((item, idx) => {
+                        // 为查询字段生成唯一的 ID，格式：query_bindingKey_tableName
+                        const tableName = item.connectedTable && item.connectedTable.length > 0
+                            ? item.connectedTable[0]
+                            : '';
+                        const queryId = tableName ? `query_${item.bindingKey}_${tableName}` : `query_${item.bindingKey}`;
 
-                queryHtml += '</div>';
+                        queryHtml += `                        <span class="input-group-text">${item.label}</span>
+                        <input type="${item.type}"
+                               id="${queryId}"
+                               class="form-control"
+                               value="${item.defaultValue || ''}"
+                               data-binding-key="${item.bindingKey}"
+                               data-field-type="query"
+                               placeholder="请输入${item.label}">
+                        `;
+                        if (idx < rowItems.length - 1) {
+                            queryHtml += '<div style="width: 15px"></div>';
+                        }
+                    });
+
+                    queryHtml += '</div></div>';
+                }
+
                 return queryHtml;
             }
 
@@ -4722,36 +4449,37 @@
                     `<option value="${opt.value}" ${opt.value === item.originDefaultValue ? 'selected' : ''}>${opt.label}</option>`
                 ).join('');
 
-                return `
-                    <div class="d-flex flex-wrap gap-2 align-items-center mb-3 layui-form select-pair-row">
-                        <div class="select-pair-item">
-                            <div class="input-group modern-input-group">
-                                <span class="input-group-text">新${item.label}</span>
-                                <select id="${newId}"
-                                        class="form-select"
-                                        lay-search=""
-                                        data-binding-key="${item.bindingKey}"
-                                        data-field-type="select">
-                                    <option value="">请选择</option>
-                                    ${newOptionsHtml}
-                                </select>
-                            </div>
-                        </div>
-                        <div class="select-pair-item">
-                            <div class="input-group modern-input-group">
-                                <span class="input-group-text">原${item.label}</span>
-                                <select id="${originId}"
-                                        class="form-select"
-                                        lay-search
-                                        data-binding-key="${item.bindingKey}"
-                                        data-field-type="select">
-                                    <option value="">请选择</option>
-                                    ${originOptionsHtml}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                let html = '<div class="row g-3 align-items-center mb-3 layui-form layui-row layui-col-space16"><div class="input-group">';
+
+                html += `
+                    <span class="input-group-text">新${item.label}</span>
+                    <select id="${newId}"
+                            class="form-select"
+                            lay-search=""
+                            data-binding-key="${item.bindingKey}"
+                            data-field-type="select">
+                        <option value="">请选择</option>
+                        ${newOptionsHtml}
+                    </select>
                 `;
+
+                html += '<div style="width: 15px"></div>';
+
+                html += `
+                    <span class="input-group-text">原${item.label}</span>
+                    <select id="${originId}"
+                            class="form-select"
+                            lay-search
+                            data-binding-key="${item.bindingKey}"
+                            data-field-type="select">
+                        <option value="">请选择</option>
+                        ${originOptionsHtml}
+                    </select>
+                `;
+
+                html += '</div></div>';
+
+                return html;
             }
 
             function generateRadioHtml(item) {
@@ -4760,15 +4488,13 @@
 
                 const options = item.options || [];
 
-                let html = '<div class="row g-3 align-items-center mb-3"><div class="input-group modern-input-group">';
+                let html = '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
 
                 html += `<span class="input-group-text">新${item.label}</span>`;
 
-                html += '<div class="radio-group-modern flex-grow-1">';
-
                 options.forEach((opt, index) => {
                     html += `
-                        <div class="form-check">
+                        <div class="form-check form-check-inline" style="margin-top: 7px;margin-left: 5px;">
                             <input class="form-check-input" type="radio"
                                    name="${newId}"
                                    id="${newId}_${index}"
@@ -4781,8 +4507,6 @@
                         </div>
                     `;
                 });
-
-                html += '</div>';
 
                 // 原值不显示，完全隐藏，但保留在DOM中用于数据提交
                 const oppositeOption = options.find(opt => opt.value !== item.newDefaultValue);
@@ -4804,28 +4528,32 @@
             function generateInputHtml(items) {
                 if (items.length === 0) return '';
 
+                const itemsPerRow = 4;
+
                 function renderInputRows(items, prefix, defaultValueKey) {
-                    let html = '<div class="row g-3 mb-3">';
+                    let html = '';
+                    for (let i = 0; i < items.length; i += itemsPerRow) {
+                        const rowItems = items.slice(i, i + itemsPerRow);
+                        html += '<div class="row g-3 align-items-center mb-3"><div class="input-group">';
 
-                    items.forEach(item => {
-                        const id = `${prefix}${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
-                        html += `
-                            <div class="col-xl-3 col-lg-4 col-md-6">
-                                <div class="input-group modern-input-group">
-                                    <span class="input-group-text">${prefix === 'new' ? '新' : '原'}${item.label}</span>
-                                    <input type="${item.type === 'date' ? 'text' : item.type}"
-                                           id="${id}"
-                                           class="form-control"
-                                           value="${item[defaultValueKey] || ''}"
-                                           data-binding-key="${item.bindingKey}"
-                                           data-field-type="${item.type}"
-                                           placeholder="请输入${item.label}">
-                                </div>
-                            </div>
-                        `;
-                    });
+                        rowItems.forEach((item, idx) => {
+                            const id = `${prefix}${item.bindingKey.charAt(0).toUpperCase() + item.bindingKey.slice(1)}`;
+                            html += `
+                                <span class="input-group-text">${prefix === 'new' ? '新' : '原'}${item.label}</span>
+                                <input type="${item.type === 'date' ? 'text' : item.type}"
+                                       id="${id}"
+                                       class="form-control"
+                                       value="${item[defaultValueKey] || ''}"
+                                       data-binding-key="${item.bindingKey}"
+                                       data-field-type="${item.type}">
+                            `;
+                            if (idx < rowItems.length - 1) {
+                                html += '<div style="width: 15px"></div>';
+                            }
+                        });
 
-                    html += '</div>';
+                        html += '</div></div>';
+                    }
                     return html;
                 }
 
@@ -4846,11 +4574,11 @@
                 const newVisibleFields = [];
                 const newHiddenFields = [];
 
-                // 添加主字段
+                // 添加主字段（保持绿色背景样式）
                 newVisibleFields.push({
                     id: mainNewId,
                     label: `新${mainLabel}`,
-                    labelClass: 'supplement-main-label',
+                    labelStyle: 'background: greenyellow',
                     bindingKey: item.bindingKey,
                     fieldType: 'supplement-main',
                     placeholder: `请输入${mainLabel}主值`,
@@ -4881,38 +4609,36 @@
                     }
                 });
 
-                // 生成新值字段HTML
-                let newHtml = '<div class="row g-3 mb-2">';
-                newVisibleFields.forEach(field => {
-                    newHtml += `
-                        <div class="col-xl-4 col-lg-6 col-md-6">
-                            <div class="input-group modern-input-group">
-                                <span class="input-group-text ${field.labelClass || ''}">${field.label}</span>
-                                <input type="text"
-                                       id="${field.id}"
-                                       class="form-control"
-                                       value=""
-                                       data-binding-key="${field.bindingKey}"
-                                       data-field-type="${field.fieldType}"
-                                       ${field.subType ? `data-sub-type="${field.subType}"` : ''}
-                                       placeholder="${field.placeholder}"
-                                       ${field.oninput ? `oninput="${field.oninput}"` : ''}
-                                       ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
-                                       ${field.parentBindingKey ? `data-parent-binding-key="${field.parentBindingKey}"` : ''}
-                                      >
-                                ${field.fieldType === 'supplement-main' ? `
-                                    <button class="btn btn-outline-secondary" type="button"
-                                            onclick="showSupplementPreview('${item.bindingKey}', ${field.id.startsWith('originMain')})"
-                                            title="预览补充字段">
-                                        <i class="bi bi-eye"></i>
-                                    </button>
-                                ` : ''}
-                            </div>
-                            ${field.fieldType === 'supplement-main' ? `<div id="supplementHint_${field.id}" class="supplement-hint small mt-1" style="display:none;"></div>` : ''}
-                        </div>
-                    `;
-                });
-                newHtml += '</div>';
+                // 每行最多3个可见字段，生成多行HTML
+                let newHtml = '';
+                const itemsPerRow = 3;
+                for (let i = 0; i < newVisibleFields.length; i += itemsPerRow) {
+                    const rowFields = newVisibleFields.slice(i, i + itemsPerRow);
+                    newHtml += '<div class="row g-3 align-items-center mb-2"><div class="input-group">';
+
+                    rowFields.forEach((field, idx) => {
+                        if (idx > 0) {
+                            newHtml += '<div style="width: 15px"></div>';
+                        }
+                        newHtml += `
+                            <span class="input-group-text" style="${field.labelStyle || ''}">${field.label}</span>
+                            <input type="text"
+                                   id="${field.id}"
+                                   class="form-control"
+                                   value=""
+                                   data-binding-key="${field.bindingKey}"
+                                   data-field-type="${field.fieldType}"
+                                   ${field.subType ? `data-sub-type="${field.subType}"` : ''}
+                                   placeholder="${field.placeholder}"
+                                   ${field.oninput ? `oninput="${field.oninput}"` : ''}
+                                   ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
+                                   ${field.parentBindingKey ? `data-parent-binding-key="${field.parentBindingKey}"` : ''}
+                                  >
+                        `;
+                    });
+
+                    newHtml += '</div></div>';
+                }
 
                 // 隐藏的普通字段
                 if (newHiddenFields.length > 0) {
@@ -4936,11 +4662,11 @@
                 const originVisibleFields = [];
                 const originHiddenFields = [];
 
-                // 添加原值主字段
+                // 添加原值主字段（保持绿色背景样式）
                 originVisibleFields.push({
                     id: mainOriginId,
                     label: `原${mainLabel}`,
-                    labelClass: 'supplement-main-label',
+                    labelStyle: 'background: greenyellow;',
                     bindingKey: item.bindingKey,
                     fieldType: 'supplement-main',
                     placeholder: `原${mainLabel}主值`,
@@ -4969,38 +4695,35 @@
                     }
                 });
 
-                // 生成原值字段HTML
-                let originHtml = '<div class="row g-3 mb-2">';
-                originVisibleFields.forEach(field => {
-                    originHtml += `
-                        <div class="col-xl-4 col-lg-6 col-md-6">
-                            <div class="input-group modern-input-group">
-                                <span class="input-group-text ${field.labelClass || ''}">${field.label}</span>
-                                <input type="text"
-                                       id="${field.id}"
-                                       class="form-control"
-                                       value=""
-                                       data-binding-key="${field.bindingKey}"
-                                       data-field-type="${field.fieldType}"
-                                       ${field.subType ? `data-sub-type="${field.subType}"` : ''}
-                                       placeholder="${field.placeholder}"
-                                       ${field.oninput ? `oninput="${field.oninput}"` : ''}
-                                       ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
-                                       ${field.parentBindingKey ? `data-parent-binding-key="${field.parentBindingKey}"` : ''}
-                                      >
-                                ${field.fieldType === 'supplement-main' ? `
-                                    <button class="btn btn-outline-secondary" type="button"
-                                            onclick="showSupplementPreview('${item.bindingKey}', ${field.id.startsWith('originMain')})"
-                                            title="预览补充字段">
-                                        <i class="bi bi-eye"></i>
-                                    </button>
-                                ` : ''}
-                            </div>
-                            ${field.fieldType === 'supplement-main' ? `<div id="supplementHint_${field.id}" class="supplement-hint small mt-1" style="display:none;"></div>` : ''}
-                        </div>
-                    `;
-                });
-                originHtml += '</div>';
+                // 每行最多3个可见字段，生成多行HTML
+                let originHtml = '';
+                for (let i = 0; i < originVisibleFields.length; i += itemsPerRow) {
+                    const rowFields = originVisibleFields.slice(i, i + itemsPerRow);
+                    originHtml += '<div class="row g-3 align-items-center mb-2"><div class="input-group">';
+
+                    rowFields.forEach((field, idx) => {
+                        if (idx > 0) {
+                            originHtml += '<div style="width: 15px"></div>';
+                        }
+                        originHtml += `
+                            <span class="input-group-text" style="${field.labelStyle || ''}">${field.label}</span>
+                            <input type="text"
+                                   id="${field.id}"
+                                   class="form-control"
+                                   value=""
+                                   data-binding-key="${field.bindingKey}"
+                                   data-field-type="${field.fieldType}"
+                                   ${field.subType ? `data-sub-type="${field.subType}"` : ''}
+                                   placeholder="${field.placeholder}"
+                                   ${field.oninput ? `oninput="${field.oninput}"` : ''}
+                                   ${field.subIndex !== undefined ? `data-sub-index="${field.subIndex}"` : ''}
+                                   ${field.parentBindingKey ? `data-parent-binding-key="${field.parentBindingKey}"` : ''}
+                                  >
+                        `;
+                    });
+
+                    originHtml += '</div></div>';
+                }
 
                 // 隐藏的普通字段（原值）
                 if (originHiddenFields.length > 0) {
@@ -5205,223 +4928,627 @@
 
         };
 
-        function openDocumentViewer() {
-            const docId = dynamicTableConfig && dynamicTableConfig.documentId;
-            if (!docId) {
-                showToast('当前表单未关联说明文档', 'warning');
-                return;
+    </script>
+
+
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/index.js"></script>
+    <script>
+       // 全局 Toast 提示函数
+        function showToast(message, type = 'info', title = null, duration = 3000) {
+            const container = document.getElementById('toastContainer');
+
+            let bgClass = '';
+            let icon = '';
+            let defaultTitle = '';
+
+            switch(type) {
+                case 'success':
+                    bgClass = 'bg-success text-white';
+                    icon = '<i class="bi bi-check-circle-fill me-2"></i>';
+                    defaultTitle = '成功';
+                    break;
+                case 'error':
+                    bgClass = 'bg-danger text-white';
+                    icon = '<i class="bi bi-exclamation-triangle-fill me-2"></i>';
+                    defaultTitle = '错误';
+                    break;
+                case 'warning':
+                    bgClass = 'bg-warning text-dark';
+                    icon = '<i class="bi bi-exclamation-circle-fill me-2"></i>';
+                    defaultTitle = '警告';
+                    break;
+                case 'info':
+                default:
+                    bgClass = 'bg-info text-white';
+                    icon = '<i class="bi bi-info-circle-fill me-2"></i>';
+                    defaultTitle = '提示';
+                    break;
             }
 
-            const contentEl = document.getElementById('documentViewerContent');
-            const titleEl = document.getElementById('documentViewerModalLabel');
-            const editLink = document.getElementById('documentViewerEditLink');
-            contentEl.innerHTML = '<p class="text-muted p-4">加载中...</p>';
+            const toastId = 'toast_' + Date.now();
+            const toastHtml = `
+                <div id="${toastId}" class="toast align-items-center ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            ${icon}<strong>${title || defaultTitle}</strong><br>
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
 
-            fetch(`/api/document-library/${docId}/`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        titleEl.innerHTML = `<i class="bi bi-journal-text me-1"></i>${escapeHtml(data.data.title)}`;
-                        contentEl.innerHTML = data.data.content || '<p class="text-muted p-4">文档内容为空</p>';
-                        editLink.href = `/document-library/edit/${docId}/?edit=1`;
+            container.insertAdjacentHTML('beforeend', toastHtml);
 
-                        // 增强代码块：添加复制按钮
-                        enhanceDocumentCodeBlocks(contentEl);
-
-                        // 增强图片：添加点击放大功能
-                        enhanceDocumentImages(contentEl);
-
-                        // 生成大纲
-                        renderDocumentOutline(contentEl);
-
-                        const modal = new bootstrap.Modal(document.getElementById('documentViewerModal'));
-                        modal.show();
-                    } else {
-                        showToast(data.message || '加载文档失败', 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('加载文档失败:', error);
-                    showToast('加载文档失败', 'error');
-                });
-        }
-
-        /**
-         * 为文档预览中的代码块添加复制按钮
-         */
-        function enhanceDocumentCodeBlocks(contentEl) {
-            const codeBlocks = contentEl.querySelectorAll('pre');
-            codeBlocks.forEach(pre => {
-                if (pre.closest('.doc-code-wrapper')) return;
-
-                const wrapper = document.createElement('div');
-                wrapper.className = 'doc-code-wrapper';
-                pre.parentNode.insertBefore(wrapper, pre);
-                wrapper.appendChild(pre);
-
-                const copyBtn = document.createElement('button');
-                copyBtn.type = 'button';
-                copyBtn.className = 'doc-code-copy-btn';
-                copyBtn.title = '复制';
-                copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> 复制';
-                copyBtn.addEventListener('click', () => {
-                    const code = pre.querySelector('code');
-                    const text = code ? code.textContent : pre.textContent;
-                    navigator.clipboard.writeText(text).then(() => {
-                        copyBtn.classList.add('copied');
-                        copyBtn.innerHTML = '<i class="bi bi-check-lg"></i> 已复制';
-                        setTimeout(() => {
-                            copyBtn.classList.remove('copied');
-                            copyBtn.innerHTML = '<i class="bi bi-clipboard"></i> 复制';
-                        }, 1500);
-                    }).catch(err => {
-                        console.error('复制失败', err);
-                        showToast('复制失败', 'error');
-                    });
-                });
-                wrapper.appendChild(copyBtn);
+            const toastElement = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastElement, {
+                delay: duration,
+                autohide: true
             });
-        }
 
-        /**
-         * 为文档预览中的图片添加点击放大功能
-         */
-        function enhanceDocumentImages(contentEl) {
-            const images = contentEl.querySelectorAll('img');
-            images.forEach(img => {
-                img.style.cursor = 'zoom-in';
-                img.addEventListener('click', function () {
-                    openImageZoom(this.src);
-                });
+            toast.show();
+
+            // Toast 隐藏后移除 DOM
+            toastElement.addEventListener('hidden.bs.toast', function() {
+                this.remove();
             });
+
+            return toast;
         }
 
+        // 从数据库加载的菜单数据
+        const menuItems = [
+            
+                
+                    {
+                        name: '首页',
+                        pinyin: 'shouye',
+                        icon: '',
+                        url: '/',
+                        
+                    },
+                
+                    {
+                        name: '表单合并',
+                        pinyin: 'biaodanhebin',
+                        icon: '',
+                        url: '/form_merge/',
+                        
+                    },
+                
+                    {
+                        name: '合同',
+                        pinyin: 'hetong',
+                        icon: '',
+                        url: '#',
+                        
+                        hasChildren: true,
+                        children: [
+                            
+                            { name: '合同明细单价修改', pinyin: 'hetongmingxidanjiaxiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/1' },
+                            
+                            { name: '合同预算修改', pinyin: 'hetongyusuanxiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/6' },
+                            
+                            { name: '合同失效日期和状态修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/7' },
+                            
+                            { name: '合同创建人修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/8' },
+                            
+                            { name: '简化寻源框架合同转换为普通框架合同', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/9' },
+                            
+                            { name: '终止合同', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/10' },
+                            
+                            { name: '终止简化寻源合同', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/11' },
+                            
+                            { name: '本单位合同编号与合同名称修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/20' },
+                            
+                            { name: '合同签订日期修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/22' },
+                            
+                            { name: '合同适用范围修改', pinyin: 'hetongshiyongfanweixiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/23' },
+                            
+                            { name: '合同生效日期修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/24' },
+                            
+                            { name: '合同适用清单修改', pinyin: 'hetongshiyongqingdanxiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/26' },
+                            
+                            { name: '合同供应商修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/27' },
+                            
+                            { name: '合同名称修改', pinyin: 'hetongmingchengxiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/30' },
+                            
+                            { name: '简化寻源中标金额和预算金额修改', pinyin: 'jianhuaxunyuanzhongbiaojineheyusuanjinexiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/34' },
+                            
+                            { name: '合同类型修改', pinyin: 'hetongleixingxiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/37' },
+                            
+                            { name: '核电erp合同删除', pinyin: 'hedianerphetongshanchu', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/39' },
+                            
+                            { name: '合同审批系统修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/49' },
+                            
+                            { name: '合同头金额修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/53' },
+                            
+                            { name: '合同报价类型修改为其他', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/63' },
+                            
+                            { name: '物资编码修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/2' },
+                            
+                        ]
+                        
+                    },
+                
+                    {
+                        name: '计划',
+                        pinyin: '',
+                        icon: 'bi\u002Dfolder',
+                        url: '#',
+                        
+                        hasChildren: true,
+                        children: [
+                            
+                            { name: '项目集采类型的修正', pinyin: 'xiangmujicaileixingdexiuzheng', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/5' },
+                            
+                            { name: '需求计划明细物资编码修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/29' },
+                            
+                            { name: '采购包状态修改', pinyin: 'caigoubaozhuangtaixiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/32' },
+                            
+                            { name: '需求计划需求池调整', pinyin: 'xuqiujihuaxuqiuchitiaozheng', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/35' },
+                            
+                            { name: '删除框架协议下的订单', pinyin: 'shanchukuangjiaxieyixiadedingdan', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/36' },
+                            
+                            { name: '作废需求计划和采购包', pinyin: 'zuofeixuqiujihuahecaigoubao', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/38' },
+                            
+                            { name: '需求计划明细改为紧急采购', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/57' },
+                            
+                            { name: '删除预算申请单', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/64' },
+                            
+                            { name: '计划明细是否应用短名单协议', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/65' },
+                            
+                            { name: '需求计划明细单价修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/67' },
+                            
+                        ]
+                        
+                    },
+                
+                    {
+                        name: '寻源',
+                        pinyin: '',
+                        icon: 'bi\u002Dfolder',
+                        url: '#',
+                        
+                        hasChildren: true,
+                        children: [
+                            
+                            { name: '合同起草、签约单位修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/12' },
+                            
+                            { name: '是否报送国资委修改', pinyin: 'shifoubaosongguoziweixiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/14' },
+                            
+                            { name: '物项重要性修改', pinyin: 'wuxiangzhongyaoxingxiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/15' },
+                            
+                            { name: '浮动单价类型修改', pinyin: 'fudongdanjialeixingxiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/16' },
+                            
+                            { name: '核电erp终止', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/17' },
+                            
+                            { name: '项目物理轮次修改', pinyin: 'xiangmuwuliluncixiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/18' },
+                            
+                            { name: '订单执行人修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/19' },
+                            
+                            { name: '项目名称修改', pinyin: 'xiangmumingchengxiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/25' },
+                            
+                            { name: '是否在ECP发布事前公示发布修改', pinyin: 'shifouzaiECPfabushiqiangongshifabuxiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/31' },
+                            
+                            { name: '标段预估采购规模修改', pinyin: 'biaoduanyugucaigouguimoxiugai', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/33' },
+                            
+                            { name: '恢复作废的定标结果', pinyin: 'huifuzuofeidedingbiaojieguo', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/40' },
+                            
+                            { name: '项目终止恢复', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/50' },
+                            
+                            { name: '标段明细_合同起草、签约单位修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/51' },
+                            
+                            { name: '定标名次和分数修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/52' },
+                            
+                            { name: '作废采购方案', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/54' },
+                            
+                            { name: '定标修改供应商评审结果', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/55' },
+                            
+                            { name: '中标通知书发出时间修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/56' },
+                            
+                            { name: '取消采购项目审查\u002D代理', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/59' },
+                            
+                            { name: '取消采购项目审查\u002D自主', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/60' },
+                            
+                            { name: '询价单内部编号修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/61' },
+                            
+                            { name: '定标方式评标改为投标', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/68' },
+                            
+                            { name: '定标方式投标改为评标', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/77' },
+                            
+                        ]
+                        
+                    },
+                
+                    {
+                        name: 'pm配置',
+                        pinyin: '',
+                        icon: 'bi\u002Dfolder',
+                        url: '#',
+                        
+                        hasChildren: true,
+                        children: [
+                            
+                            { name: '组织唯一标识修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/28' },
+                            
+                            { name: '修改用户所属组织', pinyin: 'xiugaiyonghusuoshuzuzhi', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/41' },
+                            
+                            { name: '供应商注册登记地点修改', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/58' },
+                            
+                        ]
+                        
+                    },
+                
+                    {
+                        name: '数据迁移',
+                        pinyin: '',
+                        icon: 'bi\u002Dfolder',
+                        url: '#',
+                        
+                        hasChildren: true,
+                        children: [
+                            
+                            { name: '订单计划数据迁移', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/69' },
+                            
+                            { name: '合同数据迁移', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/70' },
+                            
+                            { name: '定标数据迁移', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/71' },
+                            
+                            { name: '询价单数据迁移', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/72' },
+                            
+                            { name: '采购方案数据迁移', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/73' },
+                            
+                            { name: '简化采购包数据迁移', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/74' },
+                            
+                            { name: '采购包数据迁移', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/75' },
+                            
+                            { name: '需求计划数据迁移', pinyin: '', icon: 'bi\u002Dfile\u002Dearmark\u002Dtext', url: '/dynamic/76' },
+                            
+                        ]
+                        
+                    },
+                
+            
+                
+                    {
+                        name: '文件生成路径配置',
+                        pinyin: 'wenjianshengchenglujinpeizhi',
+                        icon: '',
+                        url: '/file_path_config/',
+                        
+                    },
+                
+                    {
+                        name: '动态表单配置',
+                        pinyin: 'dongtaibiaodanpeizhi',
+                        icon: '',
+                        url: '/table_config/',
+                        
+                    },
+                
+                    {
+                        name: '表单配置项',
+                        pinyin: 'biaodanpeizhixiang',
+                        icon: '',
+                        url: '/component_config/',
+                        
+                    },
+                
+                    {
+                        name: '数据库表单配置',
+                        pinyin: 'shujukubiaodanpeizhi',
+                        icon: '',
+                        url: '/database_config',
+                        
+                    },
+                
+            
+        ];
 
-        let currentImageZoom = 1;
-        let imageZoomModalInstance = null;
+        const searchInput = document.getElementById('sidebarSearch');
+        const searchResults = document.getElementById('searchResults');
+        let selectedIndex = -1;
 
-        /**
-         * 打开图片放大预览
-         */
-        window.openImageZoom = function (src) {
-            const img = document.getElementById('imageZoomTarget');
-            if (!img) return;
-            img.src = src;
-            resetImageZoom();
-
-            const modalEl = document.getElementById('imageZoomModal');
-            if (!imageZoomModalInstance) {
-                imageZoomModalInstance = new bootstrap.Modal(modalEl);
-
-                // 鼠标滚轮缩放
-                modalEl.addEventListener('wheel', function (e) {
-                    e.preventDefault();
-                    if (e.deltaY < 0) {
-                        adjustImageZoom(0.1);
-                    } else {
-                        adjustImageZoom(-0.1);
-                    }
-                }, { passive: false });
-
-                // 关闭时重置
-                modalEl.addEventListener('hidden.bs.modal', function () {
-                    resetImageZoom();
-                });
-            }
-            imageZoomModalInstance.show();
-        };
-
-        /**
-         * 调整图片缩放比例
-         */
-        window.adjustImageZoom = function (delta) {
-            currentImageZoom = Math.max(0.2, Math.min(5, currentImageZoom + delta));
-            applyImageZoom();
-        };
-
-        /**
-         * 重置图片缩放
-         */
-        window.resetImageZoom = function () {
-            currentImageZoom = 1;
-            applyImageZoom();
-        };
-
-        function applyImageZoom() {
-            const img = document.getElementById('imageZoomTarget');
-            if (img) {
-                img.style.transform = `scale(${currentImageZoom})`;
-            }
-        }
-
-
-        /**
-         * 根据正文标题生成文档大纲
-         */
-        function renderDocumentOutline(contentEl) {
-            const emptyEl = document.getElementById('documentViewerOutlineEmpty');
-            const listEl = document.getElementById('documentViewerOutlineList');
-            if (!emptyEl || !listEl) return;
-
-            const headings = Array.from(contentEl.querySelectorAll('h1, h2, h3, h4, h5, h6'));
-            if (headings.length === 0) {
-                emptyEl.style.display = 'block';
-                listEl.innerHTML = '';
-                return;
-            }
-
-            emptyEl.style.display = 'none';
-
-            // 为标题添加锚点 id
-            headings.forEach((heading, index) => {
-                if (!heading.id) {
-                    heading.id = 'doc-heading-' + index;
+        // 使用 pinyin-pro 库生成拼音数组
+        function getPinyinArray(str) {
+            if (!str || !window.pinyinPro) return [];
+            try {
+                const result = window.pinyinPro.pinyin(str, { toneType: 'none', type: 'array' });
+                if (Array.isArray(result)) {
+                    return result.map(p => String(p).trim()).filter(Boolean);
                 }
-            });
-
-            listEl.innerHTML = headings.map(heading => {
-                const level = parseInt(heading.tagName.charAt(1));
-                const text = heading.textContent.trim() || '无标题';
-                return `<a class="doc-viewer-outline-item level-${level}" data-target="${heading.id}">${escapeHtml(text)}</a>`;
-            }).join('');
-
-            listEl.querySelectorAll('.doc-viewer-outline-item').forEach(item => {
-                item.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    const targetId = this.dataset.target;
-                    const targetEl = document.getElementById(targetId);
-                    if (targetEl) {
-                        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                    listEl.querySelectorAll('.doc-viewer-outline-item').forEach(i => i.classList.remove('active'));
-                    this.classList.add('active');
-                });
-            });
+                return String(result).split(/\s+/).filter(Boolean);
+            } catch (e) {
+                try {
+                    const result = window.pinyinPro.pinyin(str, { toneType: 'none' });
+                    return String(result).split(/\s+/).filter(Boolean);
+                } catch (err) {
+                    return [];
+                }
+            }
         }
 
+        // 根据匹配类型和拼音位置计算需要高亮的字符范围
+        function getHighlightRange(name, matchType, start, end) {
+            if (matchType === 'name') {
+                return { start: start, end: Math.min(end, name.length) };
+            }
 
+            const pinyinArr = getPinyinArray(name);
+            if (matchType === 'initial') {
+                return { start: start, end: Math.min(end, name.length) };
+            }
 
+            if (matchType === 'pinyin') {
+                let currentIdx = 0;
+                let charStart = -1, charEnd = -1;
+                for (let i = 0; i < pinyinArr.length; i++) {
+                    const pinyinLen = pinyinArr[i].length;
+                    const segStart = currentIdx;
+                    const segEnd = currentIdx + pinyinLen;
+
+                    if (charStart === -1 && start < segEnd) {
+                        charStart = i;
+                    }
+                    if (charEnd === -1 && end <= segEnd) {
+                        charEnd = i + 1;
+                        break;
+                    }
+                    currentIdx += pinyinLen;
+                }
+                if (charStart !== -1) {
+                    if (charEnd === -1) charEnd = pinyinArr.length;
+                    return { start: charStart, end: charEnd };
+                }
+            }
+
+            return { start: 0, end: 0 };
+        }
+
+        // HTML 转义
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
 
-        // 在线编辑器弹窗打开时，支持 Ctrl+S 快捷键保存
-        document.addEventListener('keydown', function (e) {
-            if (e.ctrlKey && (e.key === 's' || e.key === 'S' || e.keyCode === 83)) {
-                const modalEl = document.getElementById('luckysheetModal');
-                if (modalEl && modalEl.classList.contains('show')) {
-                    e.preventDefault();
-                    if (typeof saveOnlineEditorData === 'function') {
-                        saveOnlineEditorData();
-                    }
+        // 高亮文本中的指定范围
+        function highlightText(text, start, end, matchType) {
+            if (start >= end || start < 0 || end > text.length) return escapeHtml(text);
+            const markClass = matchType === 'pinyin' ? 'match-pinyin' : (matchType === 'initial' ? 'match-initial' : '');
+            return escapeHtml(text.substring(0, start)) +
+                   `<mark class="${markClass}">${escapeHtml(text.substring(start, end))}</mark>` +
+                   escapeHtml(text.substring(end));
+        }
+
+        // 对菜单名称进行匹配，支持中文子串、全拼子串、拼音首字母
+        function matchMenu(name, query) {
+            const lowerName = name.toLowerCase();
+            const idx = lowerName.indexOf(query);
+            if (idx !== -1) {
+                return { type: 'name', start: idx, end: idx + query.length };
+            }
+
+            const pinyinArr = getPinyinArray(name);
+            const fullPinyin = pinyinArr.join('').toLowerCase();
+            const pinyinIdx = fullPinyin.indexOf(query);
+            if (pinyinIdx !== -1) {
+                return { type: 'pinyin', start: pinyinIdx, end: pinyinIdx + query.length };
+            }
+
+            const initials = pinyinArr.map(p => p.charAt(0)).join('').toLowerCase();
+            const initialIdx = initials.indexOf(query);
+            if (initialIdx !== -1) {
+                return { type: 'initial', start: initialIdx, end: initialIdx + query.length };
+            }
+
+            return null;
+        }
+
+        // 模糊搜索函数 - 支持中文、全拼、拼音首字母、二级菜单
+        function fuzzySearch(query) {
+            if (!query.trim()) return [];
+
+            const normalizedQuery = query.toLowerCase().trim();
+            const results = [];
+            const typeOrder = { name: 0, initial: 1, pinyin: 2 };
+
+            menuItems.forEach(item => {
+                // 一级菜单匹配：只有存在真实跳转地址时才加入结果
+                const parentMatch = matchMenu(item.name, normalizedQuery);
+                if (parentMatch && item.url && item.url !== '#') {
+                    const range = getHighlightRange(item.name, parentMatch.type, parentMatch.start, parentMatch.end);
+                    results.push({
+                        name: item.name,
+                        url: item.url,
+                        icon: item.icon,
+                        matchType: parentMatch.type,
+                        highlightStart: range.start,
+                        highlightEnd: range.end,
+                        isParent: true
+                    });
+                }
+
+                // 子菜单匹配
+                if (item.hasChildren && item.children) {
+                    item.children.forEach(child => {
+                        const childMatch = matchMenu(child.name, normalizedQuery);
+                        if (childMatch) {
+                            const range = getHighlightRange(child.name, childMatch.type, childMatch.start, childMatch.end);
+                            results.push({
+                                name: child.name,
+                                url: child.url,
+                                icon: child.icon,
+                                parentName: item.name,
+                                parentIcon: item.icon,
+                                matchType: childMatch.type,
+                                highlightStart: range.start,
+                                highlightEnd: range.end,
+                                isChild: true
+                            });
+                        }
+                    });
+                }
+            });
+
+            // 按匹配类型排序
+            results.sort((a, b) => typeOrder[a.matchType] - typeOrder[b.matchType]);
+
+            return results;
+        }
+
+        // 渲染搜索结果
+        function renderSearchResults(results) {
+            selectedIndex = -1;
+            if (results.length === 0) {
+                searchResults.innerHTML = '<div class="no-results">未找到匹配的页面</div>';
+                searchResults.classList.add('show');
+                return;
+            }
+
+            const html = results.map((item, index) => {
+                const iconClass = escapeHtml(item.icon || 'bi-chevron-right');
+                const highlightedName = highlightText(item.name, item.highlightStart, item.highlightEnd, item.matchType);
+                const resultText = item.isChild
+                    ? `<span class="text-muted">${escapeHtml(item.parentName)} > </span>${highlightedName}`
+                    : highlightedName;
+                const safeUrl = escapeHtml(item.url || '#');
+
+                return `
+                    <a class="search-result-item" href="${safeUrl}" data-index="${index}">
+                        <i class="bi ${iconClass}"></i>
+                        <div class="result-info">
+                            <div class="result-text">${resultText}</div>
+                        </div>
+                    </a>
+                `;
+            }).join('');
+
+            searchResults.innerHTML = html;
+            searchResults.classList.add('show');
+        }
+
+        // 获取当前所有结果项
+        function getResultItems() {
+            return searchResults.querySelectorAll('.search-result-item');
+        }
+
+        // 设置选中项
+        function setSelectedIndex(index) {
+            const items = getResultItems();
+            items.forEach(item => item.classList.remove('selected'));
+            if (index >= 0 && index < items.length) {
+                items[index].classList.add('selected');
+                items[index].scrollIntoView({ block: 'nearest' });
+            }
+            selectedIndex = index;
+        }
+
+        // 搜索输入事件
+        searchInput.addEventListener('input', function(e) {
+            const query = e.target.value;
+            const results = fuzzySearch(query);
+            renderSearchResults(results);
+        });
+
+        // 键盘导航
+        searchInput.addEventListener('keydown', function(e) {
+            if (!searchResults.classList.contains('show')) return;
+
+            const items = getResultItems();
+            if (items.length === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSelectedIndex((selectedIndex + 1) % items.length);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSelectedIndex(selectedIndex <= 0 ? items.length - 1 : selectedIndex - 1);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (selectedIndex >= 0 && selectedIndex < items.length) {
+                    items[selectedIndex].click();
+                } else if (items.length > 0) {
+                    items[0].click();
+                }
+            } else if (e.key === 'Escape') {
+                searchResults.classList.remove('show');
+                searchInput.blur();
+            }
+        });
+
+        // 鼠标悬停自动选中
+        searchResults.addEventListener('mousemove', function(e) {
+            const item = e.target.closest('.search-result-item');
+            if (item) {
+                const index = parseInt(item.dataset.index, 10);
+                if (!isNaN(index)) {
+                    setSelectedIndex(index);
                 }
             }
         });
 
+        // 点击外部关闭搜索结果
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.classList.remove('show');
+            }
+        });
+
+        // 聚焦时显示搜索框
+        searchInput.addEventListener('focus', function() {
+            if (searchInput.value.trim()) {
+                const results = fuzzySearch(searchInput.value);
+                renderSearchResults(results);
+            }
+        });
+
+        // 二级菜单自动展开 - 根据当前激活的页面
+        document.addEventListener('DOMContentLoaded', function() {
+            const activeLink = document.querySelector('.submenu .nav-link.active');
+            if (activeLink) {
+                const submenu = activeLink.closest('.submenu');
+                if (submenu) {
+                    submenu.classList.add('show');
+                    const toggle = document.querySelector(`[data-bs-target="#${submenu.id}"]`);
+                    if (toggle) {
+                        toggle.setAttribute('aria-expanded', 'true');
+                    }
+                }
+            }
+
+            // 手风琴效果：展开一个父菜单时自动收起其他父菜单
+            const parentToggles = document.querySelectorAll('#mainNav [data-bs-toggle="collapse"]');
+            parentToggles.forEach(toggle => {
+                toggle.addEventListener('click', function() {
+                    const currentTarget = this.getAttribute('data-bs-target');
+                    parentToggles.forEach(other => {
+                        if (other !== this) {
+                            const otherTarget = other.getAttribute('data-bs-target');
+                            const otherSubmenu = document.querySelector(otherTarget);
+                            if (otherSubmenu && otherSubmenu.classList.contains('show')) {
+                                const bsCollapse = bootstrap.Collapse.getInstance(otherSubmenu);
+                                if (bsCollapse) {
+                                    bsCollapse.hide();
+                                } else {
+                                    otherSubmenu.classList.remove('show');
+                                    other.setAttribute('aria-expanded', 'false');
+                                }
+                            }
+                        }
+                    });
+                });
+            });
+        });
     </script>
-
-
-{% endblock %}
-
+    
+</body>
+</html>

@@ -1,0 +1,1316 @@
+{% extends "base.html" %}
+
+{% block title %}{% if readonly %}预览文档{% elif doc_id %}编辑文档{% else %}新建文档{% endif %}{% endblock %}
+
+{% block main_content %}
+    <div class="container-fluid p-0 doc-editor-page">
+        <!-- 顶部操作栏 -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="m-0">
+                <i class="bi bi-journal-text me-2 text-primary"></i>{% if readonly %}预览文档{% elif doc_id %}编辑文档{% else %}新建文档{% endif %}
+            </h4>
+            <div>
+                <a href="/document-library/" class="btn btn-outline-secondary me-2">
+                    <i class="bi bi-arrow-left me-1"></i>返回列表
+                </a>
+                {% if readonly %}
+                    <a href="/document-library/edit/{{ doc_id }}/?edit=1" class="btn btn-primary">
+                        <i class="bi bi-pencil-square me-1"></i>编辑
+                    </a>
+                {% else %}
+                    <button class="btn btn-success" onclick="saveDocument()">
+                        <i class="bi bi-check-lg me-1"></i>保存
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 编辑器与大纲布局 -->
+        <div class="editor-layout">
+            <!-- 编辑器主体 -->
+            <div class="card shadow-sm border-0 editor-card">
+                <div class="card-body p-0">
+                    <div id="editorjs"></div>
+                </div>
+            </div>
+
+            <!-- 大纲侧边栏 -->
+            <div class="outline-sidebar" id="outlineSidebar">
+                <div class="outline-header">
+                    <i class="bi bi-list-ul me-1"></i>文档大纲
+                </div>
+                <div class="outline-empty" id="outlineEmpty">暂无标题</div>
+                <div class="outline-list" id="outlineList"></div>
+            </div>
+        </div>
+    </div>
+
+    {{ doc_content_json|json_script:"initial-content-json" }}
+
+    <!-- 图片预览模态框 -->
+    <div class="image-preview-modal" id="imagePreviewModal" style="display: none;">
+        <div class="image-preview-backdrop"></div>
+        <div class="image-preview-container">
+            <button class="image-preview-close" id="imagePreviewClose" title="关闭 (Esc)">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            <div class="image-preview-toolbar">
+                <button class="image-preview-btn" id="imagePreviewZoomOut" title="缩小">
+                    <i class="bi bi-zoom-out"></i>
+                </button>
+                <span class="image-preview-scale" id="imagePreviewScale">100%</span>
+                <button class="image-preview-btn" id="imagePreviewZoomIn" title="放大">
+                    <i class="bi bi-zoom-in"></i>
+                </button>
+                <button class="image-preview-btn" id="imagePreviewReset" title="原始尺寸">
+                    <i class="bi bi-fullscreen"></i>
+                </button>
+            </div>
+            <div class="image-preview-wrapper" id="imagePreviewWrapper">
+                <img src="" alt="预览" id="imagePreviewImg">
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .doc-editor-page {
+            display: flex;
+            flex-direction: column;
+            min-height: calc(100vh - 80px);
+        }
+
+        .editor-layout {
+            display: flex;
+            gap: 1rem;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .editor-card {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .outline-sidebar {
+            width: 240px;
+            flex-shrink: 0;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(100vh - 140px);
+            position: sticky;
+            top: 80px;
+            align-self: flex-start;
+        }
+
+        .outline-header {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        .outline-empty {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 1rem 0;
+        }
+
+        .outline-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .outline-item {
+            display: block;
+            padding: 0.4rem 0.6rem;
+            border-radius: 6px;
+            color: #475569;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            text-decoration: none;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .outline-item:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .outline-item.active {
+            background: #eff6ff;
+            color: #2563eb;
+            font-weight: 500;
+        }
+
+        .outline-item.level-1 { padding-left: 0.6rem; font-weight: 600; }
+        .outline-item.level-2 { padding-left: 1.1rem; }
+        .outline-item.level-3 { padding-left: 1.6rem; }
+        .outline-item.level-4 { padding-left: 2.1rem; }
+
+        @media (max-width: 1199.98px) {
+            .outline-sidebar {
+                display: none;
+            }
+        }
+
+        .editor-card {
+            border-radius: 12px;
+            overflow: hidden;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor-card .card-body {
+            display: flex;
+            flex-direction: column;
+            min-height: 420px;
+        }
+
+        #editorjs {
+            flex: 1;
+            min-height: 420px;
+        }
+
+        /* ===== Editor.js 现代化/语雀风格覆盖 ===== */
+        .codex-editor {
+            background: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.75;
+            color: #1f2937;
+        }
+
+        .codex-editor__redactor {
+            padding: 32px 48px 120px !important;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .ce-block {
+            margin-bottom: 4px;
+        }
+
+        .ce-block__content {
+            max-width: 100%;
+        }
+
+        .ce-paragraph {
+            line-height: 1.75;
+            color: #1f2937;
+            font-size: 16px;
+        }
+
+        .ce-paragraph:empty::before {
+            color: #9ca3af;
+        }
+
+        .ce-header {
+            font-weight: 600;
+            line-height: 1.35;
+            color: #111827;
+            margin: 24px 0 12px;
+        }
+
+        .ce-header h1, .ce-header h2, .ce-header h3,
+        .ce-header h4, .ce-header h5, .ce-header h6 {
+            margin: 0;
+        }
+
+        .ce-header--h1 { font-size: 2rem; }
+        .ce-header--h2 { font-size: 1.6rem; }
+        .ce-header--h3 { font-size: 1.35rem; }
+        .ce-header--h4 { font-size: 1.15rem; }
+        .ce-header--h5 { font-size: 1rem; }
+        .ce-header--h6 { font-size: 0.9rem; }
+
+        /* 列表 */
+        .cdx-list {
+            padding-left: 1.5em;
+            margin: 12px 0;
+        }
+
+        .cdx-list__item {
+            margin-bottom: 6px;
+            line-height: 1.75;
+        }
+
+        .cdx-checklist__item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .cdx-checklist__item-checkbox {
+            margin-top: 6px;
+        }
+
+        /* 代码块 */
+        .ce-code {
+            position: relative;
+        }
+
+        .ce-code__textarea {
+            background: #1e293b !important;
+            color: #e2e8f0 !important;
+            border: none !important;
+            border-radius: 10px !important;
+            padding: 16px 18px !important;
+            padding-top: 40px !important;
+            font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+            font-size: 14px !important;
+            line-height: 1.6 !important;
+            min-height: 80px;
+            resize: none;
+            overflow: hidden;
+            display: block;
+            /* 现代浏览器自动根据内容调整高度 */
+            field-sizing: content;
+        }
+
+        .ce-code-copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            color: #cbd5e1;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+            z-index: 2;
+        }
+
+        .ce-code-copy-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .ce-code-copy-btn.copied {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: rgba(34, 197, 94, 0.3);
+            color: #4ade80;
+        }
+
+        /* 引用 */
+        .cdx-quote {
+            border-left: 4px solid #3b82f6;
+            background: #f8fafc;
+            padding: 16px 20px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+        }
+
+        .cdx-quote__text {
+            font-style: italic;
+            color: #334155;
+            margin-bottom: 8px;
+        }
+
+        .cdx-quote__caption {
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+
+        /* 图片 */
+        .image-tool__image {
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: zoom-in;
+        }
+
+        .image-tool__image img {
+            max-width: 100%;
+            display: block;
+        }
+
+        .image-tool__caption {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+
+        /* 图片预览模态框 */
+        .image-preview-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-preview-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(4px);
+        }
+
+        .image-preview-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .image-preview-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: background 0.15s ease;
+        }
+
+        .image-preview-close:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .image-preview-toolbar {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: rgba(30, 41, 59, 0.9);
+            border-radius: 999px;
+            z-index: 10;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .image-preview-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: transparent;
+            border: none;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .image-preview-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .image-preview-scale {
+            min-width: 56px;
+            text-align: center;
+            color: #e2e8f0;
+            font-size: 0.85rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .image-preview-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 70px 24px 90px;
+        }
+
+        .image-preview-wrapper img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            transition: transform 0.2s ease;
+            cursor: grab;
+            user-select: none;
+        }
+
+        .image-preview-wrapper img:active {
+            cursor: grabbing;
+        }
+
+        /* 表格 */
+        .tc-wrap {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 16px 0;
+        }
+
+        .tc-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .tc-table td {
+            border: 1px solid #e2e8f0;
+            padding: 10px 12px;
+            min-width: 80px;
+        }
+
+        /* 分隔线 */
+        .ce-delimiter {
+            margin: 24px 0;
+        }
+
+        .ce-delimiter::before {
+            color: #cbd5e1;
+        }
+
+        /* 警告块 */
+        .cdx-warning {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 16px 0;
+        }
+
+        .cdx-warning__title {
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+
+        .cdx-warning__message {
+            color: #78350f;
+            margin: 0;
+        }
+
+        /* 工具栏与菜单 */
+        .ce-toolbar__content {
+            max-width: 900px;
+        }
+
+        .ce-toolbar__actions {
+            left: -42px;
+            right: auto;
+        }
+
+        .ce-toolbar__plus {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ce-toolbox {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        .ce-toolbox__button {
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            min-width: 140px;
+        }
+
+        .ce-toolbox__button:hover {
+            background: #f1f5f9;
+        }
+
+        .ce-toolbox__button svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        .ce-toolbox__button-title {
+            font-size: 14px;
+            color: #334155;
+            white-space: nowrap;
+        }
+
+        .ce-toolbox__popover {
+            padding: 8px;
+        }
+
+        .ce-toolbox__popover-search {
+            padding: 8px 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .ce-toolbox__popover-empty {
+            color: #94a3b8;
+            font-size: 13px;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .ce-inline-toolbar {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        .ce-inline-tool {
+            border-radius: 6px;
+        }
+
+        .ce-inline-tool:hover {
+            background: #f1f5f9;
+        }
+
+        .ce-conversion-toolbox {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        .ce-block--selected .ce-block__content {
+            background: #eff6ff;
+            border-radius: 6px;
+        }
+
+        .ce-toolbar__plus:hover {
+            color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        /* 块设置按钮 */
+        .ce-settings {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        .cdx-settings-button:hover {
+            background: #f1f5f9;
+        }
+
+        /* 链接输入框 */
+        .ce-inline-tool-input {
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 6px 10px;
+        }
+
+        /* 占位符 */
+        .codex-editor--empty .ce-paragraph[data-placeholder-active]:empty::before {
+            color: #9ca3af;
+            font-style: normal;
+        }
+
+    </style>
+
+    <script src="/static/js/axios.min.js"></script>
+    <script src="/static/editorjs/editorjs.umd.js"></script>
+    <script src="/static/editorjs/header.js"></script>
+    <script src="/static/editorjs/paragraph.js"></script>
+    <script src="/static/editorjs/list.js"></script>
+    <script src="/static/editorjs/image.js"></script>
+    <script src="/static/editorjs/code.js"></script>
+    <script src="/static/editorjs/table.js"></script>
+    <script src="/static/editorjs/quote.js"></script>
+    <script src="/static/editorjs/delimiter.js"></script>
+
+    <script>
+        const docId = {{ doc_id|default:"null" }};
+        const isReadOnly = {{ readonly|yesno:"true,false" }};
+        const initialContentJson = JSON.parse(document.getElementById('initial-content-json').textContent || '{}');
+        let editor = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            initEditor();
+        });
+
+        async function uploadImageByFile(file) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                formData.append('image', file);
+                if (docId) formData.append('doc_id', docId);
+
+                axios.post('/api/document-library/upload-image/', formData, {
+                    headers: {'Content-Type': 'multipart/form-data'}
+                })
+                .then(response => {
+                    if (response.data.success) {
+                        resolve({
+                            success: 1,
+                            file: { url: response.data.data.url }
+                        });
+                    } else {
+                        reject(response.data.message || '图片上传失败');
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+                    reject('图片上传失败');
+                });
+            });
+        }
+
+        /**
+         * 为官方 CodeTool 的 textarea 添加自动增高与一键复制
+         */
+        function enhanceCodeBlock(textarea) {
+            if (!textarea) return;
+            adjustCodeTextareaHeight(textarea);
+            attachCodeCopyButton(textarea);
+        }
+
+        function adjustCodeTextareaHeight(textarea) {
+            if (!textarea || textarea.dataset.autoResizeAttached) return;
+            textarea.dataset.autoResizeAttached = 'true';
+
+            const resize = () => {
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.max(80, textarea.scrollHeight) + 'px';
+            };
+
+            textarea.addEventListener('input', resize);
+            textarea.addEventListener('paste', () => setTimeout(resize, 0));
+            resize();
+        }
+
+        function attachCodeCopyButton(textarea) {
+            const wrapper = textarea.closest('.ce-code');
+            if (!wrapper || wrapper.querySelector('.ce-code-copy-btn')) return;
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ce-code-copy-btn';
+            btn.title = '复制';
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M4 1.5a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-6a.5.5 0 0 1-.5-.5v-1ZM5 3v9a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V3h-1v9a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V3H5Z"/><path d="M3 4.5a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5Zm0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5Zm0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5Z"/></svg>';
+
+            btn.addEventListener('click', () => {
+                const code = textarea.value || '';
+                navigator.clipboard.writeText(code).then(() => {
+                    const original = btn.innerHTML;
+                    btn.classList.add('copied');
+                    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05Z"/></svg>';
+                    setTimeout(() => {
+                        btn.classList.remove('copied');
+                        btn.innerHTML = original;
+                    }, 1500);
+                }).catch(err => {
+                    console.error('复制失败', err);
+                    showToast('复制失败', 'error');
+                });
+            });
+
+            wrapper.appendChild(btn);
+        }
+
+        function initCodeAutoResize() {
+            const editorHolder = document.getElementById('editorjs');
+            if (!editorHolder) return;
+
+            // 初始化已存在的代码块
+            editorHolder.querySelectorAll('.ce-code__textarea').forEach(enhanceCodeBlock);
+
+            // 监听后续新增的代码块
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach(mutation => {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            if (node.matches && node.matches('.ce-code__textarea')) {
+                                enhanceCodeBlock(node);
+                            }
+                            if (node.querySelectorAll) {
+                                node.querySelectorAll('.ce-code__textarea').forEach(enhanceCodeBlock);
+                            }
+                        }
+                    });
+                });
+            });
+
+            observer.observe(editorHolder, { childList: true, subtree: true });
+        }
+
+        function initEditor() {
+            const holder = document.getElementById('editorjs');
+            if (!holder) {
+                console.error('未找到编辑器容器 #editorjs');
+                return;
+            }
+
+            editor = new EditorJS({
+                holder: holder,
+                placeholder: isReadOnly ? '' : '请先输入文档标题（第一行必须是标题），随后输入正文内容...',
+                autofocus: !docId && !isReadOnly,
+                readOnly: isReadOnly,
+                data: initialContentJson && initialContentJson.blocks ? initialContentJson : {
+                    blocks: [
+                        { type: 'header', data: { text: '', level: 1 } }
+                    ]
+                },
+                tools: {
+                    header: {
+                        class: Header,
+                        config: {
+                            placeholder: '请输入文档标题',
+                            levels: [1, 2, 3, 4],
+                            defaultLevel: 1
+                        }
+                    },
+                    paragraph: {
+                        class: Paragraph,
+                        inlineToolbar: ['bold', 'italic', 'link']
+                    },
+                    list: {
+                        class: EditorjsList,
+                        inlineToolbar: true,
+                        config: {
+                            defaultStyle: 'unordered'
+                        }
+                    },
+                    image: {
+                        class: ImageTool,
+                        config: {
+                            uploader: {
+                                uploadByFile: uploadImageByFile
+                            },
+                            captionPlaceholder: '图片说明'
+                        }
+                    },
+                    code: {
+                        class: CodeTool,
+                        config: {
+                            placeholder: '输入代码...'
+                        }
+                    },
+                    table: {
+                        class: Table,
+                        inlineToolbar: true,
+                        config: {
+                            rows: 2,
+                            cols: 3
+                        }
+                    },
+                    quote: {
+                        class: Quote,
+                        inlineToolbar: true,
+                        config: {
+                            quotePlaceholder: '输入引用内容',
+                            captionPlaceholder: '引用来源'
+                        }
+                    },
+                    delimiter: Delimiter
+                },
+                inlineToolbar: ['bold', 'italic', 'link'],
+                i18n: {
+                    messages: {
+                        ui: {
+                            blockTunes: {
+                                toggler: {
+                                    'Click to tune': '点击调整',
+                                    'or drag to move': '或拖动排序'
+                                }
+                            },
+                            inlineToolbar: {
+                                converter: {
+                                    'Convert to': '转换为'
+                                }
+                            },
+                            toolbar: {
+                                toolBox: {
+                                    'Add': '添加块'
+                                },
+                                popover: {
+                                    'Filter': '搜索块类型',
+                                    'Nothing found': '未找到相关块'
+                                }
+                            }
+                        },
+                        toolNames: {
+                            'Text': '段落',
+                            'Heading': '标题',
+                            'List': '列表',
+                            'Image': '图片',
+                            'Code': '代码块',
+                            'Table': '表格',
+                            'Quote': '引用',
+                            'Delimiter': '分隔线',
+                            'Warning': '警告',
+                            'Bold': '加粗',
+                            'Italic': '斜体',
+                            'Link': '链接'
+                        },
+                        tools: {
+                            link: {
+                                'Add a link': '添加链接'
+                            },
+                            list: {
+                                'Ordered': '有序列表',
+                                'Unordered': '无序列表',
+                                'Unordered List': '无序列表',
+                                'Ordered List': '有序列表',
+                                'Checklist': '待办清单',
+                                'Checklist List': '待办清单'
+                            },
+                            image: {
+                                'With border': '添加边框',
+                                'Stretch image': '拉伸图片',
+                                'With background': '添加背景'
+                            },
+                            code: {
+                                'Copied': '已复制',
+                                'Copy': '复制'
+                            },
+                            stub: {
+                                'The block can not be displayed correctly.': '该块无法正确显示'
+                            }
+                        },
+                        blockTunes: {
+                            delete: {
+                                'Delete': '删除'
+                            },
+                            moveUp: {
+                                'Move up': '上移'
+                            },
+                            moveDown: {
+                                'Move down': '下移'
+                            },
+                            convertTo: {
+                                'Convert to': '转换为'
+                            }
+                        }
+                    }
+                },
+                onReady: function () {
+                    console.log('Editor.js 已就绪');
+                    initCodeAutoResize();
+                    renderOutline(initialContentJson);
+                    initOutlineScrollSync();
+                    initEditorAutoScroll();
+                    initImagePreview();
+                },
+                onChange: function () {
+                    editor.save().then(data => renderOutline(data)).catch(console.error);
+                }
+            });
+        }
+
+        function escapeHtml(text) {
+            if (text == null) return '';
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        /**
+         * 从 Editor.js 内容中提取文档标题
+         * 仅取第一个 heading 块的文本，无标题则返回空字符串
+         */
+        function extractDocumentTitle(contentJson) {
+            if (!contentJson || !contentJson.blocks || contentJson.blocks.length === 0) return '';
+
+            const firstBlock = contentJson.blocks[0];
+            if (firstBlock.type === 'header' && firstBlock.data && firstBlock.data.text) {
+                const tmp = document.createElement('div');
+                tmp.innerHTML = firstBlock.data.text;
+                const text = tmp.textContent.trim();
+                return text;
+            }
+
+            return '';
+        }
+
+        /**
+         * 校验文档内容：首块必须是标题且标题不能为空
+         */
+        function validateDocumentContent(contentJson) {
+            if (!contentJson || !contentJson.blocks || contentJson.blocks.length === 0) {
+                return { valid: false, message: '文档标题必填，请先在首行输入标题' };
+            }
+
+            const firstBlock = contentJson.blocks[0];
+            if (firstBlock.type !== 'header') {
+                return { valid: false, message: '文档标题必填，请将第一行设置为标题块' };
+            }
+
+            const title = extractDocumentTitle(contentJson);
+            if (!title) {
+                return { valid: false, message: '文档标题不能为空' };
+            }
+
+            return { valid: true, title: title };
+        }
+
+        async function saveDocument() {
+            if (isReadOnly) {
+                showToast('当前为预览模式，无法保存', 'warning');
+                return;
+            }
+            if (!editor) {
+                showToast('编辑器未初始化', 'error');
+                return;
+            }
+
+            try {
+                const savedData = await editor.save();
+                const validation = validateDocumentContent(savedData);
+
+                if (!validation.valid) {
+                    showToast(validation.message, 'warning');
+                    return;
+                }
+
+                const payload = {
+                    id: docId,
+                    content_json: savedData
+                };
+
+                axios.post('/api/document-library/save/', payload)
+                    .then(response => {
+                        if (response.data.success) {
+                            showToast('保存成功', 'success');
+                            setTimeout(() => {
+                                window.location.href = '/document-library/';
+                            }, 500);
+                        } else {
+                            showToast(response.data.message || '保存失败', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        showToast('保存失败', 'error');
+                        console.error(error);
+                    });
+            } catch (error) {
+                showToast('保存失败：' + (error.message || '未知错误'), 'error');
+                console.error(error);
+            }
+        }
+
+        /**
+         * 渲染文档大纲
+         */
+        function renderOutline(contentJson) {
+            const emptyEl = document.getElementById('outlineEmpty');
+            const listEl = document.getElementById('outlineList');
+            if (!emptyEl || !listEl) return;
+
+            const headings = (contentJson && contentJson.blocks || [])
+                .map((block, index) => ({ block, index }))
+                .filter(({ block }) => block.type === 'header' && block.data && block.data.text);
+
+            if (headings.length === 0) {
+                emptyEl.style.display = 'block';
+                listEl.innerHTML = '';
+                return;
+            }
+
+            emptyEl.style.display = 'none';
+            listEl.innerHTML = headings.map(({ block, index }) => {
+                const level = Math.max(1, Math.min(4, parseInt(block.data.level) || 2));
+                const tmp = document.createElement('div');
+                tmp.innerHTML = block.data.text;
+                const text = tmp.textContent.trim() || '无标题';
+                return `<a class="outline-item level-${level}" data-index="${index}" title="${escapeHtml(text)}">${escapeHtml(text)}</a>`;
+            }).join('');
+
+            listEl.querySelectorAll('.outline-item').forEach(item => {
+                item.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const index = parseInt(this.dataset.index);
+                    scrollToBlock(index);
+                    listEl.querySelectorAll('.outline-item').forEach(i => i.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+        }
+
+        /**
+         * 滚动到指定序号的块
+         */
+        function scrollToBlock(blockIndex) {
+            const editorHolder = document.getElementById('editorjs');
+            if (!editorHolder) return;
+
+            const blocks = editorHolder.querySelectorAll('.ce-block');
+            if (!blocks[blockIndex]) return;
+
+            const blockEl = blocks[blockIndex];
+            blockEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // 高亮一下目标块
+            blockEl.classList.add('ce-block--selected');
+            setTimeout(() => blockEl.classList.remove('ce-block--selected'), 1200);
+        }
+
+        /**
+         * 大纲高亮同步：根据当前可见区域更新激活项
+         */
+        function updateActiveOutlineItem() {
+            const editorHolder = document.getElementById('editorjs');
+            if (!editorHolder) return;
+
+            const blocks = Array.from(editorHolder.querySelectorAll('.ce-block'));
+            const headings = blocks
+                .map((el, index) => ({ el, index }))
+                .filter(({ el }) => el.querySelector('.ce-header'));
+
+            if (headings.length === 0) return;
+
+            const containerScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const viewportCenter = containerScrollTop + window.innerHeight / 3;
+
+            let activeIndex = headings[0].index;
+            for (const h of headings) {
+                const rect = h.el.getBoundingClientRect();
+                const blockTop = rect.top + containerScrollTop;
+                if (blockTop <= viewportCenter) {
+                    activeIndex = h.index;
+                } else {
+                    break;
+                }
+            }
+
+            document.querySelectorAll('#outlineList .outline-item').forEach(item => {
+                item.classList.toggle('active', parseInt(item.dataset.index) === activeIndex);
+            });
+        }
+
+        /**
+         * 图片点击预览：为编辑器内图片添加放大查看能力
+         */
+        function initImagePreview() {
+            const editorHolder = document.getElementById('editorjs');
+            const modal = document.getElementById('imagePreviewModal');
+            if (!editorHolder || !modal) return;
+
+            // 为编辑器内图片添加点击预览
+            const bindImageClicks = () => {
+                editorHolder.querySelectorAll('.image-tool__image:not([data-zoom-ready])').forEach(wrapper => {
+                    wrapper.setAttribute('data-zoom-ready', 'true');
+                    wrapper.addEventListener('click', function (e) {
+                        const img = wrapper.querySelector('img');
+                        if (img && img.src) openImagePreview(img.src);
+                    });
+                });
+            };
+
+            bindImageClicks();
+
+            const observer = new MutationObserver(() => {
+                bindImageClicks();
+            });
+            observer.observe(editorHolder, { childList: true, subtree: true });
+
+            bindImagePreviewControls();
+        }
+
+        let previewScale = 1;
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        let dragOffset = { x: 0, y: 0 };
+
+        function openImagePreview(src) {
+            const modal = document.getElementById('imagePreviewModal');
+            const img = document.getElementById('imagePreviewImg');
+            if (!modal || !img) return;
+
+            img.src = src;
+            previewScale = 1;
+            dragOffset = { x: 0, y: 0 };
+            updatePreviewTransform();
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeImagePreview() {
+            const modal = document.getElementById('imagePreviewModal');
+            if (!modal) return;
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+
+        function updatePreviewTransform() {
+            const img = document.getElementById('imagePreviewImg');
+            if (!img) return;
+            img.style.transform = `translate(${dragOffset.x}px, ${dragOffset.y}px) scale(${previewScale})`;
+            const scaleEl = document.getElementById('imagePreviewScale');
+            if (scaleEl) scaleEl.textContent = Math.round(previewScale * 100) + '%';
+        }
+
+        function bindImagePreviewControls() {
+            const modal = document.getElementById('imagePreviewModal');
+            const wrapper = document.getElementById('imagePreviewWrapper');
+            const img = document.getElementById('imagePreviewImg');
+            if (!modal || !wrapper || !img) return;
+
+            document.getElementById('imagePreviewClose').addEventListener('click', closeImagePreview);
+            document.querySelector('.image-preview-backdrop').addEventListener('click', closeImagePreview);
+
+            document.getElementById('imagePreviewZoomIn').addEventListener('click', function (e) {
+                e.stopPropagation();
+                previewScale = Math.min(previewScale + 0.25, 4);
+                updatePreviewTransform();
+            });
+
+            document.getElementById('imagePreviewZoomOut').addEventListener('click', function (e) {
+                e.stopPropagation();
+                previewScale = Math.max(previewScale - 0.25, 0.25);
+                updatePreviewTransform();
+            });
+
+            document.getElementById('imagePreviewReset').addEventListener('click', function (e) {
+                e.stopPropagation();
+                previewScale = 1;
+                dragOffset = { x: 0, y: 0 };
+                updatePreviewTransform();
+            });
+
+            img.addEventListener('click', function (e) {
+                e.stopPropagation();
+                previewScale = previewScale >= 2 ? 1 : previewScale + 0.5;
+                dragOffset = { x: 0, y: 0 };
+                updatePreviewTransform();
+            });
+
+            wrapper.addEventListener('wheel', function (e) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.15 : 0.15;
+                previewScale = Math.max(0.25, Math.min(4, previewScale + delta));
+                updatePreviewTransform();
+            }, { passive: false });
+
+            // 拖拽平移
+            wrapper.addEventListener('mousedown', function (e) {
+                if (e.target !== img) return;
+                isDragging = true;
+                dragStart = { x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y };
+            });
+
+            window.addEventListener('mousemove', function (e) {
+                if (!isDragging) return;
+                dragOffset = { x: e.clientX - dragStart.x, y: e.clientY - dragStart.y };
+                updatePreviewTransform();
+            });
+
+            window.addEventListener('mouseup', function () {
+                isDragging = false;
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closeImagePreview();
+            });
+        }
+
+        let outlineScrollTick = false;
+        function initOutlineScrollSync() {
+            window.addEventListener('scroll', function () {
+                if (!outlineScrollTick) {
+                    window.requestAnimationFrame(function () {
+                        updateActiveOutlineItem();
+                        outlineScrollTick = false;
+                    });
+                    outlineScrollTick = true;
+                }
+            }, { passive: true });
+        }
+
+        /**
+         * 编辑时自动滚动：当光标接近视口底部时，平滑滚动页面使光标可见
+         */
+        function initEditorAutoScroll() {
+            const editorHolder = document.getElementById('editorjs');
+            if (!editorHolder) return;
+
+            // 输入时检查光标位置
+            editorHolder.addEventListener('input', function () {
+                ensureCaretVisible();
+            }, true);
+
+            // 回车创建新块后短暂延迟再检查
+            editorHolder.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    setTimeout(ensureCaretVisible, 60);
+                }
+            }, true);
+
+            // 聚焦到某个块时，若该块不在可视区域则滚动
+            editorHolder.addEventListener('focusin', function (e) {
+                const block = e.target.closest('.ce-block');
+                if (block) {
+                    ensureElementVisible(block, 120);
+                }
+            }, true);
+        }
+
+        function ensureCaretVisible() {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0) return;
+
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            if (!rect || rect.height === 0) return;
+
+            ensureElementVisible(rect, 120);
+        }
+
+        function ensureElementVisible(target, bottomPadding) {
+            let rect;
+            if (target instanceof Element) {
+                rect = target.getBoundingClientRect();
+            } else if (target && typeof target.bottom === 'number') {
+                rect = target;
+            } else {
+                return;
+            }
+
+            const viewportHeight = window.innerHeight;
+            const minVisibleBottom = viewportHeight - bottomPadding;
+
+            if (rect.bottom > minVisibleBottom) {
+                window.scrollBy({
+                    top: rect.bottom - minVisibleBottom,
+                    behavior: 'smooth'
+                });
+            } else if (rect.top < 80) {
+                // 光标被顶部遮挡时也可上滚
+                window.scrollBy({
+                    top: rect.top - 80,
+                    behavior: 'smooth'
+                });
+            }
+        }
+    </script>
+{% endblock %}

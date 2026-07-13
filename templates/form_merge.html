@@ -2316,5 +2316,18 @@
                 element._clearErrorHandler = null;
             }
         }
+
+        // 在线编辑器弹窗打开时，支持 Ctrl+S 快捷键保存
+        document.addEventListener('keydown', function (e) {
+            if (e.ctrlKey && (e.key === 's' || e.key === 'S' || e.keyCode === 83)) {
+                const modalEl = document.getElementById('luckysheetModal');
+                if (modalEl && modalEl.classList.contains('show')) {
+                    e.preventDefault();
+                    if (typeof saveOnlineEditorData === 'function') {
+                        saveOnlineEditorData();
+                    }
+                }
+            }
+        });
     </script>
 {% endblock %}
